@@ -1,0 +1,68 @@
+/* Workflow Management Specific Styles */
+
+.action-buttons .btn-visualize {
+    color: var(--primary-color);
+}
+
+/* Workflow Step Editor */
+.step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.step span {
+    font-weight: 500;
+}
+
+.step input {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.btn-remove-step {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Lifecycle Visualization */
+.lifecycle-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin-top: 30px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.lifecycle-step {
+    text-align: center;
+}
+
+.lifecycle-step .step-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+.lifecycle-step .fa-plus-circle { color: var(--primary-color); }
+.lifecycle-step .fa-cogs { color: #f39c12; } /* Orange */
+.lifecycle-step .fa-check-circle { color: var(--secondary-color); }
+.lifecycle-step .fa-archive { color: #95a5a6; } /* Asbestos */
+
+.lifecycle-arrow {
+    font-size: 24px;
+    color: #bdc3c7; /* Silver */
+}

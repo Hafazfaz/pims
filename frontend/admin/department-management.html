@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Department Management</title>
+    <link rel="stylesheet" href="department-management.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Department Management</h1>
+        </header>
+        <main>
+            <div class="card">
+                <h2>Departments</h2>
+                <button id="add-department-btn">Add Department</button>
+                <table id="departments-table">
+                    <thead>
+                        <tr>
+                            <th>Department Name</th>
+                            <th>Department Code</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Department rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <div id="department-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="modal-title">Add Department</h2>
+            <form id="department-form">
+                <input type="hidden" id="department-id">
+                <div class="form-group">
+                    <label for="department-name">Department Name</label>
+                    <input type="text" id="department-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="department-code">Department Code</label>
+                    <input type="text" id="department-code" required>
+                </div>
+                <button type="submit" id="save-department-btn">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="department-management.js"></script>
+</body>
+</html>

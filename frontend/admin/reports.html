@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics</title>
+    <link rel="stylesheet" href="reports.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Reports & Analytics</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary">Export as PDF</button>
+                <button class="btn btn-secondary">Export as CSV</button>
+            </div>
+        </header>
+        <section id="filters-section">
+            <h2>Filters</h2>
+            <form class="filters-form">
+                <div class="form-group">
+                    <label for="date-range">Date Range</label>
+                    <input type="text" id="date-range" name="date-range" placeholder="Select date range">
+                </div>
+                <div class="form-group">
+                    <label for="department">Department</label>
+                    <select id="department" name="department">
+                        <option value="all">All</option>
+                        <option value="hr">Human Resources</option>
+                        <option value="fin">Finance</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="file-type">File Type</label>
+                    <select id="file-type" name="file-type">
+                        <option value="all">All</option>
+                        <option value="personal">Personal</option>
+                        <option value="policy">Policy</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status">
+                        <option value="all">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </form>
+        </section>
+        <section id="analytics-section">
+            <h2>File Movement Trends</h2>
+            <div class="chart-container">
+                <canvas id="file-movement-chart"></canvas>
+            </div>
+        </section>
+        <section id="reports-section">
+            <h2>Generated Reports</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Report Name</th>
+                            <th>Date Generated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Monthly File Summary</td>
+                            <td>2025-10-28</td>
+                            <td>
+                                <button class="btn btn-secondary">View</button>
+                                <button class="btn btn-danger">Delete</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Department Performance</td>
+                            <td>2025-10-27</td>
+                            <td>
+                                <button class="btn btn-secondary">View</button>
+                                <button class="btn btn-danger">Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="reports.js"></script>
+</body>
+</html>

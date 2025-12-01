@@ -1,0 +1,351 @@
+/* ---------- Root Colors from FMC Logo ---------- */
+:root {
+    --fmc-green: #00703c;
+    --fmc-light-green: #0da76e;
+    --fmc-white: #ffffff;
+    --fmc-gray: #f2f2f2;
+    --fmc-dark-gray: #333;
+    --fmc-light-blue: #e0f7fa;
+    --fmc-blue: #007bff;
+    --fmc-red: #dc3545;
+    --fmc-yellow: #ffc107;
+    --fmc-orange: #fd7e14;
+    --fmc-purple: #6f42c1;
+    --fmc-teal: #20c997;
+}
+
+/* ---------- Reset & Body ---------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+}
+
+body {
+    background-color: var(--fmc-gray);
+    color: var(--fmc-dark-gray);
+    line-height: 1.6;
+    padding-top: 20px; /* Add some top padding for general pages */
+}
+
+/* General Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--fmc-white);
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--fmc-green);
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.5em;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* Form Controls */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--fmc-dark-gray);
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1em;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: var(--fmc-green);
+    box-shadow: 0 0 8px rgba(0, 112, 60, 0.2);
+    outline: none;
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn i {
+    font-size: 1em;
+}
+
+.btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary {
+    background-color: var(--fmc-green);
+    color: var(--fmc-white);
+}
+
+.btn-primary:hover {
+    background-color: var(--fmc-light-green);
+}
+
+.btn-info {
+    background-color: var(--fmc-blue);
+    color: var(--fmc-white);
+}
+
+.btn-info:hover {
+    background-color: #0056b3;
+}
+
+.btn-warning {
+    background-color: var(--fmc-yellow);
+    color: var(--fmc-dark-gray);
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+}
+
+.btn-danger {
+    background-color: var(--fmc-red);
+    color: var(--fmc-white);
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: var(--fmc-white);
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 0.875em;
+}
+
+/* Toast Notification */
+#notification-toast {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 5px;
+    padding: 16px;
+    position: fixed;
+    z-index: 1000;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: visibility 0s, opacity 0.5s ease-in-out;
+}
+
+#notification-toast.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+#notification-toast.success {
+    background-color: var(--fmc-green);
+}
+
+#notification-toast.error {
+    background-color: var(--fmc-red);
+}
+
+#notification-toast.info {
+    background-color: var(--fmc-blue);
+}
+
+/* Login Card (specific to login page, keep for now) */
+.login-container {
+    background: var(--fmc-white);
+    color: #333;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+    width: 380px;
+    padding: 40px 35px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 1.2s ease;
+}
+
+/* Logo (specific to login page, keep for now) */
+.logo {
+    display: block;
+    margin: 0 auto;
+    width: 90px;
+    animation: floatLogo 3s ease-in-out infinite;
+}
+
+@keyframes floatLogo {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+/* Title (specific to login page, keep for now) */
+.login-container h2 {
+    text-align: center;
+    color: var(--fmc-green);
+    margin-top: 15px;
+    margin-bottom: 25px;
+    font-weight: 600;
+}
+
+/* Input Fields (specific to login page, keep for now) */
+.login-container .input-group {
+    position: relative;
+    margin-bottom: 22px;
+}
+
+.login-container .input-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1.5px solid #ccc;
+    border-radius: 8px;
+    background: var(--fmc-gray);
+    font-size: 15px;
+    outline: none;
+    transition: 0.3s;
+}
+
+.login-container .input-group input:focus {
+    border-color: var(--fmc-green);
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0, 112, 60, 0.2);
+}
+
+.login-container .input-group label {
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    transform: translateY(-50%);
+    color: #777;
+    pointer-events: none;
+    transition: 0.3s;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #777;
+}
+
+.login-container .input-group input:focus + label,
+.login-container .input-group input:not(:placeholder-shown) + label {
+    top: 0;
+    left: 10px;
+    font-size: 13px;
+    background: var(--fmc-white);
+    color: var(--fmc-green);
+    padding: 0 5px;
+}
+
+/* Button (specific to login page, keep for now) */
+.login-container .btn {
+    width: 100%;
+    background: var(--fmc-green);
+    color: var(--fmc-white);
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.login-container .btn:hover {
+    background: var(--fmc-light-green);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 112, 60, 0.3);
+}
+
+/* Footer (specific to login page, keep for now) */
+.footer {
+    text-align: center;
+    margin-top: 25px;
+    font-size: 13px;
+    color: #666;
+}
+
+.footer span {
+    color: var(--fmc-green);
+    font-weight: 600;
+}
+
+/* ---------- Animations ---------- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Floating Particles ---------- */
+.bg-bubbles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+}
+
+.bg-bubbles li {
+    position: absolute;
+    list-style: none;
+    display: block;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.15);
+    animation: moveBubbles 25s linear infinite;
+    bottom: -150px;
+    border-radius: 50%;
+}
+
+.bg-bubbles li:nth-child(1) { left: 10%; width: 80px; height: 80px; animation-delay: 0s; }
+.bg-bubbles li:nth-child(2) { left: 25%; width: 40px; height: 40px; animation-delay: 3s; animation-duration: 20s; }
+.bg-bubbles li:nth-child(3) { left: 70%; width: 60px; height: 60px; animation-delay: 4s; }
+.bg-bubbles li:nth-child(4) { left: 40%; width: 50px; height: 50px; animation-delay: 6s; }
+.bg-bubbles li:nth-child(5) { left: 65%; width: 20px; height: 20px; animation-delay: 1s; animation-duration: 25s; }
+
+@keyframes moveBubbles {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-700px) rotate(360deg); opacity: 0; }
+}

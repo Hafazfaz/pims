@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Management</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="workflow-management.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="img/fmc.png" alt="Logo" class="logo">
+                <h2>FMC Dashboard</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li><a href="dashboard.html#users"><i class="fas fa-users"></i> User Roles</a></li>
+                <li><a href="dashboard.html#departments"><i class="fas fa-building"></i> Departments</a></li>
+                <li><a href="staff-profile.html"><i class="fas fa-user-friends"></i> Staff Management</a></li>
+                <li><a href="file-management.html"><i class="fas fa-file-alt"></i> File Management</a></li>
+                <li><a href="workflow-management.html" class="active"><i class="fas fa-project-diagram"></i> Workflow Management</a></li>
+            </ul>
+        </aside>
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Workflow Management</h1>
+                <button id="createWorkflowBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Create Workflow</button>
+            </header>
+
+            <div class="content-section">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Workflow Name</th>
+                                <th>Applies To</th>
+                                <th>Steps</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Sample Row 1 -->
+                            <tr>
+                                <td>Policy Document Approval</td>
+                                <td>Policy Files</td>
+                                <td>5</td>
+                                <td class="action-buttons">
+                                    <button class="btn-visualize"><i class="fas fa-eye"></i> Visualize</button>
+                                    <button class="btn-edit"><i class="fas fa-edit"></i></button>
+                                    <button class="btn-delete"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                            <!-- Sample Row 2 -->
+                            <tr>
+                                <td>HR Request</td>
+                                <td>Personal Files (HR)</td>
+                                <td>3</td>
+                                <td class="action-buttons">
+                                    <button class="btn-visualize"><i class="fas fa-eye"></i> Visualize</button>
+                                    <button class="btn-edit"><i class="fas fa-edit"></i></button>
+                                    <button class="btn-delete"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Visualization Section -->
+            <div id="visualizationContainer" class="content-section" style="display: none;">
+                <h2>Lifecycle Visualization</h2>
+                <div class="lifecycle-container">
+                    <div class="lifecycle-step">
+                        <div class="step-icon"><i class="fas fa-plus-circle"></i></div>
+                        <p>Created</p>
+                    </div>
+                    <div class="lifecycle-arrow">&rarr;</div>
+                    <div class="lifecycle-step">
+                        <div class="step-icon"><i class="fas fa-cogs"></i></div>
+                        <p>In Process</p>
+                    </div>
+                    <div class="lifecycle-arrow">&rarr;</div>
+                    <div class="lifecycle-step">
+                        <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                        <p>Completed</p>
+                    </div>
+                    <div class="lifecycle-arrow">&rarr;</div>
+                    <div class="lifecycle-step">
+                        <div class="step-icon"><i class="fas fa-archive"></i></div>
+                        <p>Archived</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Create/Edit Workflow -->
+    <div id="workflowModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Create New Workflow</h2>
+            <form id="workflowForm">
+                <div class="form-group">
+                    <label for="workflowName">Workflow Name</label>
+                    <input type="text" id="workflowName" name="workflowName" required>
+                </div>
+                <div class="form-group">
+                    <label for="appliesTo">Applies To</label>
+                    <select id="appliesTo" name="appliesTo">
+                        <option value="policy">Policy Files</option>
+                        <option value="personal_hr">Personal Files (HR)</option>
+                        <option value="personal_fin">Personal Files (Finance)</option>
+                    </select>
+                </div>
+                <div id="workflowSteps" class="form-group">
+                    <label>Workflow Steps</label>
+                    <div class="step">
+                        <span>1.</span> <input type="text" placeholder="e.g., Clerk Review">
+                        <button class="btn-remove-step"><i class="fas fa-minus"></i></button>
+                    </div>
+                </div>
+                <button type="button" id="addStepBtn" class="btn btn-secondary">Add Step</button>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Workflow</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="workflow-management.js"></script>
+</body>
+</html>

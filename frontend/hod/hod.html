@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>HOD Dashboard — Development</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+	<link rel="stylesheet" href="/hod/hod.css?v=100">
+</head>
+
+<body class="hod-body">
+	<div class="hod-shell">
+		<aside class="hod-side" aria-label="Primary">
+<div class="brand">
+	<i class="fas fa-layer-group" style="font-size: 1.5rem; color: var(--success-color);"></i>
+	<div>
+		<h1>Staff Portal</h1>
+		<small class="role-badge">HOD Workspace</small>
+	</div>
+</div>
+<nav class="nav">
+	<button data-section="overview" class="nav-btn active">
+		<i class="fas fa-th-large"></i> Overview
+	</button>
+	<button data-section="inbox" class="nav-btn">
+		<i class="fas fa-inbox"></i> Inbox
+	</button>
+	<button data-section="files" class="nav-btn">
+		<i class="fas fa-folder-open"></i> My Files
+	</button>
+	<button data-section="reports" class="nav-btn">
+		<i class="fas fa-chart-pie"></i> Reports
+	</button>
+</nav>
+<div class="side-footer">
+	<button id="logoutBtn" class="nav-btn" style="color: #ef4444;">
+		<i class="fas fa-sign-out-alt"></i> Sign out
+	</button>
+</div>
+</aside>
+
+<main class="hod-content" role="main">
+	<header class="topbar">
+		<div class="search-wrap">
+			<i class="fas fa-search search-icon"></i>
+			<input id="globalSearch" class="search" placeholder="Search files, users or refs..." aria-label="Search" />
+		</div>
+		<div class="top-actions">
+			<button id="uploadBtn" class="btn primary" title="Upload file">
+				<i class="fas fa-cloud-upload-alt"></i> Upload New
+			</button>
+			<div class="user-mini">
+				<span id="userMiniName">HOD User</span>
+				<div class="user-avatar">H</div>
+			</div>
+		</div>
+	</header>
+
+	<section id="overview" class="panel active">
+		<div class="cards">
+			<div class="card stat-card">
+				<div class="stat-icon-bg bg-purple">
+					<i class="fas fa-inbox"></i>
+				</div>
+				<div class="stat-number" id="inboxCount">—</div>
+				<div class="stat-label">Waiting for me</div>
+			</div>
+			<div class="card stat-card">
+				<div class="stat-icon-bg bg-orange">
+					<i class="fas fa-clock"></i>
+				</div>
+				<div class="stat-number" id="pendingCount">—</div>
+				<div class="stat-label">Pending approval</div>
+			</div>
+			<div class="card stat-card">
+				<div class="stat-icon-bg bg-green">
+					<i class="fas fa-check-circle"></i>
+				</div>
+				<div class="stat-number" id="processedToday">—</div>
+				<div class="stat-label">Processed today</div>
+			</div>
+			<div class="card stat-card">
+				<div class="stat-icon-bg bg-red">
+					<i class="fas fa-exclamation-triangle"></i>
+				</div>
+				<div class="stat-number" id="overdueCount">—</div>
+				<div class="stat-label">Needs Attention</div>
+			</div>
+		</div>
+	</section>
+
+	<section id="inbox" class="panel">
+		<div class="panel-header"
+			style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+			<h2>Inbox</h2>
+			<div class="filters">
+				<select id="filterStatus" class="search" style="width: auto; padding: 8px 16px;">
+					<option value="">All statuses</option>
+					<option value="submitted">Submitted</option>
+					<option value="pending">Pending</option>
+					<option value="approved">Approved</option>
+					<option value="rejected">Rejected</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="bulk-toolbar" id="bulkToolbar" hidden
+			style="background: #f1f5f9; padding: 10px; border-radius: 10px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+			<div class="bulk-info" id="bulkInfo" style="font-weight: 600;">0 selected</div>
+			<div class="bulk-actions" style="display: flex; gap: 10px;">
+				<button id="bulkApprove" class="btn primary"
+					style="padding: 6px 12px; font-size: 0.8rem;">Approve</button>
+				<button id="bulkReject" class="btn warn" style="padding: 6px 12px; font-size: 0.8rem;">Reject</button>
+				<button id="bulkClear" class="btn ghost" style="padding: 6px 12px; font-size: 0.8rem;">Clear</button>
+			</div>
+		</div>
+
+		<div class="table-wrap">
+			<table class="inbox-table" id="inboxTable">
+				<thead>
+					<tr>
+						<th style="width: 40px;"><input id="selectAll" type="checkbox" aria-label="Select all" /></th>
+						<th>File Name</th>
+						<th>From</th>
+						<th>Submitted</th>
+						<th>Status</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody id="inboxBody">
+					<!-- rows inserted here -->
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<section id="files" class="panel">
+		<div class="panel-header"
+			style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+			<h2>My Files</h2>
+			<div class="filters">
+				<input id="filesSearch" class="search" placeholder="Search my files..." style="width: 250px;" />
+			</div>
+		</div>
+		<div class="table-wrap">
+			<table class="files-table" id="filesTable">
+				<thead>
+					<tr>
+						<th>File Name</th>
+						<th>Uploaded</th>
+						<th>State</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody id="filesBody"></tbody>
+			</table>
+		</div>
+	</section>
+
+	<section id="reports" class="panel">
+		<div class="panel-header">
+			<h2>Reports</h2>
+		</div>
+		<div class="card">
+			<p style="color: var(--text-muted); text-align: center; padding: 40px;">Reports module coming
+				soon...</p>
+		</div>
+	</section>
+
+	<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</main>
+</div>
+
+<!-- File detail modal -->
+<div class="modal" id="fileModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel" role="document">
+		<header class="modal-header">
+			<h3 id="modalTitle">File</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body" id="modalBody">
+			<!-- details -->
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Close</button>
+			<button id="modalDownload" class="btn primary">Download</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Bulk confirm modal -->
+<div class="modal" id="bulkConfirm" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3>Confirm bulk action</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body">
+			<p id="bulkMessage">Apply action to selected items?</p>
+			<label>Comment (optional)</label>
+			<textarea id="bulkComment" rows="3" placeholder="Reason or note..."></textarea>
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Cancel</button>
+			<button id="confirmBulkDo" class="btn primary">Confirm</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Single action comment modal -->
+<div class="modal" id="actionModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3 id="actionModalTitle">Confirm action</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body">
+			<p id="actionModalMessage">Provide comment for this action</p>
+			<textarea id="actionComment" rows="3" placeholder="Enter comment..."></textarea>
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Cancel</button>
+			<button id="actionConfirm" class="btn primary">Confirm</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Bulk results modal -->
+<div class="modal" id="bulkResults" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3>Bulk action results</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body" id="bulkResultsBody">
+			<!-- results injected -->
+		</div>
+		<footer class="modal-footer">
+			<button class="btn" id="bulkRetry" hidden>Retry failed</button>
+			<button class="btn" id="bulkRetryConfirm" hidden>Retry with confirmation</button>
+			<button class="btn primary" data-dismiss>Close</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Upload modal -->
+<div class="modal" id="uploadModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3>Upload file</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body upload-form">
+			<div class="field">
+				<label for="uploadFile">Choose file</label>
+				<input id="uploadFile" name="file" type="file" />
+			</div>
+			<div class="field">
+				<label for="uploadName">File name</label>
+				<input id="uploadName" type="text" placeholder="Display name" />
+			</div>
+			<div class="field">
+				<label for="uploadCategory">Category</label>
+				<input id="uploadCategory" type="text" placeholder="Category (e.g., Personal)" />
+			</div>
+			<div class="field">
+				<label for="uploadDept">Department ID</label>
+				<input id="uploadDept" type="number" placeholder="Department id" />
+			</div>
+			<div class="field">
+				<label for="uploadSensitivity">Sensitivity</label>
+				<select id="uploadSensitivity">
+					<option>Normal</option>
+					<option>Restricted</option>
+				</select>
+			</div>
+			<div class="field">
+				<label for="uploadTags">Tags (comma-separated)</label>
+				<input id="uploadTags" type="text" placeholder="tag1, tag2" />
+			</div>
+		</div>
+		<h2>Inbox</h2>
+		<div class="filters">
+			<select id="filterStatus" class="search" style="width: auto; padding: 8px 16px;">
+				<option value="">All statuses</option>
+				<option value="submitted">Submitted</option>
+				<option value="pending">Pending</option>
+				<option value="approved">Approved</option>
+				<option value="rejected">Rejected</option>
+			</select>
+		</div>
+	</div>
+
+	<div class="bulk-toolbar" id="bulkToolbar" hidden
+		style="background: #f1f5f9; padding: 10px; border-radius: 10px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+		<div class="bulk-info" id="bulkInfo" style="font-weight: 600;">0 selected</div>
+		<div class="bulk-actions" style="display: flex; gap: 10px;">
+			<button id="bulkApprove" class="btn primary" style="padding: 6px 12px; font-size: 0.8rem;">Approve</button>
+			<button id="bulkReject" class="btn warn" style="padding: 6px 12px; font-size: 0.8rem;">Reject</button>
+			<button id="bulkClear" class="btn ghost" style="padding: 6px 12px; font-size: 0.8rem;">Clear</button>
+		</div>
+	</div>
+
+	<div class="table-wrap">
+		<table class="inbox-table" id="inboxTable">
+			<thead>
+				<tr>
+					<th style="width: 40px;"><input id="selectAll" type="checkbox" aria-label="Select all" /></th>
+					<th>File Name</th>
+					<th>From</th>
+					<th>Submitted</th>
+					<th>Status</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody id="inboxBody">
+				<!-- rows inserted here -->
+			</tbody>
+		</table>
+	</div>
+	</section>
+
+	<section id="files" class="panel">
+		<div class="panel-header"
+			style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+			<h2>My Files</h2>
+			<div class="filters">
+				<input id="filesSearch" class="search" placeholder="Search my files..." style="width: 250px;" />
+			</div>
+		</div>
+		<div class="table-wrap">
+			<table class="files-table" id="filesTable">
+				<thead>
+					<tr>
+						<th>File Name</th>
+						<th>Uploaded</th>
+						<th>State</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody id="filesBody"></tbody>
+			</table>
+		</div>
+	</section>
+
+	<section id="reports" class="panel">
+		<div class="panel-header">
+			<h2>Reports</h2>
+		</div>
+		<div class="card">
+			<p style="color: var(--text-muted); text-align: center; padding: 40px;">Reports module coming
+				soon...</p>
+		</div>
+	</section>
+
+	<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+	</main>
+</div>
+
+<!-- File detail modal -->
+<div class="modal" id="fileModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel" role="document">
+		<header class="modal-header">
+			<h3 id="modalTitle">File</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body" id="modalBody">
+			<!-- details -->
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Close</button>
+			<button id="modalDownload" class="btn primary">Download</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Bulk confirm modal -->
+<div class="modal" id="bulkConfirm" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3>Confirm bulk action</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body">
+			<p id="bulkMessage">Apply action to selected items?</p>
+			<label>Comment (optional)</label>
+			<textarea id="bulkComment" rows="3" placeholder="Reason or note..."></textarea>
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Cancel</button>
+			<button id="confirmBulkDo" class="btn primary">Confirm</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Single action comment modal -->
+<div class="modal" id="actionModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3 id="actionModalTitle">Confirm action</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body">
+			<p id="actionModalMessage">Provide comment for this action</p>
+			<textarea id="actionComment" rows="3" placeholder="Enter comment..."></textarea>
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Cancel</button>
+			<button id="actionConfirm" class="btn primary">Confirm</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Bulk results modal -->
+<div class="modal" id="bulkResults" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3>Bulk action results</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body" id="bulkResultsBody">
+			<!-- results injected -->
+		</div>
+		<footer class="modal-footer">
+			<button class="btn" id="bulkRetry" hidden>Retry failed</button>
+			<button class="btn" id="bulkRetryConfirm" hidden>Retry with confirmation</button>
+			<button class="btn primary" data-dismiss>Close</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Upload modal -->
+<div class="modal" id="uploadModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel">
+		<header class="modal-header">
+			<h3>Upload file</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body upload-form">
+			<div class="field">
+				<label for="uploadFile">Choose file</label>
+				<input id="uploadFile" name="file" type="file" />
+			</div>
+			<div class="field">
+				<label for="uploadName">File name</label>
+				<input id="uploadName" type="text" placeholder="Display name" />
+			</div>
+			<div class="field">
+				<label for="uploadCategory">Category</label>
+				<input id="uploadCategory" type="text" placeholder="Category (e.g., Personal)" />
+			</div>
+			<div class="field">
+				<label for="uploadDept">Department ID</label>
+				<input id="uploadDept" type="number" placeholder="Department id" />
+			</div>
+			<div class="field">
+				<label for="uploadSensitivity">Sensitivity</label>
+				<select id="uploadSensitivity">
+					<option>Normal</option>
+					<option>Restricted</option>
+				</select>
+			</div>
+			<div class="field">
+				<label for="uploadTags">Tags (comma-separated)</label>
+				<input id="uploadTags" type="text" placeholder="tag1, tag2" />
+			</div>
+		</div>
+		<footer class="modal-footer">
+			<button class="btn ghost" data-dismiss>Cancel</button>
+			<button id="doUpload" class="btn primary">Upload</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Document Details Modal -->
+<div class="modal" id="documentDetailsModal" role="dialog" aria-modal="true" aria-hidden="true">
+	<div class="modal-backdrop" data-dismiss></div>
+	<div class="modal-panel" style="max-width: 800px;">
+		<header class="modal-header">
+			<h3 id="docModalTitle">Document Details</h3>
+			<button class="modal-close" data-dismiss aria-label="Close">×</button>
+		</header>
+		<div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+			<div class="document-info" style="margin-bottom: 20px;">
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+					<div>
+						<strong>Title:</strong>
+						<div id="docDetailTitle" style="color: var(--text-muted); margin-top: 5px;">—</div>
+					</div>
+					<div>
+						<strong>File Number:</strong>
+						<div id="docDetailFileNumber" style="color: var(--text-muted); margin-top: 5px;">—</div>
+					</div>
+					<div>
+						<strong>Type:</strong>
+						<div id="docDetailType" style="color: var(--text-muted); margin-top: 5px;">—</div>
+					</div>
+					<div>
+						<strong>Created By:</strong>
+						<div id="docDetailCreator" style="color: var(--text-muted); margin-top: 5px;">—</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="document-content" style="margin-bottom: 25px;">
+				<h4 style="margin-bottom: 10px; color: var(--primary-color);">Content</h4>
+				<div id="docDetailContent"
+					style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 3px solid var(--primary-color); white-space: pre-wrap;">
+					—
+				</div>
+			</div>
+
+			<div class="workflow-history" style="margin-bottom: 20px;">
+				<h4 style="margin-bottom: 10px; color: var(--primary-color);">Workflow History</h4>
+				<div id="docWorkflowTimeline" style="position: relative; padding-left: 30px;">
+					<!-- Timeline items inserted here -->
+				</div>
+			</div>
+
+			<div class="document-actions" style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+				<div style="display: flex; gap: 10px; justify-content: center;">
+					<button id="docActionApprove" class="btn primary" style="background: #10b981;">
+						<i class="fas fa-check"></i> Approve
+					</button>
+					<button id="docActionReject" class="btn warn" style="background: #ef4444;">
+						<i class="fas fa-times"></i> Reject
+					</button>
+					<button id="docActionForward" class="btn" style="background: #3b82f6;">
+						<i class="fas fa-arrow-right"></i> Forward to Admin
+					</button>
+				</div>
+			</div>
+		</div>
+		<footer class="modal-footer">
+			<section id="reports" class="panel">
+				<div class="panel-header">
+					<h2>Reports</h2>
+				</div>
+				<div class="card">
+					<p style="color: var(--text-muted); text-align: center; padding: 40px;">Reports module coming
+						soon...</p>
+				</div>
+			</section>
+
+			<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+			</main>
+	</div>
+
+	<!-- File detail modal -->
+	<div class="modal" id="fileModal" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="modal-backdrop" data-dismiss></div>
+		<div class="modal-panel" role="document">
+			<header class="modal-header">
+				<h3 id="modalTitle">File</h3>
+				<button class="modal-close" data-dismiss aria-label="Close">×</button>
+			</header>
+			<div class="modal-body" id="modalBody">
+				<!-- details -->
+			</div>
+			<footer class="modal-footer">
+				<button class="btn ghost" data-dismiss>Close</button>
+				<button id="modalDownload" class="btn primary">Download</button>
+			</footer>
+		</div>
+	</div>
+
+	<!-- Bulk confirm modal -->
+	<div class="modal" id="bulkConfirm" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="modal-backdrop" data-dismiss></div>
+		<div class="modal-panel">
+			<header class="modal-header">
+				<h3>Confirm bulk action</h3>
+				<button class="modal-close" data-dismiss aria-label="Close">×</button>
+			</header>
+			<div class="modal-body">
+				<p id="bulkMessage">Apply action to selected items?</p>
+				<label>Comment (optional)</label>
+				<textarea id="bulkComment" rows="3" placeholder="Reason or note..."></textarea>
+			</div>
+			<footer class="modal-footer">
+				<button class="btn ghost" data-dismiss>Cancel</button>
+				<button id="confirmBulkDo" class="btn primary">Confirm</button>
+			</footer>
+		</div>
+	</div>
+
+	<!-- Single action comment modal -->
+	<div class="modal" id="actionModal" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="modal-backdrop" data-dismiss></div>
+		<div class="modal-panel">
+			<header class="modal-header">
+				<h3 id="actionModalTitle">Confirm action</h3>
+				<button class="modal-close" data-dismiss aria-label="Close">×</button>
+			</header>
+			<div class="modal-body">
+				<p id="actionModalMessage">Provide comment for this action</p>
+				<textarea id="actionComment" rows="3" placeholder="Enter comment..."></textarea>
+			</div>
+			<footer class="modal-footer">
+				<button class="btn ghost" data-dismiss>Cancel</button>
+				<button id="actionConfirm" class="btn primary">Confirm</button>
+			</footer>
+		</div>
+	</div>
+
+	<!-- Bulk results modal -->
+	<div class="modal" id="bulkResults" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="modal-backdrop" data-dismiss></div>
+		<div class="modal-panel">
+			<header class="modal-header">
+				<h3>Bulk action results</h3>
+				<button class="modal-close" data-dismiss aria-label="Close">×</button>
+			</header>
+			<div class="modal-body" id="bulkResultsBody">
+				<!-- results injected -->
+			</div>
+			<footer class="modal-footer">
+				<button class="btn" id="bulkRetry" hidden>Retry failed</button>
+				<button class="btn" id="bulkRetryConfirm" hidden>Retry with confirmation</button>
+				<button class="btn primary" data-dismiss>Close</button>
+			</footer>
+		</div>
+	</div>
+
+	<!-- Upload modal -->
+	<div class="modal" id="uploadModal" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="modal-backdrop" data-dismiss></div>
+		<div class="modal-panel">
+			<header class="modal-header">
+				<h3>Upload file</h3>
+				<button class="modal-close" data-dismiss aria-label="Close">×</button>
+			</header>
+			<div class="modal-body upload-form">
+				<div class="field">
+					<label for="uploadFile">Choose file</label>
+					<input id="uploadFile" name="file" type="file" />
+				</div>
+				<div class="field">
+					<label for="uploadName">File name</label>
+					<input id="uploadName" type="text" placeholder="Display name" />
+				</div>
+				<div class="field">
+					<label for="uploadCategory">Category</label>
+					<input id="uploadCategory" type="text" placeholder="Category (e.g., Personal)" />
+				</div>
+				<div class="field">
+					<label for="uploadDept">Department ID</label>
+					<input id="uploadDept" type="number" placeholder="Department id" />
+				</div>
+				<div class="field">
+					<label for="uploadSensitivity">Sensitivity</label>
+					<select id="uploadSensitivity">
+						<option>Normal</option>
+						<option>Restricted</option>
+					</select>
+				</div>
+				<div class="field">
+					<label for="uploadTags">Tags (comma-separated)</label>
+					<input id="uploadTags" type="text" placeholder="tag1, tag2" />
+				</div>
+			</div>
+			<footer class="modal-footer">
+				<button class="btn ghost" data-dismiss>Cancel</button>
+				<button id="doUpload" class="btn primary">Upload</button>
+			</footer>
+		</div>
+	</div>
+
+	<!-- Document Details Modal -->
+	<div class="modal" id="documentDetailsModal" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="modal-backdrop" data-dismiss></div>
+		<div class="modal-panel" style="max-width: 800px;">
+			<header class="modal-header">
+				<h3 id="docModalTitle">Document Details</h3>
+				<button class="modal-close" data-dismiss aria-label="Close">×</button>
+			</header>
+			<div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+				<div class="document-info" style="margin-bottom: 20px;">
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+						<div>
+							<strong>Title:</strong>
+							<div id="docDetailTitle" style="color: var(--text-muted); margin-top: 5px;">—</div>
+						</div>
+						<div>
+							<strong>File Number:</strong>
+							<div id="docDetailFileNumber" style="color: var(--text-muted); margin-top: 5px;">—</div>
+						</div>
+						<div>
+							<strong>Type:</strong>
+							<div id="docDetailType" style="color: var(--text-muted); margin-top: 5px;">—</div>
+						</div>
+						<div>
+							<strong>Created By:</strong>
+							<div id="docDetailCreator" style="color: var(--text-muted); margin-top: 5px;">—</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="document-content" style="margin-bottom: 25px;">
+					<h4 style="margin-bottom: 10px; color: var(--primary-color);">Content</h4>
+					<div id="docDetailContent"
+						style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 3px solid var(--primary-color); white-space: pre-wrap;">
+						—
+					</div>
+				</div>
+
+				<div class="workflow-history" style="margin-bottom: 20px;">
+					<h4 style="margin-bottom: 10px; color: var(--primary-color);">Workflow History</h4>
+					<div id="docWorkflowTimeline" style="position: relative; padding-left: 30px;">
+						<!-- Timeline items inserted here -->
+					</div>
+				</div>
+
+				<div class="document-actions"
+					style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+					<div style="display: flex; gap: 10px; justify-content: center;">
+						<button id="docActionApprove" class="btn primary" style="background: #10b981;">
+							<i class="fas fa-check"></i> Approve
+						</button>
+						<button id="docActionReject" class="btn warn" style="background: #ef4444;">
+							<i class="fas fa-times"></i> Reject
+						</button>
+						<button id="docActionForward" class="btn" style="background: #3b82f6;">
+							<i class="fas fa-arrow-right"></i> Forward to Admin
+						</button>
+					</div>
+				</div>
+			</div>
+			<footer class="modal-footer">
+				<section id="reports" class="panel">
+					<div class="panel-header">
+						<h2>Reports</h2>
+					</div>
+					<div class="card">
+						<p style="color: var(--text-muted); text-align: center; padding: 40px;">Reports module coming
+							soon...</p>
+					</div>
+				</section>
+
+				<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+				</main>
+		</div>
+
+		<!-- File detail modal -->
+		<div class="modal" id="fileModal" role="dialog" aria-modal="true" aria-hidden="true">
+			<div class="modal-backdrop" data-dismiss></div>
+			<div class="modal-panel" role="document">
+				<header class="modal-header">
+					<h3 id="modalTitle">File</h3>
+					<button class="modal-close" data-dismiss aria-label="Close">×</button>
+				</header>
+				<div class="modal-body" id="modalBody">
+					<!-- details -->
+				</div>
+				<footer class="modal-footer">
+					<button class="btn ghost" data-dismiss>Close</button>
+					<button id="modalDownload" class="btn primary">Download</button>
+				</footer>
+			</div>
+		</div>
+
+		<!-- Bulk confirm modal -->
+		<div class="modal" id="bulkConfirm" role="dialog" aria-modal="true" aria-hidden="true">
+			<div class="modal-backdrop" data-dismiss></div>
+			<div class="modal-panel">
+				<header class="modal-header">
+					<h3>Confirm bulk action</h3>
+					<button class="modal-close" data-dismiss aria-label="Close">×</button>
+				</header>
+				<div class="modal-body">
+					<p id="bulkMessage">Apply action to selected items?</p>
+					<label>Comment (optional)</label>
+					<textarea id="bulkComment" rows="3" placeholder="Reason or note..."></textarea>
+				</div>
+				<footer class="modal-footer">
+					<button class="btn ghost" data-dismiss>Cancel</button>
+					<button id="confirmBulkDo" class="btn primary">Confirm</button>
+				</footer>
+			</div>
+		</div>
+
+		<!-- Single action comment modal -->
+		<div class="modal" id="actionModal" role="dialog" aria-modal="true" aria-hidden="true">
+			<div class="modal-backdrop" data-dismiss></div>
+			<div class="modal-panel">
+				<header class="modal-header">
+					<h3 id="actionModalTitle">Confirm action</h3>
+					<button class="modal-close" data-dismiss aria-label="Close">×</button>
+				</header>
+				<div class="modal-body">
+					<p id="actionModalMessage">Provide comment for this action</p>
+					<textarea id="actionComment" rows="3" placeholder="Enter comment..."></textarea>
+				</div>
+				<footer class="modal-footer">
+					<button class="btn ghost" data-dismiss>Cancel</button>
+					<button id="actionConfirm" class="btn primary">Confirm</button>
+				</footer>
+			</div>
+		</div>
+
+		<!-- Bulk results modal -->
+		<div class="modal" id="bulkResults" role="dialog" aria-modal="true" aria-hidden="true">
+			<div class="modal-backdrop" data-dismiss></div>
+			<div class="modal-panel">
+				<header class="modal-header">
+					<h3>Bulk action results</h3>
+					<button class="modal-close" data-dismiss aria-label="Close">×</button>
+				</header>
+				<div class="modal-body" id="bulkResultsBody">
+					<!-- results injected -->
+				</div>
+				<footer class="modal-footer">
+					<button class="btn" id="bulkRetry" hidden>Retry failed</button>
+					<button class="btn" id="bulkRetryConfirm" hidden>Retry with confirmation</button>
+					<button class="btn primary" data-dismiss>Close</button>
+				</footer>
+			</div>
+		</div>
+
+		<!-- Upload modal -->
+		<div class="modal" id="uploadModal" role="dialog" aria-modal="true" aria-hidden="true">
+			<div class="modal-backdrop" data-dismiss></div>
+			<div class="modal-panel">
+				<header class="modal-header">
+					<h3>Upload file</h3>
+					<button class="modal-close" data-dismiss aria-label="Close">×</button>
+				</header>
+				<div class="modal-body upload-form">
+					<div class="field">
+						<label for="uploadFile">Choose file</label>
+						<input id="uploadFile" name="file" type="file" />
+					</div>
+					<div class="field">
+						<label for="uploadName">File name</label>
+						<input id="uploadName" type="text" placeholder="Display name" />
+					</div>
+					<div class="field">
+						<label for="uploadCategory">Category</label>
+						<input id="uploadCategory" type="text" placeholder="Category (e.g., Personal)" />
+					</div>
+					<div class="field">
+						<label for="uploadDept">Department ID</label>
+						<input id="uploadDept" type="number" placeholder="Department id" />
+					</div>
+					<div class="field">
+						<label for="uploadSensitivity">Sensitivity</label>
+						<select id="uploadSensitivity">
+							<option>Normal</option>
+							<option>Restricted</option>
+						</select>
+					</div>
+					<div class="field">
+						<label for="uploadTags">Tags (comma-separated)</label>
+						<input id="uploadTags" type="text" placeholder="tag1, tag2" />
+					</div>
+				</div>
+				<footer class="modal-footer">
+					<button class="btn ghost" data-dismiss>Cancel</button>
+					<button id="doUpload" class="btn primary">Upload</button>
+				</footer>
+			</div>
+		</div>
+
+		<!-- Document Details Modal -->
+		<div class="modal" id="documentDetailsModal" role="dialog" aria-modal="true" aria-hidden="true">
+			<div class="modal-backdrop" data-dismiss></div>
+			<div class="modal-panel" style="max-width: 800px;">
+				<header class="modal-header">
+					<h3 id="docModalTitle">Document Details</h3>
+					<button class="modal-close" data-dismiss aria-label="Close">×</button>
+				</header>
+				<div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+					<div class="document-info" style="margin-bottom: 20px;">
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+							<div>
+								<strong>Title:</strong>
+								<div id="docDetailTitle" style="color: var(--text-muted); margin-top: 5px;">—</div>
+							</div>
+							<div>
+								<strong>File Number:</strong>
+								<div id="docDetailFileNumber" style="color: var(--text-muted); margin-top: 5px;">—</div>
+							</div>
+							<div>
+								<strong>Type:</strong>
+								<div id="docDetailType" style="color: var(--text-muted); margin-top: 5px;">—</div>
+							</div>
+							<div>
+								<strong>Created By:</strong>
+								<div id="docDetailCreator" style="color: var(--text-muted); margin-top: 5px;">—</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="document-content" style="margin-bottom: 25px;">
+						<h4 style="margin-bottom: 10px; color: var(--primary-color);">Content</h4>
+						<div id="docDetailContent"
+							style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 3px solid var(--primary-color); white-space: pre-wrap;">
+							—
+						</div>
+					</div>
+
+					<div class="workflow-history" style="margin-bottom: 20px;">
+						<h4 style="margin-bottom: 10px; color: var(--primary-color);">Workflow History</h4>
+						<div id="docWorkflowTimeline" style="position: relative; padding-left: 30px;">
+							<!-- Timeline items inserted here -->
+						</div>
+					</div>
+
+					<div class="document-actions"
+						style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+						<div style="display: flex; gap: 10px; justify-content: center;">
+							<button id="docActionApprove" class="btn primary" style="background: #10b981;">
+								<i class="fas fa-check"></i> Approve
+							</button>
+							<button id="docActionReject" class="btn warn" style="background: #ef4444;">
+								<i class="fas fa-times"></i> Reject
+							</button>
+							<button id="docActionForward" class="btn" style="background: #3b82f6;">
+								<i class="fas fa-arrow-right"></i> Forward to Admin
+							</button>
+						</div>
+					</div>
+				</div>
+				<footer class="modal-footer">
+					<button class="btn ghost" data-dismiss>Close</button>
+				</footer>
+			</div>
+		</div>
+
+		<script src="/components/notification-center.js"></script>
+		<script src="/hod/hod.js?v=101"></script>
+		<script src="/hod/hod-document-inbox.js" defer></script>
+		</body>
+
+		</html>

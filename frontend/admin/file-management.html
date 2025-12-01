@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard-new.css"> <!-- Use main dashboard styles -->
+    <link rel="stylesheet" href="file-management.css"> <!-- Overrides -->
+</head>
+
+<body>
+    <div class="container">
+        <h1><i class="fas fa-folder-open" style="color: var(--primary-color); margin-right: 10px;"></i> File Management
+        </h1>
+
+        <div class="file-actions">
+            <button id="upload-btn" class="btn btn-primary"><i class="fas fa-cloud-upload-alt"></i> Upload Single
+                File</button>
+            <button id="bulk-upload-btn" class="btn btn-info"><i class="fas fa-layer-group"></i> Bulk Upload</button>
+
+            <div class="search-wrapper" style="flex-grow: 1; position: relative;">
+                <input type="text" id="search-input" placeholder="Search files..." class="form-control"
+                    style="width: 100%; padding-left: 35px;">
+                <i class="fas fa-search"
+                    style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+            </div>
+
+            <select id="category-filter" class="form-control" style="max-width: 180px;">
+                <option value="">All Categories</option>
+                <option value="Personal">Personal</option>
+                <option value="Policy">Policy</option>
+            </select>
+            <select id="department-filter" class="form-control" style="max-width: 180px;">
+                <option value="">All Departments</option>
+                <!-- Departments will be loaded here by JS -->
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table id="file-table">
+                <thead>
+                    <tr>
+                        <th>File Number</th>
+                        <th>File Name</th>
+                        <th>Category</th>
+                        <th>Department</th>
+                        <th>Uploader</th>
+                        <th>Sensitivity</th>
+                        <th>Status</th>
+                        <th>Expires At</th>
+                        <th>Tags</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- File data will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- File Modal -->
+    <div id="file-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-button">&times;</span>
+                <h2 id="modal-title">Upload New File</h2>
+            </div>
+            <div class="modal-body">
+                <form id="file-form">
+                    <input type="hidden" id="file-id">
+                    <div class="form-group" id="single-file-input-group">
+                        <label for="file-input"><i class="fas fa-file-upload"></i> File:</label>
+                        <input type="file" id="file-input" class="form-control">
+                    </div>
+                    <div class="form-group" id="bulk-file-input-group" style="display: none;">
+                        <label for="bulk-files-input"><i class="fas fa-file-upload"></i> Select Multiple Files:</label>
+                        <input type="file" id="bulk-files-input" class="form-control" multiple>
+                    </div>
+                    <div class="form-group">
+                        <label for="file-name"><i class="fas fa-file-alt"></i> File Name (optional for bulk):</label>
+                        <input type="text" id="file-name" class="form-control" placeholder="Enter file name">
+                    </div>
+                    <div class="form-group">
+                        <label for="file-category"><i class="fas fa-tags"></i> Category:</label>
+                        <select id="file-category" class="form-control" required>
+                            <option value="">Select Category</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Policy">Policy</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="file-department"><i class="fas fa-building"></i> Department:</label>
+                        <select id="file-department" class="form-control" required>
+                            <option value="">Select Department</option>
+                            <!-- Departments will be loaded here by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="file-sensitivity"><i class="fas fa-shield-alt"></i> Sensitivity:</label>
+                        <select id="file-sensitivity" class="form-control" required>
+                            <option value="Normal">Normal</option>
+                            <option value="Confidential">Confidential</option>
+                            <option value="Restricted">Restricted</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="file-expires-at"><i class="fas fa-calendar-alt"></i> Expires At:</label>
+                        <input type="date" id="file-expires-at" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="file-tags"><i class="fas fa-hashtag"></i> Tags (comma-separated):</label>
+                        <input type="text" id="file-tags" class="form-control" placeholder="e.g. urgent, finance, 2023">
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submit-file-btn">Upload File</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-file-btn">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification-toast" class="toast"></div>
+
+    <!-- File History Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-button history-close-button">&times;</span>
+                <h2 id="history-modal-title">File History</h2>
+            </div>
+            <div class="modal-body">
+                <h3 id="history-file-name" style="margin-bottom: 15px; color: var(--primary-color);"></h3>
+                <div id="file-history-content" style="max-height: 400px; overflow-y: auto;">
+                    <!-- History items will be loaded here by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Access Log Modal -->
+    <div id="access-log-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-button access-log-close-button">&times;</span>
+                <h2 id="access-log-modal-title">Access Logs</h2>
+            </div>
+            <div class="modal-body">
+                <h3 id="access-log-file-name" style="margin-bottom: 15px; color: var(--primary-color);"></h3>
+                <div id="file-access-log-content" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Access log entries will be loaded here by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="file-management.js"></script>
+</body>
+
+</html>
+<div class="table-container">
+    <table id="file-table">
+        <thead>
+            <tr>
+                <th>File Number</th>
+                <th>File Name</th>
+                <th>Category</th>
+                <th>Department</th>
+                <th>Uploader</th>
+                <th>Sensitivity</th>
+                <th>Status</th>
+                <th>Expires At</th>
+                <th>Tags</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- File data will be loaded here -->
+        </tbody>
+    </table>
+</div>
+</div>
+
+<!-- File Modal -->
+<div id="file-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <div class="modal-header">
+            <h2 id="modal-title">Upload New File</h2>
+        </div>
+        <div class="modal-body">
+            <form id="file-form">
+                <input type="hidden" id="file-id">
+                <div class="form-group" id="single-file-input-group">
+                    <label for="file-input"><i class="fas fa-file-upload"></i> File:</label>
+                    <input type="file" id="file-input" class="form-control">
+                </div>
+                <div class="form-group" id="bulk-file-input-group" style="display: none;">
+                    <label for="bulk-files-input"><i class="fas fa-file-upload"></i> Select Multiple Files:</label>
+                    <input type="file" id="bulk-files-input" class="form-control" multiple>
+                </div>
+                <div class="form-group">
+                    <label for="file-name"><i class="fas fa-file-alt"></i> File Name (optional for bulk):</label>
+                    <input type="text" id="file-name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="file-category"><i class="fas fa-tags"></i> Category:</label>
+                    <select id="file-category" class="form-control" required>
+                        <option value="">Select Category</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Policy">Policy</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="file-department"><i class="fas fa-building"></i> Department:</label>
+                    <select id="file-department" class="form-control" required>
+                        <option value="">Select Department</option>
+                        <!-- Departments will be loaded here by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="file-sensitivity"><i class="fas fa-shield-alt"></i> Sensitivity:</label>
+                    <select id="file-sensitivity" class="form-control" required>
+                        <option value="Normal">Normal</option>
+                        <option value="Confidential">Confidential</option>
+                        <option value="Restricted">Restricted</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="file-expires-at"><i class="fas fa-calendar-alt"></i> Expires At:</label>
+                    <input type="date" id="file-expires-at" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="file-tags"><i class="fas fa-hashtag"></i> Tags (comma-separated):</label>
+                    <input type="text" id="file-tags" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary" id="submit-file-btn">Upload File</button>
+                <button type="button" class="btn btn-secondary" id="cancel-file-btn"><i class="fas fa-times-circle"></i>
+                    Cancel</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Toast -->
+<div id="notification-toast" class="toast"></div>
+
+<!-- File History Modal -->
+<div id="history-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button history-close-button">&times;</span>
+        <div class="modal-header">
+            <h2 id="history-modal-title">File History for: <span id="history-file-name"></span></h2>
+        </div>
+        <div class="modal-body">
+            <div id="file-history-content">
+                <!-- History items will be loaded here by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Access Log Modal -->
+<div id="access-log-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button access-log-close-button">&times;</span>
+        <div class="modal-header">
+            <h2 id="access-log-modal-title">Access Logs for: <span id="access-log-file-name"></span></h2>
+        </div>
+        <div class="modal-body">
+            <div id="file-access-log-content">
+                <!-- Access log entries will be loaded here by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="file-management.js"></script>
+</body>
+
+</html>

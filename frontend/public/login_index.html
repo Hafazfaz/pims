@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Federal Medical Centre Abuja | Login</title>
+  <link rel="stylesheet" href="/public/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    /* ---------- Root Colors from FMC Logo ---------- */
+    :root {
+      --fmc-green: #00703c;
+      --fmc-light-green: #0da76e;
+      --fmc-white: #ffffff;
+      --fmc-gray: #f2f2f2;
+    }
+
+    /* ---------- Reset & Body ---------- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--fmc-green) 40%, #0a3c20);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--fmc-white);
+    }
+
+    /* ---------- Login Card ---------- */
+    .login-container {
+      background: var(--fmc-white);
+      color: #333;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+      width: 380px;
+      padding: 40px 35px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn 1.2s ease;
+    }
+
+    /* ---------- Logo ---------- */
+    .logo {
+      display: block;
+      margin: 0 auto;
+      width: 90px;
+      animation: floatLogo 3s ease-in-out infinite;
+    }
+
+    @keyframes floatLogo {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
+    }
+
+    /* ---------- Title ---------- */
+    .login-container h2 {
+      text-align: center;
+      color: var(--fmc-green);
+      margin-top: 15px;
+      margin-bottom: 25px;
+      font-weight: 600;
+    }
+
+    /* ---------- Input Fields ---------- */
+    .input-group {
+      position: relative;
+      margin-bottom: 22px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1.5px solid #ccc;
+      border-radius: 8px;
+      background: var(--fmc-gray);
+      font-size: 15px;
+      outline: none;
+      transition: 0.3s;
+    }
+
+    .input-group input:focus {
+      border-color: var(--fmc-green);
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0, 112, 60, 0.2);
+    }
+
+    .input-group label {
+      position: absolute;
+      top: 50%;
+      left: 15px;
+      transform: translateY(-50%);
+      color: #777;
+      pointer-events: none;
+      transition: 0.3s;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #777;
+    }
+
+    .input-group input:focus+label,
+    .input-group input:not(:placeholder-shown)+label {
+      top: 0;
+      left: 10px;
+      font-size: 13px;
+      background: var(--fmc-white);
+      color: var(--fmc-green);
+      padding: 0 5px;
+    }
+
+    /* ---------- Button ---------- */
+    .login-container .btn {
+      width: 100%;
+      background: var(--fmc-green);
+      color: var(--fmc-white);
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .login-container .btn:hover {
+      background: var(--fmc-light-green);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0, 112, 60, 0.3);
+    }
+
+    /* ---------- Footer ---------- */
+    .footer {
+      text-align: center;
+      margin-top: 25px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .footer span {
+      color: var(--fmc-green);
+      font-weight: 600;
+    }
+
+    /* ---------- Animations ---------- */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ---------- Floating Particles ---------- */
+    .bg-bubbles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .bg-bubbles li {
+      position: absolute;
+      list-style: none;
+      display: block;
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      animation: moveBubbles 25s linear infinite;
+      bottom: -150px;
+      border-radius: 50%;
+    }
+
+    .bg-bubbles li:nth-child(1) {
+      left: 10%;
+      width: 80px;
+      height: 80px;
+      animation-delay: 0s;
+    }
+
+    .bg-bubbles li:nth-child(2) {
+      left: 25%;
+      width: 40px;
+      height: 40px;
+      animation-delay: 3s;
+      animation-duration: 20s;
+    }
+
+    .bg-bubbles li:nth-child(3) {
+      left: 70%;
+      width: 60px;
+      height: 60px;
+      animation-delay: 4s;
+    }
+
+    .bg-bubbles li:nth-child(4) {
+      left: 40%;
+      width: 50px;
+      height: 50px;
+      animation-delay: 6s;
+    }
+
+    .bg-bubbles li:nth-child(5) {
+      left: 65%;
+      width: 20px;
+      height: 20px;
+      animation-delay: 1s;
+      animation-duration: 25s;
+    }
+
+    @keyframes moveBubbles {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(-700px) rotate(360deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Background Bubbles -->
+  <ul class="bg-bubbles">
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+  </ul>
+
+
+  <!-- Login Box -->
+  <div class="login-container">
+    <img src="/public/img/fmc.png" alt="FMC Abuja Logo" class="logo" />
+    <h2>Federal Medical Centre Abuja</h2>
+
+    <form id="loginForm">
+      <div class="input-group">
+        <input type="text" id="username" required placeholder=" " />
+        <label for="username">Username</label>
+      </div>
+
+      <div class="input-group">
+        <input type="password" id="password" required placeholder=" " />
+        <label for="password">Password</label>
+        <span class="toggle-password fas fa-eye" onclick="togglePasswordVisibility()"></span>
+      </div>
+
+      <button type="submit" class="btn">Login</button>
+      <div id="errorMessage" style="color: red; margin-top: 10px;"></div>
+    </form>
+
+    <div class="footer">
+      <p>© <span>Federal Medical Centre Abuja</span> | Service to Humanity</p>
+    </div>
+  </div>
+
+  <script src="/public/js/script.js">
+
+  </script>
+</body>
+
+</html>

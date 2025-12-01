@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Document Management System — Home</title>
+  <link rel="stylesheet" href="/home.css">
+</head>
+<body>
+  <!-- SVG sprite (inline) -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;">
+    <symbol id="icon-folder" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v2h20V8c0-1.1-.9-2-2-2h-8l-2-2zM2 10v6c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-6H2z" />
+    </symbol>
+    <symbol id="icon-flash" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M7 2v11h3v9l7-12h-4l4-8z" />
+    </symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 2l7 3v5c0 5-3.8 9.7-7 11-3.2-1.3-7-6-7-11V5l7-3z" />
+    </symbol>
+    <symbol id="icon-retry" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 6V4l4 4-4 4V8c-2.8 0-5 2.2-5 5 0 2.8 2.2 5 5 5s5-2.2 5-5h2c0 3.9-3.1 7-7 7s-7-3.1-7-7c0-3.9 3.1-7 7-7z" />
+    </symbol>
+  </svg>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">Document Management System</div>
+      <nav class="nav">
+        <a class="nav-link" href="#">Dashboard</a>
+        <a class="nav-link" href="#">Reports</a>
+        <a class="nav-link" href="#">Files</a>
+        <!-- Primary login link: follow the requested target @form_index.html. If your project uses a different file (e.g. login_index.html), update the href accordingly. -->
+        <a class="btn btn-primary" href="@form_index.html" id="loginPrimary">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-bg" role="img" aria-label="Document management illustration" style="background-image: url('/original-b2142fb3223e44639112fdd016de1c75.png');"></div>
+      <div class="hero-overlay"></div>
+      <div class="container hero-content">
+        <h1 class="hero-title">Secure, Fast, & Auditable Document Workflows</h1>
+        <p class="hero-sub">A simple document approval and routing system for organizations — role-based inboxes, file history, and audit-ready tracking.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="@form_index.html">Get started — Login</a>
+          <a class="btn btn-ghost" href="dashboard.html">Explore demo</a>
+        </div>
+        <ul class="features">
+          <li><strong>Role-aware inbox</strong> — HOD, Staff, Admin workflows with permission controls.</li>
+          <li><strong>Bulk actions</strong> — Apply approvals or rejections with per-item reporting and retry.</li>
+          <li><strong>File history</strong> — Automatic audit logs for each file transition.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="info container">
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Secure Uploads</h3>
+          <p>Files are stored with access controls and sensitivity tagging. Uploads are validated and scanned before processing.</p>
+        </div>
+        <div class="info-card">
+          <h3>Transparent Workflows</h3>
+          <p>Each transition is validated server-side and recorded. Comments are required for critical actions to ensure accountability.</p>
+        </div>
+        <div class="info-card">
+          <h3>Responsive UI</h3>
+          <p>Lightweight, accessible, and mobile-first UI that prioritizes productivity on any device.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Detailed features -->
+    <section class="features-detailed container" aria-label="Key features">
+      <h2 class="section-title">What makes this DMS powerful</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <svg class="feature-icon" aria-hidden="true"><use href="#icon-folder" /></svg>
+          <h4>Organised files</h4>
+          <p>Folder-free filing with tags, categories and sensitivity flags for precise access control.</p>
+        </div>
+        <div class="feature-card">
+          <svg class="feature-icon" aria-hidden="true"><use href="#icon-flash" /></svg>
+          <h4>Fast approvals</h4>
+          <p>Role-based routing and bulk actions let your teams process documents quickly with traceable decisions.</p>
+        </div>
+        <div class="feature-card">
+          <svg class="feature-icon" aria-hidden="true"><use href="#icon-shield" /></svg>
+          <h4>Audit-ready</h4>
+          <p>Every transition is logged with user, time and comment to satisfy compliance and internal reviews.</p>
+        </div>
+        <div class="feature-card">
+          <svg class="feature-icon" aria-hidden="true"><use href="#icon-retry" /></svg>
+          <h4>Retry & recover</h4>
+          <p>Per-item error reporting and retry workflows make bulk operations robust against intermittent issues.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats strip -->
+    <section class="stats-strip">
+      <div class="container stats-inner">
+        <div class="stat">
+          <div class="stat-number" data-count="1245">0</div>
+          <div class="stat-label">Files processed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number" data-count="312">0</div>
+          <div class="stat-label">Approvals today</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number" data-count="98">0</div>
+          <div class="stat-label">Active workflows</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number" data-count="27">0</div>
+          <div class="stat-label">Departments</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials carousel -->
+    <section class="testimonials container" aria-label="User testimonials">
+      <h2 class="section-title">Trusted by teams</h2>
+      <div class="testi-wrap" id="testiWrap">
+        <div class="testi" data-index="0">
+          <p>“Switching to this DMS cut our approval time in half. The audit logs are a lifesaver for compliance.”</p>
+          <div class="testi-meta">— Jane Doe, Compliance</div>
+        </div>
+        <div class="testi" data-index="1">
+          <p>“Bulk actions with retry made processing large batches simple and reliable.”</p>
+          <div class="testi-meta">— Mark Aden, Head of Operations</div>
+        </div>
+        <div class="testi" data-index="2">
+          <p>“The role-based inbox reduced misrouted files dramatically — our HODs love it.”</p>
+          <div class="testi-meta">— Priya Kumar, HOD</div>
+        </div>
+      </div>
+      <div class="testi-controls">
+        <button id="testiPrev" aria-label="Previous testimonial">‹</button>
+        <button id="testiNext" aria-label="Next testimonial">›</button>
+      </div>
+    </section>
+
+    <section class="cta-strip">
+      <div class="container">
+        <div class="cta-inner">
+          <div>
+            <h4>Ready to manage documents efficiently?</h4>
+            <p>Sign in to access your inbox, submit files, and review approvals.</p>
+          </div>
+          <div>
+            <a class="btn btn-primary" href="@form_index.html">Sign in</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>© <span id="year"></span> Document Management System</div>
+      <div class="footer-links"><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    // If @form_index.html isn't present, fall back to login_index.html silently
+    (function(){
+      fetch('@form_index.html', {method:'HEAD'}).then(r=>{
+        if(!r.ok){
+          var els = document.querySelectorAll('a[href="@form_index.html"]');
+          els.forEach(e=>e.href='login_index.html');
+        }
+      }).catch(()=>{
+        var els = document.querySelectorAll('a[href="@form_index.html"]');
+        els.forEach(e=>e.href='login_index.html');
+      });
+    })();
+
+    // Stats counter animation
+    (function(){
+      function animateCounters(){
+        document.querySelectorAll('.stat-number').forEach(el=>{
+          const target = Number(el.dataset.count || el.textContent || 0);
+          if(!target) return; if(el.dataset.animated) return; el.dataset.animated = 'true';
+          let cur = 0; const step = Math.max(1, Math.floor(target/60));
+          const iv = setInterval(()=>{
+            cur += step; if(cur >= target){ el.textContent = target; clearInterval(iv); } else el.textContent = cur;
+          }, 16);
+        });
+      }
+      // trigger when visible
+      function onScroll(){
+        const el = document.querySelector('.stats-strip'); if(!el) return;
+        const rect = el.getBoundingClientRect();
+        if(rect.top < window.innerHeight && rect.bottom > 0){ animateCounters(); window.removeEventListener('scroll', onScroll); }
+      }
+      window.addEventListener('scroll', onScroll); onScroll();
+    })();
+
+    // Testimonials simple rotation
+    (function(){
+      const wrap = document.getElementById('testiWrap'); if(!wrap) return;
+      const items = Array.from(wrap.querySelectorAll('.testi'));
+      let idx = 0; function show(i){ items.forEach((it,ii)=> it.classList.toggle('active', ii===i)); }
+      show(0);
+      document.getElementById('testiPrev').addEventListener('click', ()=>{ idx = (idx-1+items.length)%items.length; show(idx); });
+      document.getElementById('testiNext').addEventListener('click', ()=>{ idx = (idx+1)%items.length; show(idx); });
+      setInterval(()=>{ idx = (idx+1)%items.length; show(idx); }, 6000);
+    })();
+  </script>
+</body>
+</html>

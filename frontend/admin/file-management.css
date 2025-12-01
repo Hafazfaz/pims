@@ -1,0 +1,877 @@
+/* File Management Specific Styles */
+
+/* Harmonize with global dashboard-new.css */
+
+.container {
+    padding: 30px;
+    animation: fadeIn 0.8s ease-out;
+    max-width: 100%;
+}
+
+h1 {
+    color: var(--dark-color);
+    margin-bottom: 30px;
+    text-align: left;
+    font-size: 1.8rem;
+    font-weight: 600;
+    position: relative;
+}
+
+.file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 30px;
+    align-items: center;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.file-actions .btn,
+.file-actions .form-control {
+    padding: 10px 16px;
+    border-radius: var(--border-radius);
+    border: 1px solid #e2e8f0;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.file-actions .btn {
+    cursor: pointer;
+    border: none;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-actions .btn-primary {
+    background: linear-gradient(180deg, var(--primary-color), var(--primary-2));
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 112, 60, 0.15);
+}
+
+.file-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 112, 60, 0.2);
+}
+
+.file-actions .btn-info {
+    background-color: var(--secondary-color);
+    color: #fff;
+}
+
+.file-actions .btn-info:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+}
+
+.file-actions .form-control {
+    flex-grow: 1;
+    max-width: 300px;
+    background-color: #f8fafc;
+}
+
+.file-actions .form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 112, 60, 0.1);
+    outline: none;
+    background-color: #fff;
+}
+
+/* Table Styles - Inherit from dashboard-new.css but add specifics if needed */
+.table-container {
+    margin-top: 20px;
+    background-color: #fff;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow-x: auto;
+}
+
+#file-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#file-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.8px;
+    padding: 16px 20px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+#file-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+#file-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Actions */
+#file-table .actions {
+    display: flex;
+    gap: 12px;
+}
+
+#file-table .actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: transform 0.2s, color 0.2s;
+    padding: 6px;
+    border-radius: 6px;
+}
+
+#file-table .actions .download-btn {
+    color: var(--secondary-color);
+    background-color: #eff6ff;
+}
+
+#file-table .actions .edit-btn {
+    color: #f59e0b;
+    background-color: #fffbeb;
+}
+
+#file-table .actions .delete-btn {
+    color: var(--danger-color);
+    background-color: #fef2f2;
+}
+
+#file-table .actions .history-btn,
+#file-table .actions .access-log-btn {
+    color: #64748b;
+    background-color: #f1f5f9;
+}
+
+#file-table .actions button:hover {
+    transform: translateY(-2px);
+}
+
+.tag {
+    display: inline-block;
+    background-color: #e0f2fe;
+    color: #0369a1;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    margin-right: 5px;
+    font-weight: 600;
+}
+
+/* Modal Styles - Align with dashboard-new.css */
+.modal {
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background-color: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    border: none;
+    padding: 0;
+}
+
+.modal-header {
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-2));
+    color: #fff;
+    padding: 20px 30px;
+    border-top-left-radius: var(--border-radius);
+    border-top-right-radius: var(--border-radius);
+    text-align: left;
+}
+
+.modal-header h2 {
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 500;
+}
+
+.modal-body {
+    padding: 30px;
+}
+
+.close-button {
+    color: #fff;
+    top: 15px;
+    right: 20px;
+    opacity: 0.8;
+}
+
+.close-button:hover {
+    color: #fff;
+    opacity: 1;
+    transform: none;
+}
+
+.modal-body .form-group label {
+    color: var(--dark-color);
+    font-weight: 500;
+}
+
+.modal-body .form-control {
+    border: 1px solid #e2e8f0;
+    border-radius: var(--border-radius);
+    padding: 12px;
+}
+
+.modal-body .form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 112, 60, 0.1);
+}
+
+.modal-body .btn-primary {
+    background: linear-gradient(180deg, var(--primary-color), var(--primary-2));
+    width: 100%;
+    justify-content: center;
+    padding: 14px;
+    font-size: 1rem;
+    margin-top: 10px;
+}
+
+.modal-body .btn-secondary {
+    background-color: #f1f5f9;
+    color: #64748b;
+    width: 100%;
+    justify-content: center;
+    padding: 14px;
+    font-size: 1rem;
+    margin-top: 10px;
+    border: none;
+}
+
+.modal-body .btn-secondary:hover {
+    background-color: #e2e8f0;
+    color: #475569;
+    transform: none;
+    box-shadow: none;
+}
+
+h1 {
+    color: var(--fmc-green);
+    margin-bottom: 30px;
+    text-align: center;
+    font-size: 2.8em;
+    font-weight: 700;
+    animation: slideInDown 1s ease-out;
+    position: relative;
+    padding-bottom: 15px;
+}
+
+h1::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background-color: var(--fmc-light-green);
+    border-radius: 2px;
+}
+
+.file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 30px;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+    background-color: var(--fmc-gray);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.file-actions .btn,
+.file-actions .form-control {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1.05em;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.file-actions .btn {
+    cursor: pointer;
+    color: var(--fmc-white);
+    border: none;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-actions .btn i {
+    font-size: 1.1em;
+}
+
+.file-actions .btn-primary {
+    background-color: var(--fmc-green);
+}
+
+.file-actions .btn-primary:hover {
+    background-color: var(--fmc-light-green);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 6px 15px rgba(0, 112, 60, 0.3);
+}
+
+.file-actions .btn-info {
+    background-color: var(--fmc-blue);
+}
+
+.file-actions .btn-info:hover {
+    background-color: #0056b3;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 6px 15px rgba(0, 123, 255, 0.3);
+}
+
+.file-actions .form-control {
+    flex-grow: 1;
+    max-width: 300px;
+    background-color: var(--fmc-white);
+}
+
+.file-actions .form-control:focus {
+    border-color: var(--fmc-green);
+    box-shadow: 0 0 0 3px rgba(0, 112, 60, 0.2);
+    outline: none;
+}
+
+/* Table Styles */
+.table-container {
+    overflow-x: auto;
+    margin-top: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    animation: slideInUp 0.9s ease-out;
+    background-color: var(--fmc-white);
+}
+
+#file-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0;
+    min-width: 900px;
+}
+
+#file-table th,
+#file-table td {
+    padding: 15px 18px;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid #e0e6e9;
+}
+
+#file-table th {
+    background-color: var(--fmc-green);
+    color: var(--fmc-white);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.95em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+#file-table th:first-child {
+    border-top-left-radius: 10px;
+}
+
+#file-table th:last-child {
+    border-top-right-radius: 10px;
+}
+
+#file-table tbody tr {
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#file-table tbody tr:nth-child(even) {
+    background-color: var(--fmc-gray);
+}
+
+#file-table tbody tr:hover {
+    background-color: #e6f7ed;
+    /* Light green hover */
+    transform: translateY(-2px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+#file-table .actions {
+    display: flex;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+#file-table .actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2em;
+    transition: color 0.3s ease, transform 0.3s ease;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+#file-table .actions .download-btn {
+    color: var(--fmc-blue);
+}
+
+#file-table .actions .edit-btn {
+    color: var(--fmc-orange);
+}
+
+#file-table .actions .delete-btn {
+    color: var(--fmc-red);
+}
+
+#file-table .actions .history-btn,
+#file-table .actions .access-log-btn {
+    color: #6c757d;
+    /* Bootstrap secondary color */
+}
+
+
+#file-table .actions button:hover {
+    transform: scale(1.15);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tag {
+    display: inline-block;
+    background-color: var(--fmc-light-blue);
+    /* Light blue */
+    color: #0056b3;
+    /* Darker blue */
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    margin-right: 7px;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.7);
+    /* Darker overlay */
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal:not(.show-modal) {
+    display: none;
+}
+
+.modal.show-modal {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--fmc-white);
+    padding: 35px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    position: relative;
+    width: 95%;
+    max-width: 750px;
+    animation: zoomIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 1px solid #ccc;
+}
+
+.close-button {
+    color: #6c757d;
+    font-size: 36px;
+    font-weight: bold;
+    position: absolute;
+    right: 20px;
+    top: 10px;
+    cursor: pointer;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: var(--fmc-red);
+    transform: rotate(90deg);
+}
+
+.modal-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e6e9;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--fmc-green);
+    font-size: 2.2em;
+    font-weight: 600;
+}
+
+.modal-body .form-group {
+    margin-bottom: 20px;
+}
+
+.modal-body label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: var(--fmc-dark-gray);
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-body label i {
+    color: var(--fmc-green);
+}
+
+.modal-body .form-control {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 1em;
+    color: var(--fmc-dark-gray);
+    background-color: var(--fmc-white);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.modal-body .form-control:focus {
+    border-color: var(--fmc-green);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 112, 60, 0.2);
+}
+
+.modal-body .btn {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.15em;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    margin-top: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.modal-body .btn-primary {
+    background-color: var(--fmc-green);
+    color: var(--fmc-white);
+    border: none;
+}
+
+.modal-body .btn-primary:hover {
+    background-color: var(--fmc-light-green);
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 20px rgba(0, 112, 60, 0.3);
+}
+
+.modal-body .btn-secondary {
+    background-color: #6c757d;
+    color: var(--fmc-white);
+    margin-top: 10px;
+}
+
+.modal-body .btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 20px rgba(108, 117, 125, 0.3);
+}
+
+/* Notification Toast (rely on global styles.css for this) */
+/* Removed specific toast styles from here to avoid duplication and ensure global consistency */
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes zoomIn {
+    from {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .container {
+        margin: 15px auto;
+        padding: 25px 15px;
+    }
+
+    h1 {
+        font-size: 2.5em;
+    }
+
+    .file-actions {
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .file-actions .btn,
+    .file-actions .form-control {
+        padding: 10px 15px;
+        font-size: 1em;
+    }
+
+    #file-table th,
+    #file-table td {
+        padding: 12px 15px;
+        font-size: 0.9em;
+    }
+
+    #file-table .actions button {
+        font-size: 1.1em;
+    }
+
+    .modal-content {
+        padding: 30px;
+        max-width: 600px;
+    }
+
+    .modal-header h2 {
+        font-size: 2em;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        margin: 10px auto;
+        padding: 20px 10px;
+        border-radius: 8px;
+    }
+
+    h1 {
+        font-size: 2em;
+        margin-bottom: 20px;
+    }
+
+    h1::after {
+        width: 60px;
+        height: 3px;
+    }
+
+    .file-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .file-actions .btn,
+    .file-actions .form-control {
+        width: 100%;
+        max-width: none;
+        font-size: 0.95em;
+    }
+
+    .table-container {
+        border-radius: 8px;
+    }
+
+    #file-table {
+        min-width: 700px;
+    }
+
+    #file-table th,
+    #file-table td {
+        padding: 10px 12px;
+        font-size: 0.85em;
+    }
+
+    #file-table .actions {
+        gap: 8px;
+    }
+
+    #file-table .actions button {
+        font-size: 1em;
+        padding: 3px;
+    }
+
+    .tag {
+        font-size: 0.75em;
+        padding: 4px 8px;
+        margin-right: 5px;
+    }
+
+    .modal-content {
+        padding: 25px;
+        border-radius: 12px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.8em;
+    }
+
+    .modal-body .form-group {
+        margin-bottom: 15px;
+    }
+
+    .modal-body label {
+        font-size: 0.9em;
+        margin-bottom: 8px;
+    }
+
+    .modal-body .form-control {
+        padding: 10px;
+        font-size: 0.9em;
+    }
+
+    .modal-body .btn {
+        padding: 12px 15px;
+        font-size: 1.05em;
+        margin-top: 15px;
+    }
+
+    .close-button {
+        font-size: 30px;
+        right: 15px;
+        top: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.8em;
+        margin-bottom: 15px;
+    }
+
+    h1::after {
+        width: 50px;
+        height: 2px;
+    }
+
+    .file-actions {
+        padding: 8px;
+    }
+
+    .file-actions .btn,
+    .file-actions .form-control {
+        padding: 8px 12px;
+        font-size: 0.9em;
+    }
+
+    #file-table {
+        min-width: 500px;
+    }
+
+    #file-table th,
+    #file-table td {
+        padding: 8px 10px;
+        font-size: 0.8em;
+    }
+
+    #file-table .actions {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    #file-table .actions button {
+        font-size: 0.9em;
+        padding: 2px;
+    }
+
+    .modal-content {
+        padding: 20px;
+        border-radius: 10px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.5em;
+    }
+
+    .modal-body .form-group {
+        margin-bottom: 12px;
+    }
+
+    .modal-body label {
+        font-size: 0.85em;
+        margin-bottom: 6px;
+    }
+
+    .modal-body .form-control {
+        padding: 8px;
+        font-size: 0.85em;
+    }
+
+    .modal-body .btn {
+        padding: 10px 12px;
+        font-size: 1em;
+        margin-top: 12px;
+    }
+
+    .close-button {
+        font-size: 30px;
+        right: 15px;
+        top: 8px;
+    }
+}

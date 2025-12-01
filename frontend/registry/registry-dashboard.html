@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registry Dashboard - DMS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="registry-dashboard.css?v=100">
+</head>
+
+<body>
+    <div class="container">
+        <aside class="sidebar">
+<div class="logo">
+    <i class="fas fa-archive" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+    <div>
+        <h2>Registry</h2>
+        <small>File Custodian</small>
+    </div>
+</div>
+<nav>
+    <ul>
+        <li><a href="#" class="active" data-section="overview">
+                <i class="fas fa-th-large"></i> Overview</a></li>
+        <li><a href="#" data-section="create-file">
+                <i class="fas fa-plus-circle"></i> Create File</a></li>
+        <li><a href="#" data-section="activation-requests">
+                <i class="fas fa-tasks"></i> Activation Requests
+                <span id="pending-badge" class="badge">0</span></a></li>
+        <li><a href="#" data-section="file-management">
+                <i class="fas fa-folder-open"></i> Manage Files</a></li>
+        <li><a href="#" id="logout-btn" style="color: #ef4444;">
+                <i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+</nav>
+</aside>
+
+<main class="main-content">
+    <header class="navbar">
+        <h1>Welcome, <span id="welcomeName">Registry Officer</span>!</h1>
+        <div class="user-info">
+            <span id="headerUserName">Registry</span>
+            <div class="avatar">R</div>
+        </div>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="overview" class="dashboard-section active">
+        <h2><i class="fas fa-chart-line"></i> Registry Operations Dashboard</h2>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #3b82f6;">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="files-today">0</h3>
+                    <p>Files Created Today</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #10b981;">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="pending-activations">0</h3>
+                    <p>Pending Activations</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #f59e0b;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="active-files">0</h3>
+                    <p>Active Files</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #8b5cf6;">
+                    <i class="fas fa-archive"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="files-this-month">0</h3>
+                    <p>Created This Month</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Activity</h3>
+            <div id="recent-activity" class="activity-list">
+                <p class="text-muted">No recent activity</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Create File Section -->
+    <section id="create-file" class="dashboard-section">
+        <h2><i class="fas fa-plus-circle"></i> Create New File</h2>
+
+        <div class="card">
+            <form id="create-file-form">
+                <div class="form-group">
+                    <label for="file-name">File Name (UPPERCASE) *</label>
+                    <input type="text" id="file-name" required placeholder="e.g., JOHN DOE EMPLOYMENT FILE">
+                    <small>File name will be automatically converted to uppercase</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="file-category">File Category *</label>
+                        <select id="file-category" required>
+                            <option value="">-- Select Category --</option>
+                            <option value="Personal">Personal File</option>
+                            <option value="Policy">Policy File</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="employment-type-group" style="display: none;">
+                        <label for="employment-type">Employment Type *</label>
+                        <select id="employment-type">
+                            <option value="">-- Select Type --</option>
+                            <option value="Permanent">Permanent Staff</option>
+                            <option value="Locum">Locum Staff</option>
+                            <option value="Contract">Contract Staff</option>
+                            <option value="NYSC">NYSC Personnel</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="department-group" style="display: none;">
+                        <label for="department">Department *</label>
+                        <select id="department">
+                            <option value="">-- Select Department --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="owner-group" style="display: none;">
+                    <label for="owner">File Owner/Manager</label>
+                    <select id="owner">
+                        <option value="">-- Select Staff Member --</option>
+                    </select>
+                    <small>Link this file to a staff member</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="second-level-auth">
+                        <span>Requires Second-Level Authorization (HOD Approval)</span>
+                    </label>
+                    <small>Check this for sensitive files requiring additional approval before
+                        activation</small>
+                </div>
+
+                <div class="file-number-preview" id="file-number-preview" style="display: none;">
+                    <strong>File Number Preview:</strong>
+                    <span id="preview-number" class="file-number-badge">FMCAB/2025/PS/XXX</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Create File
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Activation Requests Section -->
+    <section id="activation-requests" class="dashboard-section">
+        <h2><i class="fas fa-tasks"></i> File Activation Requests</h2>
+
+        <div class="card">
+            <div class="table-container">
+                <table id="activation-requests-table">
+                    <thead>
+                        <tr>
+                            <th>File Number</th>
+                            <th>File Name</th>
+                            <th>Category</th>
+                            <th>Requestor</th>
+                            <th>Reason</th>
+                            <th>Requested</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activation-requests-body">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">
+                                No pending activation requests
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- File Management Section -->
+    <section id="file-management" class="dashboard-section">
+        <h2><i class="fas fa-folder-open"></i> File Management</h2>
+
+        <div class="card">
+            <div class="search-bar">
+                <input type="text" id="file-search" placeholder="Search files by number or name...">
+                <button class="btn btn-secondary" onclick="searchFiles()">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table id="files-table">
+                    <thead>
+                        <tr>
+                            <th>File Number</th>
+                            <th>File Name</th>
+                            <th>Category</th>
+                            <th>State</th>
+                            <th>Current Location</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="files-body">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">
+                                Use search to find files
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+</div>
+
+<!-- Modals -->
+<div id="approve-modal" class="modal">
+    <div class="modal-content">
+        <h3>Approve File Activation</h3>
+        <p id="approve-details"></p>
+        <div class="modal-actions">
+            <button class="btn btn-success" onclick="confirmApproval()">
+                <i class="fas fa-check"></i> Approve
+            </button>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3b82f6;">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="files-today">0</h3>
+                        <p>Files Created Today</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #10b981;">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="pending-activations">0</h3>
+                        <p>Pending Activations</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f59e0b;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="active-files">0</h3>
+                        <p>Active Files</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #8b5cf6;">
+                        <i class="fas fa-archive"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="files-this-month">0</h3>
+                        <p>Created This Month</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent Activity</h3>
+                <div id="recent-activity" class="activity-list">
+                    <p class="text-muted">No recent activity</p>
+                </div>
+            </div>
+            </section>
+
+            <!-- Create File Section -->
+            <section id="create-file" class="dashboard-section">
+                <h2><i class="fas fa-plus-circle"></i> Create New File</h2>
+
+                <div class="card">
+                    <form id="create-file-form">
+                        <div class="form-group">
+                            <label for="file-name">File Name (UPPERCASE) *</label>
+                            <input type="text" id="file-name" required placeholder="e.g., JOHN DOE EMPLOYMENT FILE">
+                            <small>File name will be automatically converted to uppercase</small>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="file-category">File Category *</label>
+                                <select id="file-category" required>
+                                    <option value="">-- Select Category --</option>
+                                    <option value="Personal">Personal File</option>
+                                    <option value="Policy">Policy File</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="employment-type-group" style="display: none;">
+                                <label for="employment-type">Employment Type *</label>
+                                <select id="employment-type">
+                                    <option value="">-- Select Type --</option>
+                                    <option value="Permanent">Permanent Staff</option>
+                                    <option value="Locum">Locum Staff</option>
+                                    <option value="Contract">Contract Staff</option>
+                                    <option value="NYSC">NYSC Personnel</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="department-group" style="display: none;">
+                                <label for="department">Department *</label>
+                                <select id="department">
+                                    <option value="">-- Select Department --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="owner-group" style="display: none;">
+                            <label for="owner">File Owner/Manager</label>
+                            <select id="owner">
+                                <option value="">-- Select Staff Member --</option>
+                            </select>
+                            <small>Link this file to a staff member</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="second-level-auth">
+                                <span>Requires Second-Level Authorization (HOD Approval)</span>
+                            </label>
+                            <small>Check this for sensitive files requiring additional approval before
+                                activation</small>
+                        </div>
+
+                        <div class="file-number-preview" id="file-number-preview" style="display: none;">
+                            <strong>File Number Preview:</strong>
+                            <span id="preview-number" class="file-number-badge">FMCAB/2025/PS/XXX</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Create File
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Activation Requests Section -->
+            <section id="activation-requests" class="dashboard-section">
+                <h2><i class="fas fa-tasks"></i> File Activation Requests</h2>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table id="activation-requests-table">
+                            <thead>
+                                <tr>
+                                    <th>File Number</th>
+                                    <th>File Name</th>
+                                    <th>Category</th>
+                                    <th>Requestor</th>
+                                    <th>Reason</th>
+                                    <th>Requested</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activation-requests-body">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        No pending activation requests
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- File Management Section -->
+            <section id="file-management" class="dashboard-section">
+                <h2><i class="fas fa-folder-open"></i> File Management</h2>
+
+                <div class="card">
+                    <div class="search-bar">
+                        <input type="text" id="file-search" placeholder="Search files by number or name...">
+                        <button class="btn btn-secondary" onclick="searchFiles()">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="files-table">
+                            <thead>
+                                <tr>
+                                    <th>File Number</th>
+                                    <th>File Name</th>
+                                    <th>Category</th>
+                                    <th>State</th>
+                                    <th>Current Location</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-body">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        Use search to find files
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            </main>
+        </div>
+
+        <!-- Modals -->
+        <div id="approve-modal" class="modal">
+            <div class="modal-content">
+                <h3>Approve File Activation</h3>
+                <p id="approve-details"></p>
+                <div class="modal-actions">
+                    <button class="btn btn-success" onclick="confirmApproval()">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal('approve-modal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="reject-modal" class="modal">
+            <div class="modal-content">
+                <h3>Reject File Activation</h3>
+                <p id="reject-details"></p>
+                <div class="form-group">
+                    <label for="rejection-reason">Rejection Reason *</label>
+                    <textarea id="rejection-reason" rows="3" required
+                        placeholder="Enter reason for rejection..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    ```
+                    <h3 id="pending-activations">0</h3>
+                    <p>Pending Activations</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #f59e0b;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="active-files">0</h3>
+                    <p>Active Files</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #8b5cf6;">
+                    <i class="fas fa-archive"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="files-this-month">0</h3>
+                    <p>Created This Month</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Activity</h3>
+            <div id="recent-activity" class="activity-list">
+                <p class="text-muted">No recent activity</p>
+            </div>
+        </div>
+        </section>
+
+        <!-- Create File Section -->
+        <section id="create-file" class="dashboard-section">
+            <h2><i class="fas fa-plus-circle"></i> Create New File</h2>
+
+            <div class="card">
+                <form id="create-file-form">
+                    <div class="form-group">
+                        <label for="file-name">File Name (UPPERCASE) *</label>
+                        <input type="text" id="file-name" required placeholder="e.g., JOHN DOE EMPLOYMENT FILE">
+                        <small>File name will be automatically converted to uppercase</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="file-category">File Category *</label>
+                            <select id="file-category" required>
+                                <option value="">-- Select Category --</option>
+                                <option value="Personal">Personal File</option>
+                                <option value="Policy">Policy File</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="employment-type-group" style="display: none;">
+                            <label for="employment-type">Employment Type *</label>
+                            <select id="employment-type">
+                                <option value="">-- Select Type --</option>
+                                <option value="Permanent">Permanent Staff</option>
+                                <option value="Locum">Locum Staff</option>
+                                <option value="Contract">Contract Staff</option>
+                                <option value="NYSC">NYSC Personnel</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="department-group" style="display: none;">
+                            <label for="department">Department *</label>
+                            <select id="department">
+                                <option value="">-- Select Department --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="owner-group" style="display: none;">
+                        <label for="owner">File Owner/Manager</label>
+                        <select id="owner">
+                            <option value="">-- Select Staff Member --</option>
+                        </select>
+                        <small>Link this file to a staff member</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="second-level-auth">
+                            <span>Requires Second-Level Authorization (HOD Approval)</span>
+                        </label>
+                        <small>Check this for sensitive files requiring additional approval before
+                            activation</small>
+                    </div>
+
+                    <div class="file-number-preview" id="file-number-preview" style="display: none;">
+                        <strong>File Number Preview:</strong>
+                        <span id="preview-number" class="file-number-badge">FMCAB/2025/PS/XXX</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create File
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Activation Requests Section -->
+        <section id="activation-requests" class="dashboard-section">
+            <h2><i class="fas fa-tasks"></i> File Activation Requests</h2>
+
+            <div class="card">
+                <div class="table-container">
+                    <table id="activation-requests-table">
+                        <thead>
+                            <tr>
+                                <th>File Number</th>
+                                <th>File Name</th>
+                                <th>Category</th>
+                                <th>Requestor</th>
+                                <th>Reason</th>
+                                <th>Requested</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activation-requests-body">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">
+                                    No pending activation requests
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- File Management Section -->
+        <section id="file-management" class="dashboard-section">
+            <h2><i class="fas fa-folder-open"></i> File Management</h2>
+
+            <div class="card">
+                <div class="search-bar">
+                    <input type="text" id="file-search" placeholder="Search files by number or name...">
+                    <button class="btn btn-secondary" onclick="searchFiles()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+
+                <div class="table-container">
+                    <table id="files-table">
+                        <thead>
+                            <tr>
+                                <th>File Number</th>
+                                <th>File Name</th>
+                                <th>Category</th>
+                                <th>State</th>
+                                <th>Current Location</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="files-body">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">
+                                    Use search to find files
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="approve-modal" class="modal">
+        <div class="modal-content">
+            <h3>Approve File Activation</h3>
+            <p id="approve-details"></p>
+            <div class="modal-actions">
+                <button class="btn btn-success" onclick="confirmApproval()">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('approve-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reject-modal" class="modal">
+        <div class="modal-content">
+            <h3>Reject File Activation</h3>
+            <p id="reject-details"></p>
+            <div class="form-group">
+                <label for="rejection-reason">Rejection Reason *</label>
+                <textarea id="rejection-reason" rows="3" required
+                    placeholder="Enter reason for rejection..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="confirmRejection()">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('reject-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../components/notification-center.js"></script>
+    <script src="registry-dashboard.js?v=999"></script>
+    </body>
+
+    </html>
+    ```
