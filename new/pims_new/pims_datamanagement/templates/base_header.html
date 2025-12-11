@@ -1,0 +1,28 @@
+{% load static %}
+<header>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-government-green">
+        <a class="navbar-brand" href="#">PIMS</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link nav-link-custom-padding" href="{% url 'document_management:my_files' %}">My Files</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link nav-link-custom-padding" href="{% url 'document_management:file_create' %}">Upload File</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link nav-link-custom-padding" href="{% url 'admin:logout' %}">Logout</a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="nav-link nav-link-custom-padding" href="{% url 'user_management:login' %}">Login</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+</header>

@@ -1,11 +1,11 @@
 {% extends 'base_empty.html' %}
 {% load static %}
 
-{% block title %}Login{% endblock %}
+{% block title %}OTP Verification{% endblock %}
 
 {% block extra_head %}
 <style>
-    .login-container {
+    .otp-container {
         max-width: 400px;
         margin: 100px auto;
         padding: 30px;
@@ -25,23 +25,15 @@
 {% endblock %}
 
 {% block content %}
-    <div class="login-container">
-        <h2 class="text-center mb-4 text-success">Login</h2>
+    <div class="otp-container">
+        <h2 class="text-center mb-4 text-success">OTP Verification</h2>
         <form method="post">
             {% csrf_token %}
-            {% for field in form %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <div class="form-text">{{ field.help_text }}</div>
-                    {% endif %}
-                    {% for error in field.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-            {% endfor %}
-            <button type="submit" class="btn btn-success-custom w-100">Login</button>
+            <p class="mb-3">Please enter the OTP sent to your email:</p>
+            <div class="mb-3">
+                <input type="text" name="otp_token" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success-custom w-100">Verify OTP</button>
         </form>
         {% if messages %}
             <div class="mt-4">
