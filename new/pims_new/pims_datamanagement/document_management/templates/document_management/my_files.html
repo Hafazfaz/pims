@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}My Files{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>My Files</h2>
+</div>
+
+{# My Inbox Section #}
+<h3 class="mt-4">My Inbox</h3>
+{% if inbox_files %}
+<div class="table-responsive mb-4">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>File Number</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Owner</th>
+                <th>Received At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in inbox_files %}
+            <tr>
+                <td>{{ file.file_number }}</td>
+                <td>{{ file.title }}</td>
+                <td>{{ file.get_file_type_display }}</td>
+                <td>{{ file.department.name|default:"N/A" }}</td>
+                <td>{{ file.get_status_display }}</td>
+                <td>{{ file.owner.get_full_name|default:file.owner.username }}</td>
+                <td>{{ file.created_at|date:"Y-m-d H:i" }}</td> {# Assuming created_at is close enough for "received at" for MVP #}
+                <td>
+                    <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="btn btn-sm btn-info">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info mt-4" role="alert">
+    Your inbox is empty.
+</div>
+{% endif %}
+
+{# My Owned Files Section #}
+<h3 class="mt-4">My Owned Files</h3>
+{% if owned_files %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>File Number</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Current Location</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in owned_files %}
+            <tr>
+                <td>{{ file.file_number }}</td>
+                <td>{{ file.title }}</td>
+                <td>{{ file.get_file_type_display }}</td>
+                <td>{{ file.department.name|default:"N/A" }}</td>
+                <td>{{ file.get_status_display }}</td>
+                <td>{{ file.current_location.get_full_name|default:file.current_location.username }}</td>
+                <td>{{ file.created_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    {% if file.status == 'inactive' %}
+                        <form action="{% url 'document_management:file_request_activation' pk=file.pk %}" method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success">Request Activation</button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="btn btn-sm btn-info">View</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+    You do not own any files.
+</div>
+{% endif %}
+{% endblock %}
