@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OTP Devices</title>
+</head>
+<body>
+    <h2>Your OTP Devices</h2>
+    {% if devices %}
+        <ul>
+            {% for device in devices %}
+                <li>{{ device.name }} ({{ device.get_kind }}) - {% if device.confirmed %}Confirmed{% else %}Unconfirmed{% endif %}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No OTP devices configured.</p>
+    {% endif %}
+    <p><a href="#">Add new OTP device</a></p>
+</body>
+</html>

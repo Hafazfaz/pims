@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Remove OTP Device</title>
+</head>
+<body>
+    <h2>Remove OTP Device</h2>
+    <p>Are you sure you want to remove the OTP device: <strong>{{ device.name }} ({{ device.get_kind }})</strong>?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit">Confirm Removal</button>
+        <a href="{% url 'user_management:otp_device_list' %}">Cancel</a>
+    </form>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>

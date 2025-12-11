@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add TOTP Device</title>
+</head>
+<body>
+    <h2>Add TOTP Device</h2>
+    <p>Scan the QR code with your authenticator app (e.g., Google Authenticator, Authy) or manually enter the key:</p>
+    <p><strong>Key:</strong> {{ key }}</p>
+    <img src="data:image/svg+xml;base64,{{ qr_code_svg }}" alt="QR Code">
+
+    <form method="post">
+        {% csrf_token %}
+        <p>Enter the 6-digit code from your authenticator app to verify:</p>
+        <input type="text" name="otp_token" required>
+        <input type="hidden" name="device_name" value="{{ device_name }}">
+        <button type="submit">Verify and Add Device</button>
+    </form>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>
