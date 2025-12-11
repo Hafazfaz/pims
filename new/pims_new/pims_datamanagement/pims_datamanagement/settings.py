@@ -10,8 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,7 +40,17 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "user_management",
     "organization",
+    "document_management",
+    # "tailwind",
+    # "theme",
+    "django_otp",
+    "django_otp.plugins.otp_static",
+    "django_otp.plugins.otp_totp",
+    # "axes",
 ]
+
+# TAILWIND_APP_NAME = "theme"
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -48,6 +58,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django_otp.middleware.OTPMiddleware",
+    # "axes.middleware.AxesMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -57,7 +69,7 @@ ROOT_URLCONF = "pims_datamanagement.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -100,6 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 12},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -126,3 +139,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
+AUTH_USER_MODEL = "user_management.CustomUser"
+
+# Email settings for development (prints emails to console)
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# AUTHENTICATION_BACKENDS = [
+#     # "axes.backends.AxesBackend",
+#     # "user_management.backends.CustomOTPBackend",
+# ]
+
+# Session settings
+SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Axes settings
+# AXES_FAILURE_LIMIT = 3
+AXES_LOCKOUT_CALLABLE = "user_management.views.custom_lockout_view"
