@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome to PIMS{% endblock %}
+
+{% block content %}
+<div class="jumbotron bg-light p-5 rounded-3">
+    <h1 class="display-4">Welcome, {{ user_name }}!</h1>
+    <p class="lead">This is your PIMS dashboard. Use the navigation to manage files and documents.</p>
+    <hr class="my-4">
+    <p>Your current location is: <strong>{{ request.user.staff.department.name|default:"N/A" }} - {{ request.user.staff.unit.name|default:"N/A" }}</strong></p>
+    <p>Your designation is: <strong>{{ request.user.staff.designation.name|default:"N/A" }}</strong></p>
+    <a class="btn btn-primary btn-lg" href="{% url 'document_management:my_files' %}" role="button">Go to My Files</a>
+    {% if perms.document_management.view_file %}
+        <a class="btn btn-secondary btn-lg" href="{% url 'document_management:registry_dashboard' %}" role="button">Go to Registry Dashboard</a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar_left %}
+    {{ block.super }} {# Keep default sidebar content #}
+    <div class="card mb-3">
+        <div class="card-header">User Info</div>
+        <div class="card-body">
+            <p><strong>Role:</strong> {{ request.user.groups.first.name|default:"Staff" }}</p>
+            <p><strong>Email:</strong> {{ request.user.email }}</p>
+        </div>
+    </div>
+{% endblock %}
+
+{% block sidebar_right %}
+    {{ block.super }} {# Keep default sidebar content #}
+    <div class="card mb-3">
+        <div class="card-header">Announcements</div>
+        <div class="card-body">
+            <p>No new announcements.</p>
+        </div>
+    </div>
+{% endblock %}
