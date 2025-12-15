@@ -13,4 +13,5 @@ dependencies = [
     "twilio",
     "django-axes",
     "qrcode>=8.2",
+    "django-widget-tweaks>=1.5.0",
 ]
