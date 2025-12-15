@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+
+
+
+{% block content %}
+    <div class="flex flex-col justify-center flex-1 w-full h-screen sm:p-0 lg:flex-row">
+        <div class="flex flex-col flex-1 w-full lg:w-1/2">
+            <div class="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
+                <div class="login-container">
+                    <h2 class="text-center mb-4 text-success">Login</h2>
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">{{ field.label }}</label>
+                                {{ field|add_class:"h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10" }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-success-custom w-100">Login</button>
+                    </form>
+                    {% if messages %}
+                        <div class="mt-4">
+                            {% for message in messages %}
+                                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}" role="alert">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="mt-5 text-center">
+                    <p class="text-sm font-normal text-gray-700 dark:text-gray-400">
+                        Don't have an account?
+                        <a href="/signup.html" class="text-brand-500 hover:text-brand-600 dark:text-brand-400">Sign Up</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

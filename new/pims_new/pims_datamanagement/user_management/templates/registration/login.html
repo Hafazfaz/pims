@@ -1,56 +1,75 @@
 {% extends 'base_empty.html' %}
 {% load static %}
+{% load widget_tweaks %}
 
 {% block title %}Login{% endblock %}
 
-{% block extra_head %}
-<style>
-    .login-container {
-        max-width: 400px;
-        margin: 100px auto;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        background-color: #ffffff;
-    }
-    .btn-success-custom {
-        background-color: #006400; /* Government Green */
-        border-color: #006400;
-    }
-    .btn-success-custom:hover {
-        background-color: #004d00; /* Darker shade for hover */
-        border-color: #004d00;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-    <div class="login-container">
-        <h2 class="text-center mb-4 text-success">Login</h2>
-        <form method="post">
-            {% csrf_token %}
-            {% for field in form %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <div class="form-text">{{ field.help_text }}</div>
-                    {% endif %}
-                    {% for error in field.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-            {% endfor %}
-            <button type="submit" class="btn btn-success-custom w-100">Login</button>
-        </form>
-        {% if messages %}
-            <div class="mt-4">
-                {% for message in messages %}
-                    <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}" role="alert">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+        .btn-success-custom {
+            background-color: #006400; /* Government Green */
+            border-color: #006400;
+        }
+        .btn-success-custom:hover {
+            background-color: #004d00; /* Darker shade for hover */
+            border-color: #004d00;
+        }
+    </style>
+
+
+    <!-- ===== Page Wrapper Start ===== -->
+    <div class="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
+      <div
+        class="relative flex flex-col justify-center w-full h-screen sm:p-0 lg:flex-row"
+      >
+        <!-- Form -->
+        <div class="flex flex-col flex-1 w-full lg:w-1/2">
+          <div
+            class="flex flex-col justify-center flex-1 w-full max-w-md mx-auto"
+          >
+            <div>
+                            <div class="login-container">
+                              <h2 class="text-center mb-4 text-success">Login</h2>
+                              <form method="post">
+                                  {% csrf_token %}
+                                  {% for field in form %}
+                                      <div class="mb-3">
+                                          <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">{{ field.label }}</label>
+{{ field|add_class:"h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/10" }}
+                                          {% if field.help_text %}
+                                              <div class="form-text">{{ field.help_text }}</div>
+                                          {% endif %}
+                                          {% for error in field.errors %}
+                                              <div class="text-danger">{{ error }}</div>
+                                          {% endfor %}
+                                      </div>
+                                  {% endfor %}
+                                  <button type="submit" class="btn btn-success-custom w-100">Login</button>
+                              </form>
+                              {% if messages %}
+                                  <div class="mt-4">
+                                      {% for message in messages %}
+                                          <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}" role="alert">
+                                              {{ message }}
+                                          </div>
+                                      {% endfor %}
+                                  </div>
+                              {% endif %}
+                            </div>
+              </div>
             </div>
-        {% endif %}
+          </div>
+        </div>
+      </div>
     </div>
 {% endblock %}
+

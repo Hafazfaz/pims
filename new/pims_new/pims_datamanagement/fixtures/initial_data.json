@@ -1,0 +1,55 @@
+[
+    {
+        "model": "document_management.file",
+        "pk": 1,
+        "fields": {
+            "title": "INACTIVE TEST FILE",
+            "file_number": "FMCAB/2025/PS/0001",
+            "file_type": "personal",
+            "department": 2,
+            "status": "inactive",
+            "owner": 3,
+            "current_location": 3,
+            "created_at": "2025-12-15T14:54:05.143336+00:00"
+        }
+    },
+    {
+        "model": "document_management.file",
+        "pk": 2,
+        "fields": {
+            "title": "PENDING ACTIVATION TEST FILE",
+            "file_number": "FMCAB/2025/IT/0001",
+            "file_type": "policy",
+            "department": 2,
+            "status": "pending_activation",
+            "owner": 3,
+            "current_location": 2,
+            "created_at": "2025-12-15T14:54:05.143363+00:00"
+        }
+    },
+    {
+        "model": "document_management.file",
+        "pk": 3,
+        "fields": {
+            "title": "ACTIVE FILE IN MOTION",
+            "file_number": "FMCAB/2025/IT/0002",
+            "file_type": "policy",
+            "department": 2,
+            "status": "active",
+            "owner": 3,
+            "current_location": 4,
+            "created_at": "2025-12-15T14:54:05.143373+00:00"
+        }
+    },
+    {
+        "model": "document_management.document",
+        "pk": 1,
+        "fields": {
+            "file": 1,
+            "uploaded_by": 3,
+            "uploaded_at": "2025-12-15T14:54:05.143382+00:00",
+            "minute_content": "This is a demo minute for the inactive test file.",
+            "attachment": null
+        }
+    }
+]

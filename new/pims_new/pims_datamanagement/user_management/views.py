@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 import qrcode
 import qrcode.image.svg
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
-from django.contrib.auth.views import LoginView, PasswordChangeView
+from django.contrib.auth.views import LoginView
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -29,7 +29,6 @@ class CustomLoginView(LoginView):
     def _send_email_otp(self, user):
         """Generates, stores, and sends an OTP to the user's email."""
         otp_code = str(random.randint(100000, 999999))
-        print(otp_code)
         otp_expiry = datetime.now() + timedelta(minutes=10)
 
         self.request.session["otp_code"] = otp_code
@@ -100,7 +99,7 @@ class EmailOTPVerifyView(View):
         del request.session["otp_code"]
         del request.session["otp_expiry"]
 
-        return redirect(reverse_lazy("admin:index"))
+        return redirect(reverse_lazy("home"))
 
 
 def custom_lockout_view(request, credentials, *args, **kwargs):
@@ -108,17 +107,25 @@ def custom_lockout_view(request, credentials, *args, **kwargs):
 
 
 @method_decorator(login_required, name="dispatch")
-class ForcePasswordChangeView(PasswordChangeView):
+class ForcePasswordChangeView(View):
     template_name = "registration/password_change_form.html"
-    success_url = reverse_lazy(
-        "admin:index"
-    )  # Redirect to admin index after successful password change
-    form_class = PasswordChangeForm  # Use default PasswordChangeForm for now
+    success_url = reverse_lazy("home")
+    form_class = PasswordChangeForm
 
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        self.request.user.must_change_password = False
-        self.request.user.save()
-        messages.success(self.request, "Your password has been changed successfully.")
-        return response
+    def get(self, request, *args, **kwargs):
+        form = self.form_class(request.user)
+        return render(request, self.template_name, {"form": form})
+
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(
+                request, user
+            )  # Important to keep the user logged in
+            user.must_change_password = False
+            user.save()
+            messages.success(request, "Your password has been changed successfully.")
+            return redirect(self.success_url)
+        return render(request, self.template_name, {"form": form})
 

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "document_management",
     # "tailwind",
     # "theme",
+    "widget_tweaks",
     "django_otp",
     "django_otp.plugins.otp_static",
     "django_otp.plugins.otp_totp",
@@ -59,6 +60,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django_otp.middleware.OTPMiddleware",
+    "user_management.middleware.PasswordChangeMiddleware",
     # "axes.middleware.AxesMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -158,3 +160,9 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Axes settings
 # AXES_FAILURE_LIMIT = 3
 AXES_LOCKOUT_CALLABLE = "user_management.views.custom_lockout_view"
+
+# Redirect after login
+LOGIN_REDIRECT_URL = 'home'
+
+# Redirect after logout
+LOGOUT_REDIRECT_URL = 'user_management:login'

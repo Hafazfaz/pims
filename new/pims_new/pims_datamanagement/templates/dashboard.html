@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="p-4">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Dashboard</h2>
+
+    <!-- Grid for dashboard cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <!-- Card 1: Total Files -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h3 class="text-lg font-medium text-gray-700">Total Files</h3>
+            <p class="text-3xl font-bold text-gray-900">{{ total_files }}</p>
+            {# Placeholder for customer chart/details #}
+        </div>
+        <!-- Card 2: Pending Approvals -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h3 class="text-lg font-medium text-gray-700">Pending Approvals</h3>
+            <p class="text-3xl font-bold text-gray-900">{{ pending_files }}</p>
+            {# Placeholder for order chart/details #}
+        </div>
+
+    </div>
+
+
+
+
+</div>
+{% endblock %}
