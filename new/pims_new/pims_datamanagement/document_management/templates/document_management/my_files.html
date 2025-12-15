@@ -32,7 +32,7 @@
                 <td>{{ file.get_file_type_display }}</td>
                 <td>{{ file.department.name|default:"N/A" }}</td>
                 <td>{{ file.get_status_display }}</td>
-                <td>{{ file.owner.get_full_name|default:file.owner.username }}</td>
+                <td>{{ file.owner.get_full_name|default:file.owner.user.username }}</td>
                 <td>{{ file.created_at|date:"Y-m-d H:i" }}</td> {# Assuming created_at is close enough for "received at" for MVP #}
                 <td>
                     <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="btn btn-sm btn-info">View</a>
@@ -73,7 +73,7 @@
                 <td>{{ file.get_file_type_display }}</td>
                 <td>{{ file.department.name|default:"N/A" }}</td>
                 <td>{{ file.get_status_display }}</td>
-                <td>{{ file.current_location.get_full_name|default:file.current_location.username }}</td>
+                <td>{{ file.current_location.get_full_name|default:file.current_location.user.username }}</td>
                 <td>{{ file.created_at|date:"Y-m-d H:i" }}</td>
                 <td>
                     {% if file.status == 'inactive' %}
