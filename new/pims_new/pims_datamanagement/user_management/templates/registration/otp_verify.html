@@ -3,46 +3,27 @@
 
 {% block title %}OTP Verification{% endblock %}
 
-{% block extra_head %}
-<style>
-    .otp-container {
-        max-width: 400px;
-        margin: 100px auto;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        background-color: #ffffff;
-    }
-    .btn-success-custom {
-        background-color: #006400; /* Government Green */
-        border-color: #006400;
-    }
-    .btn-success-custom:hover {
-        background-color: #004d00; /* Darker shade for hover */
-        border-color: #004d00;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-    <div class="otp-container">
-        <h2 class="text-center mb-4 text-success">OTP Verification</h2>
-        <form method="post">
-            {% csrf_token %}
-            <p class="mb-3">Please enter the OTP sent to your email:</p>
-            <div class="mb-3">
-                <input type="text" name="otp_token" class="form-control" required>
-            </div>
-            <button type="submit" class="btn btn-success-custom w-100">Verify OTP</button>
-        </form>
-        {% if messages %}
-            <div class="mt-4">
-                {% for message in messages %}
-                    <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}" role="alert">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
+    <div class="relative flex flex-col justify-center w-full min-h-screen sm:p-0 lg:flex-row">
+        <div class="flex flex-col justify-center flex-1 w-full max-w-md mx-auto my-auto p-6 rounded-lg shadow-lg bg-white">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">OTP Verification</h2>
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <p class="text-gray-700 mb-4">Please enter the OTP sent to your email:</p>
+                <div class="mb-3">
+                    <input type="text" name="otp_token" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" required>
+                </div>
+                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Verify OTP</button>
+            </form>
+            {% if messages %}
+                <div class="mt-4">
+                    {% for message in messages %}
+                        <div class="{% if message.tags == 'error' %}bg-red-100 border-l-4 border-red-500 text-red-700{% elif message.tags == 'success' %}bg-green-100 border-l-4 border-green-500 text-green-700{% else %}bg-blue-100 border-l-4 border-blue-500 text-blue-700{% endif %} p-4 mb-4" role="alert">
+                            <p>{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
     </div>
 {% endblock %}

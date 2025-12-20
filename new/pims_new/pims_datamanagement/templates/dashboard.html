@@ -5,27 +5,125 @@
 
 {% block content %}
 <div class="p-4">
-    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Dashboard</h2>
-
-    <!-- Grid for dashboard cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <!-- Card 1: Total Files -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <h3 class="text-lg font-medium text-gray-700">Total Files</h3>
-            <p class="text-3xl font-bold text-gray-900">{{ total_files }}</p>
-            {# Placeholder for customer chart/details #}
+    <div class="flex justify-between items-center mb-4">
+        <div>
+          <h2 class="text-2xl font-semibold text-gray-800">Hello {{user.first_name}}</h2>
+            <p class="text-gray-500">Here is a quick status summary of your currently active documents.</p>
         </div>
-        <!-- Card 2: Pending Approvals -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <h3 class="text-lg font-medium text-gray-700">Pending Approvals</h3>
-            <p class="text-3xl font-bold text-gray-900">{{ pending_files }}</p>
-            {# Placeholder for order chart/details #}
-        </div>
-
     </div>
 
+    <!-- Grid for dashboard cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Card 1: Waiting for me -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700">Waiting for me</h3>
+                    <p class="text-3xl font-bold text-gray-900">0</p>
+                </div>
+                <div class="bg-purple-100 p-2 rounded-md">
+                    <svg class="h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </div>
+            </div>
+             <div class="mt-4 border-t pt-4">
+                <p class="text-gray-500 text-center">Nothing to sign yet</p>
+            </div>
+        </div>
+        <!-- Card 2: Waiting for others -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700">Waiting for others</h3>
+                    <p class="text-3xl font-bold text-gray-900">0</p>
+                </div>
+                <div class="bg-green-100 p-2 rounded-md">
+                    <svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-4 border-t pt-4">
+                <p class="text-gray-500 text-center">Nothing awaited to be signed yet</p>
+            </div>
+        </div>
+        <!-- Card 3: Needs Attention -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700">Needs Attention</h3>
+                    <p class="text-3xl font-bold text-gray-900">0</p>
+                </div>
+                <div class="bg-red-100 p-2 rounded-md">
+                    <svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-4 border-t pt-4">
+                <p class="text-gray-500 text-center">Nothing needs your attention yet.</p>
+            </div>
+        </div>
+        <!-- Card 4: Recently Revoked, Declined and Completed -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700">Recently Revoked...</h3>
+                    <p class="text-3xl font-bold text-gray-900">0</p>
+                </div>
+                <div class="bg-blue-100 p-2 rounded-md">
+                    <svg class="h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-4 border-t pt-4">
+                <p class="text-gray-500 text-center">No recent activity here.</p>
+            </div>
+        </div>
+    </div>
 
-
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Card 5: Documents (Total) -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700">Documents (Total)</h3>
+                    <p class="text-3xl font-bold text-gray-900">01</p>
+                </div>
+                <div class="flex space-x-4">
+                    <div>
+                        <p class="text-gray-500">Sent</p>
+                        <p class="text-xl font-bold text-gray-900">01</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Received</p>
+                        <p class="text-xl font-bold text-gray-900">00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Card 6: Documents (This month) -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700">Documents (This month)</h3>
+                    <p class="text-3xl font-bold text-gray-900">02</p>
+                </div>
+                <div class="flex space-x-4">
+                    <div>
+                        <p class="text-gray-500">Sent</p>
+                        <p class="text-xl font-bold text-gray-900">01</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Received</p>
+                        <p class="text-xl font-bold text-gray-900">01</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </div>
 {% endblock %}
