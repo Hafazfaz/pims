@@ -148,10 +148,10 @@ AUTH_USER_MODEL = "user_management.CustomUser"
 # Email settings for development (prints emails to console)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# AUTHENTICATION_BACKENDS = [
-#     # "axes.backends.AxesBackend",
-#     # "user_management.backends.CustomOTPBackend",
-# ]
+AUTHENTICATION_BACKENDS = [
+    "user_management.backends.CustomOTPBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 # Session settings
 SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
