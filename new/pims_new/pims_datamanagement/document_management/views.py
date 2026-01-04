@@ -6,7 +6,8 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, View
 
 from .forms import DocumentForm, FileForm, SendFileForm
-from .models import Document, File, Staff
+from .models import Document, File
+from organization.models import Staff
 
 
 class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -179,11 +180,48 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     context_object_name = "file"
     permission_required = "document_management.view_file"
 
+    def has_permission(self):
+        # First, check if the user has the general 'view_file' permission
+        if not super().has_permission():
+            return False
+
+        # Get the file object that is being accessed
+        try:
+            target_file = self.get_object()
+        except Http404:
+            return False # File not found, so no permission
+
+        user = self.request.user
+        # Admins/Superusers always have access
+        if user.is_superuser or user.is_staff:
+            return True
+
+        # Try to get the Staff object for the current user
+        staff_user = None
+        try:
+            staff_user = Staff.objects.get(user=user)
+        except Staff.DoesNotExist:
+            return False # User is not a staff member, so no access beyond generic permission
+
+        # Check if the user is the owner or has the file in their current location
+        if staff_user == target_file.owner or staff_user == target_file.current_location:
+            return True
+
+        # Logic for Registry and HODs to access files within their unit
+        if staff_user and staff_user.unit: # Ensure the current user is associated with a unit
+            # Check if the current user is a Registry or HOD
+            if staff_user.is_registry or staff_user.is_hod:
+                if target_file.owner and target_file.owner.unit == staff_user.unit:
+                    return True
+
+        # If none of the above conditions are met, deny permission
+        return False
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["documents"] = self.object.documents.all()
-        context["document_form"] = DocumentForm()  # Add an empty form for GET requests
-        context["send_file_form"] = SendFileForm()  # Add an empty form for GET requests
+        context["document_form"] = DocumentForm()
+        context["send_file_form"] = SendFileForm()
         return context
 
     def post(self, request, *args, **kwargs):
@@ -248,7 +286,7 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                     for error in form.non_field_errors():
                         error_html += f"<li>{error}</li>"
                     error_html += "</ul></div>"
-                    return HttpResponse(error_html)
+                    return self.render_to_response(context)
                 return self.render_to_response(context)
 
         # Fallback if no form is recognized
@@ -259,4 +297,56 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         if not self.request.user.is_authenticated:
             return redirect("user_management:login")
         messages.error(self.request, "You do not have permission to view this file.")
+        return redirect("document_management:my_files")
+
+
+class FileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = File
+    form_class = FileUpdateForm
+    template_name = "document_management/file_form.html" # Reusing the form template
+    context_object_name = "file"
+
+    def get_success_url(self):
+        return reverse_lazy("document_management:file_detail", kwargs={"pk": self.object.pk})
+
+    def test_func(self):
+        # Only the owner of the file can update it
+        file = self.get_object()
+        user_staff = None
+        try:
+            user_staff = Staff.objects.get(user=self.request.user)
+        except Staff.DoesNotExist:
+            return False # Not a staff user
+
+        return file.owner == user_staff
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to edit this file.")
+        return redirect("document_management:my_files")
+
+
+class DocumentUploadView(LoginRequiredMixin, CreateView):
+    model = Document
+    form_class = DocumentUploadForm
+    template_name = "document_management/document_upload_form.html" # A new template for this
+    success_url = reverse_lazy("document_management:my_files")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        document = form.save(commit=False)
+        document.uploaded_by = self.request.user
+        document.save()
+        messages.success(self.request, "Document uploaded successfully.")
+        return redirect(self.get_success_url())
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to upload documents.")
         return redirect("document_management:my_files")

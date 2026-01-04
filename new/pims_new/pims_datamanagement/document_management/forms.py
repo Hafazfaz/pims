@@ -170,3 +170,70 @@ class SendFileForm(forms.Form):
         widget=forms.Select(attrs={"class": "form-select"}),
         label="Send to",
     )
+
+class FileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = File
+        fields = ["title"]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Enter file title (e.g., PERSONNEL FILE OF JOHN DOE)",
+                }
+            ),
+        }
+        labels = {
+            "title": "File Title",
+        }
+
+    def clean_title(self):
+        title = self.cleaned_data["title"]
+        return title.upper()  # Enforce uppercase for title
+
+class DocumentUploadForm(forms.ModelForm):
+    # This form allows uploading an attachment to an existing file
+    file = forms.ModelChoiceField(
+        queryset=File.objects.all().order_by('title'), # Users will select from existing files
+        empty_label="Select a File",
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label="Associate with File",
+    )
+
+    class Meta:
+        model = Document
+        fields = ["file", "attachment"] # Only allow selecting a file and uploading an attachment
+        widgets = {
+            "attachment": forms.FileInput(attrs={"class": "form-control"}),
+        }
+        labels = {
+            "attachment": "Upload Document",
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+        # Filter files that the current user has access to for association
+        if self.user and self.user.is_authenticated:
+            try:
+                staff_user = Staff.objects.get(user=self.user)
+                # Users can upload documents to files they own or are currently at their location
+                self.fields['file'].queryset = File.objects.filter(
+                    models.Q(owner=staff_user) | models.Q(current_location=staff_user)
+                ).order_by('title')
+            except Staff.DoesNotExist:
+                # If not a staff user, no files to select (shouldn't happen with LoginRequiredMixin)
+                self.fields['file'].queryset = File.objects.none()
+        else:
+            self.fields['file'].queryset = File.objects.none()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        attachment = cleaned_data.get("attachment")
+
+        if not attachment:
+            raise forms.ValidationError(
+                "Please upload an attachment."
+            )
+        return cleaned_data

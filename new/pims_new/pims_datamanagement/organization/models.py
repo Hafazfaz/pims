@@ -51,3 +51,15 @@ class Staff(models.Model):
             return self.user.get_full_name() or self.user.username
         except AttributeError:
             return self.user.username
+
+    @property
+    def is_registry(self):
+        if self.designation and "registry" in self.designation.name.lower():
+            return True
+        return False
+
+    @property
+    def is_hod(self):
+        if self.designation and any(role in self.designation.name.lower() for role in ["head of department", "hod", "director"]):
+            return True
+        return False
