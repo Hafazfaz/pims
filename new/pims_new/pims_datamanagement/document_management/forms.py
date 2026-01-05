@@ -178,29 +178,45 @@ class SendFileForm(forms.Form):
         if self.user and self.user.is_authenticated:
             try:
                 sender_staff = Staff.objects.get(user=self.user)
-                if sender_staff.is_hod and sender_staff.headed_department:
+                
+                # Check if sender is a HOD
+                headed_department = None
+                try:
+                    headed_department = sender_staff.headed_department
+                except Department.DoesNotExist:
+                    pass # Not a department head
+
+                if headed_department:
                     # HOD can send to anyone in their department
                     self.fields['recipient'].queryset = CustomUser.objects.filter(
-                        staff__department=sender_staff.headed_department
+                        staff__department=headed_department
                     ).exclude(pk=self.user.pk).order_by("username")
-                elif sender_staff.headed_unit:
+                    return # Exit after setting queryset
+
+                # Check if sender is a Unit Manager
+                headed_unit = None
+                try:
+                    headed_unit = sender_staff.headed_unit
+                except Unit.DoesNotExist:
+                    pass # Not a unit head
+                
+                if headed_unit:
                     # Unit Manager can send to anyone in their unit
                     self.fields['recipient'].queryset = CustomUser.objects.filter(
-                        staff__unit=sender_staff.headed_unit
+                        staff__unit=headed_unit
+                    ).exclude(pk=self.user.pk).order_by("username")
+                    return # Exit after setting queryset
+                
+                # If neither HOD nor Unit Manager, and they have a unit
+                if sender_staff.unit:
+                    self.fields['recipient'].queryset = CustomUser.objects.filter(
+                        staff__unit=sender_staff.unit
                     ).exclude(pk=self.user.pk).order_by("username")
                 else:
-                    # Regular staff can send to anyone in their unit (if they have one)
+                    # If a regular staff has no unit, they can't send to anyone else within unit
                     # Or this could be further restricted to only people they interact with
-                    # For now, let's assume unit-level sending if unit exists
-                    if sender_staff.unit:
-                        self.fields['recipient'].queryset = CustomUser.objects.filter(
-                            staff__unit=sender_staff.unit
-                        ).exclude(pk=self.user.pk).order_by("username")
-                    else:
-                        # If a regular staff has no unit, perhaps they can't send to anyone else?
-                        # Or they can send to anyone in their department?
-                        # Let's default to no recipients if no unit, or you can adjust this logic
-                        self.fields['recipient'].queryset = CustomUser.objects.none()
+                    self.fields['recipient'].queryset = CustomUser.objects.none()
+
             except Staff.DoesNotExist:
                 # If the user is not a staff member, they cannot send files
                 self.fields['recipient'].queryset = CustomUser.objects.none()
