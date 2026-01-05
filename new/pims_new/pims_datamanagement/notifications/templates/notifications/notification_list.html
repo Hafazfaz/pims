@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}My Notifications{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">My Notifications</h2>
+
+    <div class="flex justify-end mb-4">
+        <form action="{% url 'notifications:mark_all_as_read' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Mark All As Read</button>
+        </form>
+    </div>
+
+    {% if notifications %}
+        <div class="divide-y divide-gray-200">
+            {% for notification in notifications %}
+                <div class="py-4 {% if not notification.is_read %}bg-blue-50{% endif %}">
+                    <div class="flex items-center justify-between">
+                        <p class="text-gray-800 {% if not notification.is_read %}font-semibold{% endif %}">
+                            {% if notification.link %}
+                                <a href="{{ notification.get_link }}" class="text-blue-600 hover:underline">{{ notification.message }}</a>
+                            {% else %}
+                                {{ notification.message }}
+                            {% endif %}
+                        </p>
+                        <span class="text-sm text-gray-500">{{ notification.timestamp|date:"P, M j Y" }}</span>
+                    </div>
+                    <div class="mt-2 flex justify-end">
+                        {% if not notification.is_read %}
+                            <form action="{% url 'notifications:mark_as_read' pk=notification.pk %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="text-sm text-blue-500 hover:text-blue-700">Mark as Read</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {# Pagination #}
+        {% if is_paginated %}
+            <nav class="mt-4 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                <div class="flex flex-1 justify-between sm:hidden">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
+                    {% endif %}
+                </div>
+                <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            Showing
+                            <span class="font-medium">{{ page_obj.start_index }}</span>
+                            to
+                            <span class="font-medium">{{ page_obj.end_index }}</span>
+                            of
+                            <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                            results
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                            {% if page_obj.has_previous %}
+                                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                    <span class="sr-only">Previous</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                                    </svg>
+                                </a>
+                            {% endif %}
+                            {% for i in page_obj.paginator.page_range %}
+                                <a href="?page={{ i }}" class="relative {% if page_obj.number == i %}z-10 bg-indigo-600 text-white focus:outline-offset-0{% else %}inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0{% endif %}">
+                                    {{ i }}
+                                </a>
+                            {% endfor %}
+                            {% if page_obj.has_next %}
+                                <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                                    <span class="sr-only">Next</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                                    </svg>
+                                </a>
+                            {% endif %}
+                        </nav>
+                    </div>
+                </div>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
+            <p>No notifications found.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
