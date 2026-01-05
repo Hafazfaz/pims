@@ -9,6 +9,7 @@ import qrcode
 import qrcode.image.svg
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
+from django.contrib.sessions.models import Session # Added for concurrent session control
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.hashers import make_password # Import make_password
@@ -18,9 +19,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.generic import ListView # Added this import
 from django.core.exceptions import ObjectDoesNotExist # Import ObjectDoesNotExist
 
 from .models import CustomUser, PasswordHistory # Import PasswordHistory
+from audit_log.utils import log_action # Import audit logging utility
+from notifications.utils import create_notification, notify_admins_of_critical_event # Import notification utilities
+from document_management.models import File, Document # Import for admin health dashboard
+from audit_log.models import AuditLogEntry # Import for admin health dashboard
 
 logger = logging.getLogger(__name__) # Initialize logger
 
@@ -50,10 +56,8 @@ class CustomLoginView(LoginView):
                 messages.info(self.request, f"An OTP has been sent to your phone number ending with {staff.phone_number[-4:]}.")
             else:
                 logger.warning(f"SMS OTP generated for {user.username}: {otp_code}, but no phone number found for staff.")
-                messages.warning(self.request, "An OTP has been generated, but no phone number is registered. Please contact support.")
         except ObjectDoesNotExist: # Import ObjectDoesNotExist if this path is taken
             logger.warning(f"SMS OTP generated for {user.username}: {otp_code}, but user is not associated with a staff profile.")
-            messages.warning(self.request, "An OTP has been generated, but you are not associated with a staff profile. Please contact support.")
 
 
     def form_invalid(self, form):
@@ -74,7 +78,19 @@ class CustomLoginView(LoginView):
 
         # Update last login IP
         user.last_login_ip = self.request.META.get('REMOTE_ADDR') # Simple way to get client IP
-        user.save(update_fields=['last_login_ip']) # Save only the updated field
+        
+        # Concurrent session prevention
+        if user.last_session_key and user.last_session_key != self.request.session.session_key:
+            try:
+                Session.objects.get(session_key=user.last_session_key).delete()
+            except Session.DoesNotExist:
+                pass # Old session already expired or deleted
+
+        user.last_session_key = self.request.session.session_key
+        user.save(update_fields=['last_login_ip', 'last_session_key']) # Update both fields
+
+        # Log successful login
+        log_action(self.request.user, 'LOGIN', request=self.request)
 
         # First, handle mandatory password change
         if user.must_change_password:
@@ -123,6 +139,8 @@ class ForcePasswordChangeView(View):
             user.must_change_password = False
             user.last_password_change = timezone.now()
             user.save() # Now save the user object
+
+            log_action(user, 'PASSWORD_CHANGED', request=request) # Log password change
 
             update_session_auth_hash(
                 request, user
@@ -190,3 +208,183 @@ class SMSOTPVerifyView(View):
             del request.session["otp_sms_code"]
         if "otp_sms_expiry" in request.session:
             del request.session["otp_sms_expiry"]
+
+
+from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin, UserPassesTestMixin
+
+class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = CustomUser
+    template_name = 'user_management/user_list.html'
+    context_object_name = 'users'
+    permission_required = 'auth.view_user'
+
+    def get_queryset(self):
+        return CustomUser.objects.all().order_by('username')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.now()
+        context['locked_users'] = {user.pk for user in context['users'] if user.lockout_until and user.lockout_until > now}
+        return context
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('user_management:login')
+        messages.error(self.request, 'You do not have permission to view this page.')
+        return redirect('home')
+
+
+class UserUnlockView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = 'auth.change_user'
+
+    def post(self, request, pk):
+        user_to_unlock = get_object_or_404(CustomUser, pk=pk)
+        user_to_unlock.failed_login_attempts = 0
+        user_to_unlock.lockout_until = None
+        user_to_unlock.save()
+        log_action(self.request.user, 'ACCOUNT_UNLOCKED', request=self.request, obj=user_to_unlock) # Log account unlocked
+        
+        # In-app notification for unlocked user
+        create_notification(
+            user=user_to_unlock,
+            message=f"Your account has been unlocked by an administrator.",
+            obj=user_to_unlock
+        )
+        # Notify admins
+        notify_admins_of_critical_event(
+            message=f"User '{user_to_unlock.username}' account has been unlocked by {self.request.user.username}.",
+            obj=user_to_unlock
+        )
+        messages.success(request, f"User '{user_to_unlock.username}' has been unlocked.")
+        return redirect('user_management:user_list')
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('user_management:login')
+        messages.error(self.request, 'You do not have permission to unlock users.')
+        return redirect('user_management:user_list')
+
+
+class UserSuspendView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = 'auth.change_user' # Can suspend users if can change user
+
+    def post(self, request, pk):
+        user_to_suspend = get_object_or_404(CustomUser, pk=pk)
+        if user_to_suspend.is_superuser:
+            messages.error(request, "Cannot suspend a superuser.")
+            return redirect('user_management:user_list')
+        
+        user_to_suspend.is_active = False
+        user_to_suspend.save()
+        log_action(self.request.user, 'USER_SUSPENDED', request=self.request, obj=user_to_suspend, details={'username': user_to_suspend.username})
+        
+        # In-app notification for suspended user
+        create_notification(
+            user=user_to_suspend,
+            message=f"Your account has been suspended by an administrator. Please contact support.",
+            obj=user_to_suspend
+        )
+        # Notify admins
+        notify_admins_of_critical_event(
+            message=f"User '{user_to_suspend.username}' account has been suspended by {self.request.user.username}.",
+            obj=user_to_suspend
+        )
+        messages.success(request, f"User '{user_to_suspend.username}' has been suspended.")
+        return redirect('user_management:user_list')
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('user_management:login')
+        messages.error(self.request, 'You do not have permission to suspend users.')
+        return redirect('user_management:user_list')
+
+class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = 'auth.delete_user' # Can delete users
+
+    def post(self, request, pk):
+        user_to_delete = get_object_or_404(CustomUser, pk=pk)
+        if user_to_delete.is_superuser:
+            messages.error(request, "Cannot delete a superuser.")
+            return redirect('user_management:user_list')
+        
+        username_deleted = user_to_delete.username # Capture username before deletion
+        user_to_delete.delete()
+        log_action(self.request.user, 'USER_DELETED', request=self.request, details={'username': username_deleted})
+        
+        # Notify admins about user deletion
+        notify_admins_of_critical_event(
+            message=f"User '{username_deleted}' account has been deleted by {self.request.user.username}.",
+            obj=None # User object no longer exists
+        )
+        messages.success(request, f"User '{username_deleted}' has been deleted.")
+        return redirect('user_management:user_list')
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('user_management:login')
+        messages.error(self.request, 'You do not have permission to delete users.')
+        return redirect('user_management:user_list')
+
+
+class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    template_name = 'user_management/admin_dashboard_health.html'
+    context_object_name = 'stats' # Will pass a dictionary of stats
+
+    def test_func(self):
+        # Only superusers can access this dashboard
+        return self.request.user.is_superuser
+
+    def get_queryset(self):
+        # No queryset needed for ListView as we are passing context manually
+        return []
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # User Statistics
+        total_users = CustomUser.objects.count()
+        active_users = CustomUser.objects.filter(is_active=True).count()
+        inactive_users = CustomUser.objects.filter(is_active=False).count()
+        locked_users = CustomUser.objects.filter(lockout_until__gt=timezone.now()).count()
+
+        # File Statistics
+        total_files = File.objects.count()
+        active_files = File.objects.filter(status='active').count()
+        closed_files = File.objects.filter(status='closed').count()
+        archived_files = File.objects.filter(status='archived').count()
+
+        # Document Statistics
+        total_documents = Document.objects.count()
+
+        # Recent Audit Log Entries
+        recent_failed_logins = AuditLogEntry.objects.filter(action='LOGIN_FAILED').order_by('-timestamp')[:5]
+        recent_locked_accounts = AuditLogEntry.objects.filter(action='ACCOUNT_LOCKED').order_by('-timestamp')[:5]
+        recent_unlocked_accounts = AuditLogEntry.objects.filter(action='ACCOUNT_UNLOCKED').order_by('-timestamp')[:5]
+
+        context['stats'] = {
+            'users': {
+                'total': total_users,
+                'active': active_users,
+                'inactive': inactive_users,
+                'locked': locked_users,
+            },
+            'files': {
+                'total': total_files,
+                'active': active_files,
+                'closed': closed_files,
+                'archived': archived_files,
+            },
+            'documents': {
+                'total': total_documents,
+            },
+            'recent_failed_logins': recent_failed_logins,
+            'recent_locked_accounts': recent_locked_accounts,
+            'recent_unlocked_accounts': recent_unlocked_accounts,
+        }
+        return context
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('user_management:login')
+        messages.error(self.request, 'You do not have permission to access the admin health dashboard.')
+        return redirect('home')

@@ -7,6 +7,7 @@ class CustomUser(AbstractUser):
     lockout_until = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_session_key = models.CharField(max_length=40, null=True, blank=True) # Max length for session keys
 
 class PasswordHistory(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)

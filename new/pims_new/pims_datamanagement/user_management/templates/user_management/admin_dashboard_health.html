@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Health Dashboard{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Admin Health Dashboard</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-blue-800">Total Users</h4>
+            <p class="text-2xl font-bold">{{ stats.users.total }}</p>
+        </div>
+        <div class="bg-green-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-green-800">Active Users</h4>
+            <p class="text-2xl font-bold">{{ stats.users.active }}</p>
+        </div>
+        <div class="bg-red-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-red-800">Locked Users</h4>
+            <p class="text-2xl font-bold">{{ stats.users.locked }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-blue-800">Total Files</h4>
+            <p class="text-2xl font-bold">{{ stats.files.total }}</p>
+        </div>
+        <div class="bg-green-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-green-800">Active Files</h4>
+            <p class="text-2xl font-bold">{{ stats.files.active }}</p>
+        </div>
+        <div class="bg-orange-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-orange-800">Closed Files</h4>
+            <p class="text-2xl font-bold">{{ stats.files.closed }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-gray-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-gray-800">Archived Files</h4>
+            <p class="text-2xl font-bold">{{ stats.files.archived }}</p>
+        </div>
+        <div class="bg-purple-100 p-4 rounded-lg text-center">
+            <h4 class="text-lg font-semibold text-purple-800">Total Documents</h4>
+            <p class="text-2xl font-bold">{{ stats.documents.total }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Recent Failed Logins</h3>
+            {% if stats.recent_failed_logins %}
+            <ul class="divide-y divide-gray-200">
+                {% for entry in stats.recent_failed_logins %}
+                <li class="py-2 text-gray-700 text-sm">
+                    {{ entry.timestamp|date:"Y-m-d H:i:s" }} - User: {{ entry.user.username|default:"N/A" }} (IP: {{ entry.ip_address|default:"N/A" }})
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-gray-600 italic">No recent failed login attempts.</p>
+            {% endif %}
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Recent Locked Accounts</h3>
+            {% if stats.recent_locked_accounts %}
+            <ul class="divide-y divide-gray-200">
+                {% for entry in stats.recent_locked_accounts %}
+                <li class="py-2 text-gray-700 text-sm">
+                    {{ entry.timestamp|date:"Y-m-d H:i:s" }} - User: {{ entry.user.username|default:"N/A" }} (IP: {{ entry.ip_address|default:"N/A" }})
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-gray-600 italic">No recent account lockouts.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

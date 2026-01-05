@@ -1,12 +1,14 @@
 import re
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
-from django.contrib.auth.hashers import check_password # Import check_password
-from .models import PasswordHistory # Import PasswordHistory
-from .views import PASSWORD_HISTORY_LIMIT # Import the limit constant
+from .models import PasswordHistory
+from django.contrib.auth.hashers import check_password
 
-class CustomPasswordValidator:
-    def __init__(self, min_length=10):
+class ComplexityValidator:
+    """
+    Validates that the password meets complexity requirements.
+    """
+    def __init__(self, min_length=12):
         self.min_length = min_length
 
     def validate(self, password, user=None):
@@ -18,49 +20,52 @@ class CustomPasswordValidator:
             )
         if not re.search(r'[A-Z]', password):
             raise ValidationError(
-                _("This password must contain at least 1 uppercase letter."),
-                code='password_no_uppercase',
+                _("This password must contain at least one uppercase letter."),
+                code='password_no_upper',
             )
         if not re.search(r'[a-z]', password):
             raise ValidationError(
-                _("This password must contain at least 1 lowercase letter."),
-                code='password_no_lowercase',
+                _("This password must contain at least one lowercase letter."),
+                code='password_no_lower',
             )
-        if not re.search(r'\d', password):
+        if not re.search(r'[0-9]', password):
             raise ValidationError(
-                _("This password must contain at least 1 digit."),
-                code='password_no_digit',
+                _("This password must contain at least one number."),
+                code='password_no_number',
             )
-        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:",.<>/?`~]', password):
+        if not re.search(r'[\W_]', password): # Checks for special characters
             raise ValidationError(
-                _("This password must contain at least 1 special character."),
-                code='password_no_special',
+                _("This password must contain at least one special character."),
+                code='password_no_symbol',
             )
 
     def get_help_text(self):
         return _(
-            "Your password must contain at least %(min_length)d characters, "
-            "including at least 1 uppercase letter, 1 lowercase letter, 1 digit, and 1 special character."
+            "Your password must contain at least %(min_length)d characters, including at least one uppercase letter, one lowercase letter, one number, and one special character."
         ) % {'min_length': self.min_length}
 
 
 class PasswordHistoryValidator:
+    """
+    Validates that the password has not been used recently.
+    """
+    def __init__(self, history_limit=5):
+        self.history_limit = history_limit
+
     def validate(self, password, user=None):
         if not user:
             return
 
-        # Get the last N password hashes from history
-        history_entries = PasswordHistory.objects.filter(user=user).order_by('-timestamp')[:PASSWORD_HISTORY_LIMIT]
-
-        for entry in history_entries:
+        recent_passwords = PasswordHistory.objects.filter(user=user).order_by('-timestamp')[:self.history_limit]
+        for entry in recent_passwords:
             if check_password(password, entry.password):
                 raise ValidationError(
-                    _("You cannot reuse a password from your last %(limit)d passwords."),
-                    code='password_reuse',
-                    params={'limit': PASSWORD_HISTORY_LIMIT},
+                    _("You cannot reuse one of your last %(history_limit)d passwords."),
+                    code='password_reused',
+                    params={'history_limit': self.history_limit},
                 )
 
     def get_help_text(self):
         return _(
-            "Your new password cannot be one of your last %(limit)d passwords."
-        ) % {'limit': PASSWORD_HISTORY_LIMIT}
+            "You cannot reuse one of your last %(history_limit)d passwords."
+        ) % {'history_limit': self.history_limit}

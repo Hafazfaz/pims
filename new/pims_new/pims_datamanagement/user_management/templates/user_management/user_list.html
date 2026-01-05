@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">User Management</h2>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3">Username</th>
+                    <th scope="col" class="px-6 py-3">Email</th>
+                    <th scope="col" class="px-6 py-3">Status</th>
+                    <th scope="col" class="px-6 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for user in users %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">{{ user.username }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ user.email }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if user.pk in locked_users %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Locked until {{ user.lockout_until|date:"Y-m-d H:i" }} UTC
+                            </span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Active
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if user.pk in locked_users %}
+                            <form action="{% url 'user_management:user_unlock' pk=user.pk %}" method="post" class="inline-block mr-2">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Unlock</button>
+                            </form>
+                        {% endif %}
+
+                        {% if not user.is_superuser and user.is_active and perms.auth.change_user %}
+                            <form action="{% url 'user_management:user_suspend' pk=user.pk %}" method="post" class="inline-block mr-2">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded" onclick="return confirm('Are you sure you want to suspend {{ user.username }}?');">Suspend</button>
+                            </form>
+                        {% endif %}
+
+                        {% if not user.is_superuser and perms.auth.delete_user %}
+                            <form action="{% url 'user_management:user_delete' pk=user.pk %}" method="post" class="inline-block">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onclick="return confirm('Are you sure you want to delete {{ user.username }}? This action cannot be undone.');">Delete</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
