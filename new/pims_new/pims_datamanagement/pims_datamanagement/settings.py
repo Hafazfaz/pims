@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "user_management",
     "organization",
     "document_management",
+    "audit_log", # Added this line
+    "notifications", # Added this line
     # "tailwind",
     # "theme",
     "widget_tweaks",
@@ -78,6 +80,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "notifications.context_processors.unread_notifications", # Added this line
             ],
         },
     },
@@ -113,20 +116,15 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 10},
-    },
-    {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": "user_management.validators.ComplexityValidator",
+        "OPTIONS": {"min_length": 12},
     },
     {
-        "NAME": "user_management.validators.CustomPasswordValidator", # Custom complexity validator
-    },
-    {
-        "NAME": "user_management.validators.PasswordHistoryValidator", # Custom password history validator
+        "NAME": "user_management.validators.PasswordHistoryValidator",
+        "OPTIONS": {"history_limit": 5},
     },
 ]
 
@@ -153,6 +151,8 @@ AUTH_USER_MODEL = "user_management.CustomUser"
 
 # Email settings for development (prints emails to console)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@example.com"
+BASE_URL = "http://localhost:8000"
 
 AUTHENTICATION_BACKENDS = [
     "user_management.backends.CustomOTPBackend",
@@ -174,6 +174,13 @@ LOGIN_REDIRECT_URL = 'home'
 
 # Redirect after logout
 LOGOUT_REDIRECT_URL = 'user_management:login'
+
+# Document Watermarking Settings
+ENABLE_DOCUMENT_WATERMARKING = True
+DOCUMENT_WATERMARK_TEXT = "PIMS Confidential - Do Not Copy"
+
+# Password Expiry Settings
+PASSWORD_EXPIRY_WARNING_DAYS = 7 # Warn users 7 days before password expires
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
