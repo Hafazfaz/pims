@@ -72,6 +72,10 @@ class CustomLoginView(LoginView):
         # Log the user in temporarily to handle password changes or OTP
         login(self.request, user)
 
+        # Update last login IP
+        user.last_login_ip = self.request.META.get('REMOTE_ADDR') # Simple way to get client IP
+        user.save(update_fields=['last_login_ip']) # Save only the updated field
+
         # First, handle mandatory password change
         if user.must_change_password:
             messages.info(self.request, "You must change your password before proceeding.")

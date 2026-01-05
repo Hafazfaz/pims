@@ -162,6 +162,8 @@ AUTHENTICATION_BACKENDS = [
 # Session settings
 SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_ENGINE = 'django.contrib.sessions.backends.db' # Explicitly set session engine
+SESSION_FLUSH_AT_LOGIN = True # Flush other sessions on login
 
 # Axes settings
 # AXES_FAILURE_LIMIT = 3
