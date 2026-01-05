@@ -1,11 +1,11 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DetailView, ListView, View
+from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
-from .forms import DocumentForm, FileForm, SendFileForm
+from .forms import DocumentForm, FileForm, SendFileForm, FileUpdateForm, DocumentUploadForm
 from .models import Document, File
 from organization.models import Staff
 

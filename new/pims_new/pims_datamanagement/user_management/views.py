@@ -2,6 +2,7 @@ import base64
 import io
 import random
 from datetime import datetime, timedelta
+from django.utils import timezone # Add this import
 
 import qrcode
 import qrcode.image.svg
@@ -9,6 +10,7 @@ from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.hashers import make_password # Import make_password
 from django.contrib.auth.views import LoginView
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect, render
@@ -16,8 +18,9 @@ from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views import View
 
-from .models import CustomUser  # Import CustomUser
+from .models import CustomUser, PasswordHistory # Import PasswordHistory
 
+PASSWORD_HISTORY_LIMIT = 5
 
 class CustomLoginView(LoginView):
     template_name = "registration/login.html"
@@ -64,12 +67,24 @@ class ForcePasswordChangeView(View):
     def post(self, request, *args, **kwargs):
         form = self.form_class(request.user, request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(commit=False) # Don't save yet, need to handle password history
+            new_password = form.cleaned_data['new_password1'] # Get the new password
+
+            # Save the new password hash to history
+            PasswordHistory.objects.create(user=user, password=make_password(new_password))
+
+            # Clean up old password history entries (keep only the last N)
+            history_entries = PasswordHistory.objects.filter(user=user).order_by('-timestamp')
+            if history_entries.count() > PASSWORD_HISTORY_LIMIT:
+                history_entries.last().delete() # Delete the oldest entry
+
+            user.must_change_password = False
+            user.last_password_change = timezone.now()
+            user.save() # Now save the user object
+
             update_session_auth_hash(
                 request, user
             )  # Important to keep the user logged in
-            user.must_change_password = False
-            user.save()
             messages.success(request, "Your password has been changed successfully.")
             return redirect(self.success_url)
         return render(request, self.template_name, {"form": form})

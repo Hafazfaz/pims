@@ -125,6 +125,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "user_management.validators.CustomPasswordValidator", # Custom complexity validator
     },
+    {
+        "NAME": "user_management.validators.PasswordHistoryValidator", # Custom password history validator
+    },
 ]
 
 
