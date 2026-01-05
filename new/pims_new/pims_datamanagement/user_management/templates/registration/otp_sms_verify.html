@@ -1,0 +1,48 @@
+{% extends 'base_empty.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Verify OTP (SMS){% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
+        <div class="text-center">
+            <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
+                Verify SMS OTP
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">
+                An OTP has been sent to your registered phone number.
+            </p>
+        </div>
+        <form class="mt-8 space-y-6" method="post">
+            {% csrf_token %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="mt-2 p-3 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                    <label for="otp_token" class="sr-only">OTP Code</label>
+                    <input id="otp_token" name="otp_token" type="text" autocomplete="off" required
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                           placeholder="Enter OTP Code">
+                </div>
+            </div>
+
+            <div>
+                <button type="submit"
+                        class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Verify OTP
+                </button>
+            </div>
+        </form>
+        <p class="mt-6 text-center text-sm text-gray-600">
+            Didn't receive the OTP? Please <a href="{% url 'user_management:login' %}" class="font-medium text-indigo-600 hover:text-indigo-500">try logging in again</a>.
+        </p>
+    </div>
+</div>
+{% endblock %}
