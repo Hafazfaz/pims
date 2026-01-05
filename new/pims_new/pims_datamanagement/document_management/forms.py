@@ -121,7 +121,7 @@ class FileForm(forms.ModelForm):
                     f"As a Unit Manager, you can only create files for staff within your unit ({creator_staff.headed_unit.name})."
                 )
         else:
-            if owner != creator:
+            if owner.user != creator:
                 raise forms.ValidationError("You can only create files for yourself.")
 
         return cleaned_data
@@ -134,7 +134,7 @@ class DocumentForm(forms.ModelForm):
         widgets = {
             "minute_content": forms.Textarea(
                 attrs={
-                    "class": "form-control",
+                    "class": "form-control tinymce-editor", # Added tinymce-editor class
                     "rows": 3,
                     "placeholder": "Enter minute content...",
                 }
