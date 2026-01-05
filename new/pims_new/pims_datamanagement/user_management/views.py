@@ -2,6 +2,7 @@ import base64
 import io
 import random
 import logging # Import logging
+from django.conf import settings # Add this import
 from datetime import datetime, timedelta
 from django.utils import timezone # Add this import
 
@@ -40,7 +41,11 @@ class CustomLoginView(LoginView):
 
     def _send_sms_otp(self, user):
         """Generates, stores, and logs an OTP for the user."""
-        otp_code = str(random.randint(100000, 999999))
+        if settings.DEBUG:
+            otp_code = "123456" # Hardcoded OTP for testing in development
+            logger.info(f"DEBUG: Using hardcoded OTP for {user.username}: {otp_code}")
+        else:
+            otp_code = str(random.randint(100000, 999999))
         otp_expiry = timezone.now() + timedelta(minutes=10)
 
         self.request.session["otp_sms_code"] = otp_code
