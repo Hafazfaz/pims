@@ -4,10 +4,13 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
+from django.db.models import Q # Import Q for complex lookups
 
 from .forms import DocumentForm, FileForm, SendFileForm, FileUpdateForm, DocumentUploadForm
 from .models import Document, File
 from organization.models import Staff
+from audit_log.utils import log_action # Import audit logging utility
+from notifications.utils import create_notification # Import notification utility
 
 
 class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -20,16 +23,70 @@ class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
-        return File.objects.filter(owner__unit=staff_user.unit).order_by("-created_at")
+
+        queryset = File.objects.filter(owner__unit=staff_user.unit)
+
+        # Apply search filters
+        search_query = self.request.GET.get('q')
+        file_type = self.request.GET.get('file_type')
+        status = self.request.GET.get('status')
+        owner_id = self.request.GET.get('owner')
+        current_location_id = self.request.GET.get('current_location')
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+
+        if search_query:
+            queryset = queryset.filter(
+                Q(title__icontains=search_query) |
+                Q(file_number__icontains=search_query)
+            )
+        if file_type:
+            queryset = queryset.filter(file_type=file_type)
+        if status:
+            queryset = queryset.filter(status=status)
+        if owner_id:
+            queryset = queryset.filter(owner_id=owner_id)
+        if current_location_id:
+            queryset = queryset.filter(current_location_id=current_location_id)
+        if start_date:
+            queryset = queryset.filter(created_at__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(created_at__date__lte=end_date)
+
+        # Exclude archived files from the main list by default, but allow explicit search
+        if status != 'archived':
+            queryset = queryset.exclude(status="archived")
+
+        return queryset.order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
+
+        # Pending activation files and archived files (unchanged)
         context["pending_activation_files"] = File.objects.filter(
             status="pending_activation", owner__unit=staff_user.unit
         ).order_by("-created_at")
+        context["archived_files"] = File.objects.filter(
+            status="archived", owner__unit=staff_user.unit
+        ).order_by("-created_at")
+
+        # Add filter options to context for form stickiness and dropdowns
+        context['all_file_types'] = File.FILE_TYPE_CHOICES
+        context['all_statuses'] = File.STATUS_CHOICES
+        context['all_owners_in_unit'] = Staff.objects.filter(unit=staff_user.unit).order_by('user__username')
+        context['all_locations_in_unit'] = Staff.objects.filter(unit=staff_user.unit).order_by('user__username')
+
+        context['selected_search_query'] = self.request.GET.get('q', '')
+        context['selected_file_type'] = self.request.GET.get('file_type', '')
+        context['selected_status'] = self.request.GET.get('status', '')
+        context['selected_owner'] = self.request.GET.get('owner', '')
+        context['selected_current_location'] = self.request.GET.get('current_location', '')
+        context['selected_start_date'] = self.request.GET.get('start_date', '')
+        context['selected_end_date'] = self.request.GET.get('end_date', '')
+        
         return context
 
     def get_staff_user(self):
@@ -47,6 +104,58 @@ class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             self.request, "You do not have permission to access the registry dashboard."
         )
         return redirect("document_management:my_files")
+
+
+class HODDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = File
+    template_name = "document_management/hod_dashboard.html"
+    context_object_name = "files"
+
+    def test_func(self):
+        staff_user = self.get_staff_user()
+        return staff_user and (staff_user.is_hod or self.request.user.is_superuser)
+
+    def get_queryset(self):
+        staff_user = self.get_staff_user()
+        if not staff_user:
+            raise Http404("Staff user not found or doesn't exist.")
+
+        # HODs see all non-archived files in their department
+        return File.objects.filter(
+            department=staff_user.department
+        ).exclude(status="archived").order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        staff_user = self.get_staff_user()
+        if not staff_user:
+            raise Http404("Staff user not found or doesn't exist.")
+
+        department_files = File.objects.filter(department=staff_user.department)
+        context["all_files_count"] = department_files.count()
+        context["active_files_count"] = department_files.filter(status="active").count()
+        context["closed_files_count"] = department_files.filter(status="closed").count()
+        context["archived_files_count"] = department_files.filter(status="archived").count()
+
+        return context
+
+    def get_staff_user(self):
+        user = self.request.user
+        try:
+            return Staff.objects.get(user=user)
+        except Staff.DoesNotExist:
+            return None
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(
+            self.request, "You do not have permission to access the HOD dashboard."
+        )
+        return redirect("document_management:my_files")
+
+
+
 
 
 class FileCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -76,6 +185,9 @@ class FileCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             Document.objects.create(
                 file=self.object, attachment=f, uploaded_by=self.request.user
             )
+        
+        # Log file creation
+        log_action(self.request.user, 'FILE_CREATED', request=self.request, obj=self.object)
 
         messages.success(self.request, "File and documents created successfully.")
         return redirect(self.get_success_url())
@@ -160,6 +272,16 @@ class FileApproveActivationView(LoginRequiredMixin, PermissionRequiredMixin, Vie
         if file.status == "pending_activation":
             file.status = "active"
             file.save()
+            log_action(self.request.user, 'FILE_ACTIVATED', request=self.request, obj=file)
+            
+            # Notify file owner
+            if file.owner and file.owner.user:
+                create_notification(
+                    user=file.owner.user,
+                    message=f"Your file '{file.title}' ({file.file_number}) has been activated.",
+                    obj=file,
+                    link=file.get_absolute_url()
+                )
             messages.success(request, f"File '{file.title}' has been activated.")
         else:
             messages.warning(request, f"File '{file.title}' is not pending activation.")
@@ -207,12 +329,15 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         if staff_user == target_file.owner or staff_user == target_file.current_location:
             return True
 
-        # Logic for Registry and HODs to access files within their unit
-        if staff_user and staff_user.unit: # Ensure the current user is associated with a unit
-            # Check if the current user is a Registry or HOD
-            if staff_user.is_registry or staff_user.is_hod:
-                if target_file.owner and target_file.owner.unit == staff_user.unit:
-                    return True
+        # Logic for Registry to access files within their unit
+        if staff_user and staff_user.is_registry and staff_user.unit:
+            if target_file.owner and target_file.owner.unit == staff_user.unit:
+                return True
+
+        # Logic for HODs to access files within their department
+        if staff_user and staff_user.is_hod and staff_user.department:
+            if target_file.owner and target_file.owner.department == staff_user.department:
+                return True
 
         # If none of the above conditions are met, deny permission
         return False
@@ -221,7 +346,7 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["documents"] = self.object.documents.all()
         context["document_form"] = DocumentForm()
-        context["send_file_form"] = SendFileForm()
+        context["send_file_form"] = SendFileForm(user=self.request.user)
         return context
 
     def post(self, request, *args, **kwargs):
@@ -246,6 +371,7 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                 document.file = self.object
                 document.uploaded_by = request.user
                 document.save()
+                log_action(request.user, 'DOCUMENT_ADDED', request=request, obj=document, details={'file_id': self.object.pk})
                 messages.success(request, "Document/Minute added successfully.")
                 return redirect(self.object.get_absolute_url())
             else:
@@ -260,12 +386,30 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
             form = SendFileForm(request.POST)
             if form.is_valid():
-                recipient = form.cleaned_data["recipient"]
-                self.object.current_location = recipient
+                recipient_user = form.cleaned_data["recipient"] # This is a CustomUser object
+                previous_location = self.object.current_location # Capture previous location for audit
+                
+                # Get Staff object for current_location to save in File model
+                try:
+                    recipient_staff = Staff.objects.get(user=recipient_user)
+                except Staff.DoesNotExist:
+                    messages.error(request, "Recipient is not a staff member and cannot receive files.")
+                    return redirect(self.object.get_absolute_url())
+
+                self.object.current_location = recipient_staff
                 self.object.save()
+                log_action(request.user, 'FILE_SENT', request=request, obj=self.object, details={'from_location': str(previous_location), 'to_location': str(recipient_staff)})
+                
+                # Create in-app notification for the recipient
+                create_notification(
+                    user=recipient_user,
+                    message=f"File '{self.object.title}' ({self.object.file_number}) has been sent to you.",
+                    obj=self.object,
+                    link=self.object.get_absolute_url()
+                )
                 messages.success(
                     request,
-                    f"File sent to {recipient.get_full_name() or recipient.username}.",
+                    f"File sent to {recipient_user.get_full_name() or recipient_user.username}.",
                 )
                 # For HTMX, we might want to return a partial update or a header
                 if request.headers.get("HX-Request"):
@@ -309,6 +453,12 @@ class FileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy("document_management:file_detail", kwargs={"pk": self.object.pk})
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request.user, 'FILE_UPDATED', request=self.request, obj=self.object)
+        messages.success(self.request, "File updated successfully.")
+        return response
+
     def test_func(self):
         # Only the owner of the file can update it
         file = self.get_object()
@@ -349,4 +499,44 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
         if not self.request.user.is_authenticated:
             return redirect("user_management:login")
         messages.error(self.request, "You do not have permission to upload documents.")
+        return redirect("document_management:my_files")
+
+class FileCloseView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "document_management.close_file"
+
+    def post(self, request, pk):
+        file = get_object_or_404(File, pk=pk)
+        if file.status == "active":
+            file.status = "closed"
+            file.save()
+            log_action(self.request.user, 'FILE_CLOSED', request=self.request, obj=file)
+            messages.success(request, f"File '{file.title}' has been closed.")
+        else:
+            messages.warning(request, f"File '{file.title}' is not active and cannot be closed.")
+        return redirect("document_management:file_detail", pk=pk)
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to close files.")
+        return redirect("document_management:my_files")
+
+class FileArchiveView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "document_management.archive_file"
+
+    def post(self, request, pk):
+        file = get_object_or_404(File, pk=pk)
+        if file.status == "closed":
+            file.status = "archived"
+            file.save()
+            log_action(self.request.user, 'FILE_ARCHIVED', request=self.request, obj=file)
+            messages.success(request, f"File '{file.title}' has been archived.")
+        else:
+            messages.warning(request, f"File '{file.title}' is not closed and cannot be archived.")
+        return redirect("document_management:file_detail", pk=pk)
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to archive files.")
         return redirect("document_management:my_files")

@@ -171,6 +171,43 @@ class SendFileForm(forms.Form):
         label="Send to",
     )
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+        if self.user and self.user.is_authenticated:
+            try:
+                sender_staff = Staff.objects.get(user=self.user)
+                if sender_staff.is_hod and sender_staff.headed_department:
+                    # HOD can send to anyone in their department
+                    self.fields['recipient'].queryset = CustomUser.objects.filter(
+                        staff__department=sender_staff.headed_department
+                    ).exclude(pk=self.user.pk).order_by("username")
+                elif sender_staff.headed_unit:
+                    # Unit Manager can send to anyone in their unit
+                    self.fields['recipient'].queryset = CustomUser.objects.filter(
+                        staff__unit=sender_staff.headed_unit
+                    ).exclude(pk=self.user.pk).order_by("username")
+                else:
+                    # Regular staff can send to anyone in their unit (if they have one)
+                    # Or this could be further restricted to only people they interact with
+                    # For now, let's assume unit-level sending if unit exists
+                    if sender_staff.unit:
+                        self.fields['recipient'].queryset = CustomUser.objects.filter(
+                            staff__unit=sender_staff.unit
+                        ).exclude(pk=self.user.pk).order_by("username")
+                    else:
+                        # If a regular staff has no unit, perhaps they can't send to anyone else?
+                        # Or they can send to anyone in their department?
+                        # Let's default to no recipients if no unit, or you can adjust this logic
+                        self.fields['recipient'].queryset = CustomUser.objects.none()
+            except Staff.DoesNotExist:
+                # If the user is not a staff member, they cannot send files
+                self.fields['recipient'].queryset = CustomUser.objects.none()
+        else:
+            # For unauthenticated users, no recipients
+            self.fields['recipient'].queryset = CustomUser.objects.none()
+
 class FileUpdateForm(forms.ModelForm):
     class Meta:
         model = File
