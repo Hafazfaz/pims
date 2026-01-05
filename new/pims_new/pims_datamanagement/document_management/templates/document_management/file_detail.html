@@ -4,7 +4,7 @@
 {% block title %}File: {{ file.title }}{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="grid grid-cols-1 md:col-span-3 gap-4">
     <div class="md:col-span-2">
         <div class="bg-white p-6 rounded-lg shadow-md mb-4">
             <h2 class="text-2xl font-semibold text-gray-800 mb-4">File Details: {{ file.title }} ({{ file.file_number }})</h2>
@@ -58,7 +58,10 @@
                                 <p class="mb-1">{{ doc.minute_content|linebreaksbr }}</p>
                             {% endif %}
                             {% if doc.attachment %}
-                                <p class="mb-0">Attachment: <a href="{{ doc.attachment.url }}" target="_blank" class="text-blue-600 hover:underline">{{ doc.attachment.name }}</a></p>
+                                <p class="mb-1">Attachment: <a href="{{ doc.attachment.url }}" download class="text-blue-600 hover:underline">{{ doc.attachment.name }}</a></p>
+                                <div class="mt-2 border rounded-lg overflow-hidden">
+                                    <embed src="{{ doc.attachment.url }}" type="application/pdf" width="100%" height="600px" />
+                                </div>
                             {% endif %}
                         </li>
                     {% endfor %}
@@ -89,8 +92,33 @@
             {% else %}
                 <p class="text-gray-600 italic">You do not have permission to send this file.</p>
             {% endif %}
-            {# Other file actions will go here #}
+
+            {# Close File Button #}
+            {% if file.status == 'active' and perms.document_management.close_file %}
+                <form action="{% url 'document_management:file_close' pk=file.pk %}" method="post" class="mt-4">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Close File</button>
+                </form>
+            {% endif %}
+
+            {# Archive File Button #}
+            {% if file.status == 'closed' and perms.document_management.archive_file %}
+                <form action="{% url 'document_management:file_archive' pk=file.pk %}" method="post" class="mt-4">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Archive File</button>
+                </form>
+            {% endif %}
         </div>
-    </div>
-</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+    tinymce.init({
+        selector: 'textarea.tinymce-editor',
+        plugins: 'advlist autolink lists link image charmap print preview anchor',
+        toolbar_mode: 'floating',
+        toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help'
+    });
+</script>
 {% endblock %}

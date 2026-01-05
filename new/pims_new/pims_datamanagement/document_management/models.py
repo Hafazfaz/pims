@@ -1,6 +1,10 @@
+import os
+import io # Added for BytesIO
+from django.core.files.base import ContentFile # Added for saving watermarked content
 from django.conf import settings
 from django.db import models
 from organization.models import Department, Staff
+from .utils import watermark_pdf_file # Import the utility
 
 
 class File(models.Model):
@@ -18,6 +22,7 @@ class File(models.Model):
         ("pending_activation", "Pending Activation"),
         ("active", "Active"),
         ("closed", "Closed"),
+        ("archived", "Archived"), # Added archived status
     ]
 
     title = models.CharField(
@@ -54,10 +59,15 @@ class File(models.Model):
             ("activate_file", "Can activate an inactive file"),
             ("close_file", "Can close an active file"),
             ("send_file", "Can send a file to another user"),
+            ("archive_file", "Can archive a file"), # New permission
         ]
 
     def __str__(self):
         return f"{self.title} ({self.file_number})"
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse("document_management:file_detail", kwargs={"pk": self.pk})
 
     def save(self, *args, **kwargs):
         # Enforce uppercase title
@@ -102,6 +112,27 @@ class Document(models.Model):
             ("add_minute", "Can add a minute to a file"),
             ("add_attachment", "Can add an attachment to a file"),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.attachment and settings.ENABLE_DOCUMENT_WATERMARKING:
+            # Check if it's a PDF
+            if self.attachment.name.lower().endswith('.pdf'):
+                # Read the original PDF content
+                original_pdf_content = self.attachment.read()
+                original_pdf_file = io.BytesIO(original_pdf_content)
+
+                # Watermark the PDF
+                watermarked_pdf_content = watermark_pdf_file(
+                    original_pdf_file,
+                    watermark_text=settings.DOCUMENT_WATERMARK_TEXT
+                )
+                
+                # Create a new ContentFile from the watermarked content
+                # And replace the attachment with the watermarked version
+                filename = os.path.basename(self.attachment.name)
+                self.attachment.save(filename, ContentFile(watermarked_pdf_content.getvalue()), save=False)
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         if self.minute_content:
