@@ -40,10 +40,17 @@ class Designation(models.Model):
         return self.name
 
 class Staff(models.Model):
+    STAFF_TYPE_CHOICES = [
+        ('permanent', 'Permanent'),
+        ('locum', 'Locum'),
+        ('contract', 'Contract'),
+        ('nysc', 'NYSC'),
+    ]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     designation = models.ForeignKey(Designation, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, related_name='staff_members')
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
+    staff_type = models.CharField(max_length=20, choices=STAFF_TYPE_CHOICES, default='permanent')
     phone_number = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):

@@ -21,6 +21,7 @@ class File(models.Model):
         ("inactive", "Inactive"),
         ("pending_activation", "Pending Activation"),
         ("active", "Active"),
+        ("in_transit", "In Transit"), # Added new status
         ("closed", "Closed"),
         ("archived", "Archived"), # Added archived status
     ]
@@ -104,7 +105,7 @@ class Document(models.Model):
 
     # A document can be either a text minute or an uploaded file
     minute_content = models.TextField(blank=True, null=True)
-    attachment = models.FileField(upload_to="attachments/", blank=True, null=True)
+    attachment = models.FileField(upload_to="", blank=True, null=True)
 
     class Meta:
         ordering = ["-uploaded_at"]

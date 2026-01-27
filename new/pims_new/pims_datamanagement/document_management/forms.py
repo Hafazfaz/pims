@@ -2,6 +2,7 @@ from django import forms
 from organization.models import Department, Staff, Unit
 from user_management.models import CustomUser
 
+
 from .models import Document, File
 
 
@@ -51,8 +52,8 @@ class FileForm(forms.ModelForm):
                 if is_hod:
                     # HOD can create files for anyone in their department
                     self.fields["owner"].queryset = Staff.objects.filter(
-                        staff__department=creator_staff.headed_department
-                    ).order_by("user_username")
+                        department=creator_staff.headed_department
+                    ).order_by("user__username")
                 elif is_unit_manager:
                     # Unit Manager can create files for anyone in their unit
                     self.fields["owner"].queryset = Staff.objects.filter(
@@ -68,7 +69,7 @@ class FileForm(forms.ModelForm):
                 )
         else:
             # For unauthenticated users, no owner choices (shouldn't happen with LoginRequiredMixin)
-            self.fields["owner"].queryset = CustomUser.objects.none()
+            self.fields["owner"].queryset = Staff.objects.none()
 
     def clean_title(self):
         title = self.cleaned_data["title"]
@@ -76,7 +77,7 @@ class FileForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        owner = cleaned_data.get("owner")  # This is a CustomUser object
+        owner = cleaned_data.get("owner")  # This is a Staff object
 
         # Get the creator (current user) from the form's kwargs
         creator = self.user
@@ -93,12 +94,10 @@ class FileForm(forms.ModelForm):
                 "Creator is not associated with a staff profile."
             )
 
-        try:
-            owner_staff = owner
-        except Staff.DoesNotExist:
-            raise forms.ValidationError(
-                "Selected owner is not associated with a staff profile."
-            )
+        owner_staff = owner
+        if not owner_staff:
+            raise forms.ValidationError("Owner is required.")
+
 
         # Check if creator is an HOD
         is_hod = (
@@ -134,8 +133,8 @@ class DocumentForm(forms.ModelForm):
         widgets = {
             "minute_content": forms.Textarea(
                 attrs={
-                    "class": "form-control tinymce-editor", # Added tinymce-editor class
-                    "rows": 3,
+                    "class": "form-control",
+                    "rows": 10,
                     "placeholder": "Enter minute content...",
                 }
             ),
@@ -163,6 +162,8 @@ class DocumentForm(forms.ModelForm):
         return cleaned_data
 
 
+from django.db.models import Q
+
 class SendFileForm(forms.Form):
     recipient = forms.ModelChoiceField(
         queryset=CustomUser.objects.all().order_by("username"),
@@ -176,53 +177,21 @@ class SendFileForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         if self.user and self.user.is_authenticated:
-            try:
-                sender_staff = Staff.objects.get(user=self.user)
-                
-                # Check if sender is a HOD
-                headed_department = None
-                try:
-                    headed_department = sender_staff.headed_department
-                except Department.DoesNotExist:
-                    pass # Not a department head
-
-                if headed_department:
-                    # HOD can send to anyone in their department
-                    self.fields['recipient'].queryset = CustomUser.objects.filter(
-                        staff__department=headed_department
-                    ).exclude(pk=self.user.pk).order_by("username")
-                    return # Exit after setting queryset
-
-                # Check if sender is a Unit Manager
-                headed_unit = None
-                try:
-                    headed_unit = sender_staff.headed_unit
-                except Unit.DoesNotExist:
-                    pass # Not a unit head
-                
-                if headed_unit:
-                    # Unit Manager can send to anyone in their unit
-                    self.fields['recipient'].queryset = CustomUser.objects.filter(
-                        staff__unit=headed_unit
-                    ).exclude(pk=self.user.pk).order_by("username")
-                    return # Exit after setting queryset
-                
-                # If neither HOD nor Unit Manager, and they have a unit
-                if sender_staff.unit:
-                    self.fields['recipient'].queryset = CustomUser.objects.filter(
-                        staff__unit=sender_staff.unit
-                    ).exclude(pk=self.user.pk).order_by("username")
-                else:
-                    # If a regular staff has no unit, they can't send to anyone else within unit
-                    # Or this could be further restricted to only people they interact with
-                    self.fields['recipient'].queryset = CustomUser.objects.none()
-
-            except Staff.DoesNotExist:
-                # If the user is not a staff member, they cannot send files
-                self.fields['recipient'].queryset = CustomUser.objects.none()
+            is_unit_manager = Q(staff__headed_unit__isnull=False)
+            is_hod = Q(staff__headed_department__isnull=False)
+            
+            self.fields['recipient'].queryset = CustomUser.objects.filter(
+                is_unit_manager | is_hod
+            ).exclude(pk=self.user.pk).order_by("username").distinct()
         else:
             # For unauthenticated users, no recipients
             self.fields['recipient'].queryset = CustomUser.objects.none()
+
+    def clean_recipient(self):
+        recipient = self.cleaned_data.get('recipient')
+        if recipient not in self.fields['recipient'].queryset:
+            raise forms.ValidationError("Invalid recipient. Please select a valid user from the list.")
+        return recipient
 
 class FileUpdateForm(forms.ModelForm):
     class Meta:
