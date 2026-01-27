@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+
+{% block title %}Director Admin Dashboard | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-10">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+            <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Director of Administration</h2>
+            <p class="text-sm text-slate-500 font-medium italic">Asset Oversight & Strategic Personnel Records Matrix
+            </p>
+        </div>
+        <div class="flex items-center space-x-4 bg-white border border-slate-200 p-2 rounded-xl shadow-sm">
+            <div
+                class="flex items-center px-4 py-1.5 bg-green-50 text-green-800 text-[10px] font-bold rounded-lg border border-green-100 uppercase tracking-widest">
+                <span class="relative flex h-2 w-2 mr-2">
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-nigeria-green"></span>
+                </span>
+                System Healthy
+            </div>
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider pr-2">
+                {% now "H:i" %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Metrics Deck -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-slate-900 p-8 rounded-2xl shadow-xl relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-nigeria-green/10 rounded-full -mr-16 -mt-16 blur-xl"></div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 relative">Authorized
+                Principals</p>
+            <h4 class="text-4xl font-bold text-white relative">{{ total_staff }}</h4>
+            <div class="mt-6 flex flex-wrap gap-2 relative">
+                {% for type, count in staff_by_type.items %}
+                <span
+                    class="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-green-400 transition-colors">
+                    {{ type }}: {{ count }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 border-l-[8px] border-l-nigeria-green">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Protocol Velocity (30d)</p>
+            <h4 class="text-4xl font-bold text-slate-900">{{ new_files_30d }}</h4>
+            <p class="mt-4 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Asset Expansion: <span
+                    class="text-nigeria-green">+12.4%</span></p>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 border-l-[8px] border-l-amber-500">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Governance Queue</p>
+            <h4 class="text-4xl font-bold text-slate-900">{{ archival_queue.count }}</h4>
+            <p class="mt-4 text-[9px] font-bold text-amber-600 uppercase tracking-wider">Awaiting Executive Action</p>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 border-l-[8px] border-l-red-600">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 text-red-600">Integrity Alerts
+            </p>
+            <h4 class="text-4xl font-bold text-red-600">03</h4>
+            <p class="mt-4 text-[9px] font-bold text-red-400 uppercase tracking-wider">Resolution Required</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <!-- Inbox Section -->
+        <div class="xl:col-span-2 space-y-8">
+            <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-8 py-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-900 tracking-tight">Executive Authorization Queue</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr
+                                class="bg-slate-900 text-slate-500 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-800">
+                                <th class="px-8 py-4">Reference</th>
+                                <th class="px-8 py-4">Asset Metadata</th>
+                                <th class="px-8 py-4 text-right">Commit</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for file in recent_files %}
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="px-8 py-6">
+                                    <div class="font-bold text-nigeria-green font-mono">{{ file.file_number }}</div>
+                                    <div class="text-[9px] font-bold text-slate-400 uppercase mt-1">{{
+                                        file.get_status_display }}</div>
+                                </td>
+                                <td class="px-8 py-6">
+                                    <div class="font-semibold text-slate-900 tracking-tight">{{
+                                        file.title|truncatechars:100 }}</div>
+                                    <div class="text-[9px] text-slate-400 font-medium uppercase mt-1">Registrated: {{
+                                        file.created_at|date:"M d, Y" }}</div>
+                                </td>
+                                <td class="px-8 py-6 text-right">
+                                    <a href="{% url 'document_management:file_detail' file.pk %}"
+                                        class="inline-flex items-center px-5 py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg shadow-sm hover:bg-black transition-all uppercase tracking-widest italic">
+                                        Open Record
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="px-8 py-16 text-center text-slate-400 font-medium italic">All
+                                    executive signals cleared.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Dept Performance -->
+            <div class="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-8 py-5 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="text-lg font-bold text-slate-900 tracking-tight">Interdepartmental Record Velocity</h3>
+                </div>
+                <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {% for flow in dept_flows %}
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center px-1">
+                            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">{{ flow.name
+                                }}</span>
+                            <span class="text-[10px] font-bold text-nigeria-green uppercase">{{ flow.count }}
+                                Assets</span>
+                        </div>
+                        <div class="h-3 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                            <div class="h-full bg-nigeria-green rounded-full shadow-sm"
+                                style="width: {{ flow.count }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Section -->
+        <div class="space-y-8">
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h4
+                    class="text-xs font-bold text-slate-900 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4">
+                    Strategy Center</h4>
+                <div class="space-y-3">
+                    <button
+                        class="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-green-50 rounded-xl transition-all text-left border border-slate-100 hover:border-green-200 group">
+                        <span
+                            class="text-[10px] font-bold text-slate-700 uppercase tracking-wider leading-relaxed">System
+                            Promotion<br />Authorizations</span>
+                        <div
+                            class="w-8 h-8 bg-nigeria-green rounded shadow-sm flex items-center justify-center text-white">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                    </button>
+                    <button
+                        class="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-amber-50 rounded-xl transition-all text-left border border-slate-100 hover:border-amber-200 group">
+                        <span
+                            class="text-[10px] font-bold text-slate-700 uppercase tracking-wider leading-relaxed">Executive<br />Lifecycle
+                            Purge</span>
+                        <div class="w-8 h-8 bg-amber-600 rounded shadow-sm flex items-center justify-center text-white">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                                </path>
+                            </svg>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Archival Hub -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 bg-slate-50 border-b border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-widest italic">Cold Storage Queue
+                    </h4>
+                </div>
+                <div class="p-4 space-y-2">
+                    {% for file in archival_queue|slice:":5" %}
+                    <div
+                        class="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100 hover:bg-white transition-colors">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold text-slate-900">{{ file.file_number }}</span>
+                            <span class="text-[8px] text-slate-500 font-medium uppercase truncate w-32">{{ file.title
+                                }}</span>
+                        </div>
+                        <form action="{% url 'document_management:file_archive' file.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit"
+                                class="p-2 text-amber-600 hover:text-amber-800 bg-white border border-amber-100 rounded transition-colors shadow-sm">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4">
+                                    </path>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                    {% empty %}
+                    <p class="py-8 text-center text-xs text-slate-400 font-medium italic">Storage Hub Optimized.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

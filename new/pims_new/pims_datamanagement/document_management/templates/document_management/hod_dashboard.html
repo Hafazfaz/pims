@@ -1,72 +1,117 @@
 {% extends 'base.html' %}
 
-{% block title %}HOD Dashboard{% endblock %}
+{% block title %}Department Oversight | PIMS{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-md">
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-semibold text-gray-800">HOD Dashboard for {{ user.staff.department.name }}</h2>
-    </div>
-
-    {# Department File Statistics #}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-blue-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-blue-800">Total Files</h4>
-            <p class="text-2xl font-bold">{{ all_files_count }}</p>
-        </div>
-        <div class="bg-green-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-green-800">Active Files</h4>
-            <p class="text-2xl font-bold">{{ active_files_count }}</p>
-        </div>
-        <div class="bg-yellow-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-yellow-800">Closed Files</h4>
-            <p class="text-2xl font-bold">{{ closed_files_count }}</p>
-        </div>
-        <div class="bg-gray-200 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-gray-800">Archived Files</h4>
-            <p class="text-2xl font-bold">{{ archived_files_count }}</p>
+<div class="space-y-8">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Department Performance</h2>
+            <p class="text-sm text-slate-500 font-medium whitespace-nowrap">Operational Governance for <span
+                    class="text-nigeria-green font-bold">{{ user.staff.department.name }}</span></p>
         </div>
     </div>
 
-    {# All Files Section #}
-    <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-4">All Files in Department</h3>
-    {% if files %}
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3">File Number</th>
-                    <th scope="col" class="px-6 py-3">Title</th>
-                    <th scope="col" class="px-6 py-3">Type</th>
-                    <th scope="col" class="px-6 py-3">Status</th>
-                    <th scope="col" class="px-6 py-3">Owner</th>
-                    <th scope="col" class="px-6 py-3">Current Location</th>
-                    <th scope="col" class="px-6 py-3">Created At</th>
-                    <th scope="col" class="px-6 py-3">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for file in files %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.file_number }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.title }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.get_file_type_display }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.get_status_display }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.owner.get_full_name|default:file.owner.user.username }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.current_location.get_full_name|default:file.current_location.user.username }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.created_at|date:"Y-m-d H:i" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">View</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Quick Stats Deck -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div
+            class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-[6px] border-l-nigeria-green transition-shadow hover:shadow-md">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Files</p>
+            <p class="text-3xl font-bold text-slate-900">{{ all_files_count }}</p>
+        </div>
+        <div
+            class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-[6px] border-l-emerald-500 transition-shadow hover:shadow-md">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active Files</p>
+            <p class="text-3xl font-bold text-emerald-600">{{ active_files_count }}</p>
+        </div>
+        <div
+            class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-[6px] border-l-amber-500 transition-shadow hover:shadow-md">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Files</p>
+            <p class="text-3xl font-bold text-amber-600">{{ closed_files_count }}</p>
+        </div>
+        <div
+            class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-[6px] border-l-slate-400 transition-shadow hover:shadow-md">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Archived Files</p>
+            <p class="text-3xl font-bold text-slate-900">{{ archived_files_count }}</p>
+        </div>
     </div>
-    {% else %}
-    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
-        <p>No files found in this department.</p>
+
+    <!-- Detailed Alignment Section -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 px-8 py-5 border-b border-slate-200 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">Department Files</h3>
+            <span
+                class="text-[10px] font-bold text-nigeria-green bg-green-50 px-2.5 py-1 rounded-full border border-green-100 uppercase tracking-widest">{{
+                files|length }} Entries Found</span>
+        </div>
+        {% if files %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr
+                        class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-800">
+                        <th class="px-8 py-5">File Number & Title</th>
+                        <th class="px-8 py-5 text-center">Status</th>
+                        <th class="px-8 py-5">Custody</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for file in files %}
+                    <tr class="hover:bg-slate-50 transition-colors group">
+                        <td class="px-8 py-7">
+                            <div class="font-bold text-nigeria-green text-sm">{{ file.file_number }}</div>
+                            <div class="text-[13px] font-semibold text-slate-900 mt-1 max-w-xs lg:max-w-md truncate">{{
+                                file.title }}</div>
+                            <div class="text-[10px] text-slate-500 uppercase mt-1">{{ file.get_file_type_display }}
+                            </div>
+                        </td>
+                        <td class="px-8 py-7 text-center">
+                            <span class="text-[9px] font-bold px-3 py-1 rounded-full border shadow-sm uppercase tracking-wider
+                                {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
+                                {% elif file.status == 'closed' %}bg-slate-100 text-slate-700 border-slate-200
+                                {% elif file.status == 'archived' %}bg-slate-900 text-white border-slate-800
+                                {% else %}bg-green-50 text-green-700 border-green-200{% endif %}">
+                                {{ file.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-8 py-7">
+                            <div class="text-xs font-bold text-slate-900">
+                                <span class="text-slate-400 font-medium">Lead:</span> {{
+                                file.owner.get_full_name|default:file.owner.user.username }}
+                            </div>
+                            <div class="text-[10px] text-slate-500 mt-1 uppercase">
+                                <span class="text-slate-400">Current:</span> {{
+                                file.current_location.get_full_name|default:file.current_location.user.username }}
+                            </div>
+                        </td>
+                        <td class="px-8 py-7 text-right">
+                            <a href="{% url 'document_management:file_detail' pk=file.pk %}"
+                                class="inline-flex items-center px-5 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all">
+                                Open File
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-8 py-24 text-center bg-slate-50/50">
+            <div class="max-w-xs mx-auto space-y-4">
+                <div
+                    class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-slate-200 mx-auto border border-slate-100 shadow-sm">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                        </path>
+                    </svg>
+                </div>
+                <p class="text-xs font-semibold text-slate-400 italic">No departmental assets detected.</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 {% endblock %}

@@ -1,157 +1,125 @@
 {% extends 'base.html' %}
 
-{% block title %}Registry Dashboard{% endblock %}
+{% block title %}Registry Hub | PIMS{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-md">
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-semibold text-gray-800">Registry Dashboard</h2>
-        <a href="{% url 'document_management:file_create' %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Create New File</a>
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Registry Hub</h2>
+            <p class="text-sm text-slate-500 font-medium">Manage Records & Files</p>
+        </div>
+        {% if perms.document_management.create_file %}
+        <a href="{% url 'document_management:file_create' %}"
+            class="inline-flex items-center px-6 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Create New File
+        </a>
+        {% endif %}
     </div>
 
-    <form method="get" class="mb-6 border-b pb-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div>
-                <label for="id_q" class="block text-sm font-medium text-gray-700">Search</label>
-                <input type="text" name="q" id="id_q" value="{{ selected_search_query }}" placeholder="Title or File No." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="id_file_type" class="block text-sm font-medium text-gray-700">File Type</label>
-                <select name="file_type" id="id_file_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">All Types</option>
-                    {% for type_val, type_label in all_file_types %}
-                        <option value="{{ type_val }}" {% if selected_file_type == type_val %}selected{% endif %}>{{ type_label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="id_status" class="block text-sm font-medium text-gray-700">Status</label>
-                <select name="status" id="id_status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">All Statuses</option>
-                    {% for status_val, status_label in all_statuses %}
-                        <option value="{{ status_val }}" {% if selected_status == status_val %}selected{% endif %}>{{ status_label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="id_owner" class="block text-sm font-medium text-gray-700">Owner</label>
-                <select name="owner" id="id_owner" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">All Owners</option>
-                    {% for owner_obj in all_owners_in_unit %}
-                        <option value="{{ owner_obj.pk }}" {% if selected_owner|stringformat:"s" == owner_obj.pk|stringformat:"s" %}selected{% endif %}>{{ owner_obj.user.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+    <!-- Summary -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Assets</p>
+            <p class="text-4xl font-bold text-slate-900">{{ total_files }}</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-                <label for="id_current_location" class="block text-sm font-medium text-gray-700">Current Location</label>
-                <select name="current_location" id="id_current_location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">All Locations</option>
-                    {% for location_obj in all_locations_in_unit %}
-                        <option value="{{ location_obj.pk }}" {% if selected_current_location|stringformat:"s" == location_obj.pk|stringformat:"s" %}selected{% endif %}>{{ location_obj.user.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="id_start_date" class="block text-sm font-medium text-gray-700">Created From</label>
-                <input type="date" name="start_date" id="id_start_date" value="{{ selected_start_date }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="id_end_date" class="block text-sm font-medium text-gray-700">Created To</label>
-                <input type="date" name="end_date" id="id_end_date" value="{{ selected_end_date }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Awaiting Authorization</p>
+            <p class="text-4xl font-bold text-amber-600">{{ pending_activation_files.count }}</p>
         </div>
-        <div class="flex items-center">
-            <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Apply Filters</button>
-            <a href="{% url 'document_management:registry_dashboard' %}" class="ml-2 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Reset Filters</a>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <p class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest mb-1">Active Ledger</p>
+            <p class="text-4xl font-bold text-nigeria-green">{{ files.count }}</p>
         </div>
-    </form>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cold Storage</p>
+            <p class="text-4xl font-bold text-slate-900">{{ archived_files.count }}</p>
+        </div>
+    </div>
 
-    {# Pending Activation Requests Section #}
-    {% if pending_activation_files %}
-    <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-4">Pending Activation Requests</h3>
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3">File Number</th>
-                    <th scope="col" class="px-6 py-3">Title</th>
-                    <th scope="col" class="px-6 py-3">Type</th>
-                    <th scope="col" class="px-6 py-3">Department</th>
-                    <th scope="col" class="px-6 py-3">Owner</th>
-                    <th scope="col" class="px-6 py-3">Requested At</th>
-                    <th scope="col" class="px-6 py-3">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for file in pending_activation_files %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.file_number }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.title }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.get_file_type_display }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.department.name|default:"N/A" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.owner.get_full_name|default:file.owner.user.username }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.created_at|date:"Y-m-d H:i" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <form action="{% url 'document_management:file_approve_activation' pk=file.pk %}" method="post" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Approve Activation</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Filter Deck -->
+    <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="md:col-span-2">
+                <input type="text" name="q" value="{{ selected_search_query }}"
+                    placeholder="Search by file number or title..."
+                    class="w-full px-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none font-medium">
+            </div>
+            <div>
+                <select name="file_type"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none bg-white font-medium">
+                    <option value="">All Classifications</option>
+                    {% for val, label in all_file_types %}
+                    <option value="{{ val }}" {% if selected_file_type == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit"
+                class="w-full py-2 bg-nigeria-green text-white text-sm font-bold rounded-lg hover:bg-nigeria-dark transition-colors">
+                Apply Filters
+            </button>
+        </form>
     </div>
-    {% else %}
-    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mt-4" role="alert">
-        <p>No pending activation requests.</p>
-    </div>
-    {% endif %}
 
-    {# All Files Section #}
-    <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-4">All Files</h3>
-    {% if files %}
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3">File Number</th>
-                    <th scope="col" class="px-6 py-3">Title</th>
-                    <th scope="col" class="px-6 py-3">Type</th>
-                    <th scope="col" class="px-6 py-3">Department</th>
-                    <th scope="col" class="px-6 py-3">Status</th>
-                    <th scope="col" class="px-6 py-3">Owner</th>
-                    <th scope="col" class="px-6 py-3">Current Location</th>
-                    <th scope="col" class="px-6 py-3">Created At</th>
-                    <th scope="col" class="px-6 py-3">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for file in files %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.file_number }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.title }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.get_file_type_display }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.department.name|default:"N/A" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.get_status_display }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.owner.get_full_name|default:file.owner.user.username }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.current_location.get_full_name|default:file.current_location.user.username }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ file.created_at|date:"Y-m-d H:i" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">View</a>
-                        <a href="#" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">Edit</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Active Ledger Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">Active File Ledger</h3>
+            <span class="text-[10px] font-bold text-slate-400 uppercase">{{ files.count }} Matches</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr
+                        class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-800">
+                        <th class="px-8 py-5">File Number</th>
+                        <th class="px-8 py-5">File Title</th>
+                        <th class="px-8 py-5">Custody Holder</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for file in files %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-8 py-7">
+                            <div class="font-bold text-nigeria-green">{{ file.file_number }}</div>
+                            <div class="font-bold text-slate-900 mt-1 truncate max-w-sm">{{ file.title }}</div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase mt-1">{{ file.get_file_type_display }}</div>
+                        </td>
+                        <td class="px-8 py-7 text-center">
+                            <span class="text-[9px] font-bold px-2.5 py-1 rounded border shadow-sm uppercase tracking-tighter
+                                {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
+                                {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border-amber-200
+                                {% elif file.status == 'closed' %}bg-slate-100 text-slate-600 border-slate-200
+                                {% elif file.status == 'archived' %}bg-slate-900 text-white border-slate-800
+                                {% else %}bg-slate-50 text-slate-600 border-slate-200{% endif %}">
+                                {{ file.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-8 py-7">
+                            <div class="font-bold text-slate-900">{{ file.owner.get_full_name|default:file.owner.user.username }}</div>
+                            <div class="text-[10px] text-slate-400 italic mt-0.5">Custodian: {{ file.current_location.get_full_name|default:file.current_location.user.username }}</div>
+                        </td>
+                        <td class="px-8 py-7 text-right">
+                            <a href="{% url 'document_management:file_detail' pk=file.pk %}"
+                                class="inline-flex items-center px-4 py-1.5 border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all">
+                                Access File
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-8 py-16 text-center text-slate-400 italic font-medium">No records
+                            matching synthesis metadata.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    {% else %}
-    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
-        <p>No files found in the system.</p>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

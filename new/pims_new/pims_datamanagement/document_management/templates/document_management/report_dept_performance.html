@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}Performance Analytics | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Performance Analytics</h2>
+            <p class="text-sm text-slate-500 font-medium italic">Departmental Load Balancing & Efficiency Index • Last
+                30 Days</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="?export=csv"
+                class="inline-flex items-center px-6 py-2 bg-slate-900 hover:bg-black text-white text-[11px] font-bold rounded-lg shadow-sm transition-all uppercase tracking-widest italic">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Analytics Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-8 py-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">Departmental Efficiency Matrix</h3>
+            <span
+                class="px-3 py-1 bg-green-50 text-nigeria-green text-[10px] font-bold rounded-lg border border-green-100 uppercase tracking-widest italic">{{
+                report_data|length }} Units Tracked</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr
+                        class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-800 italic">
+                        <th class="px-8 py-5">Unit Alignment</th>
+                        <th class="px-8 py-5 text-center">Total Assets</th>
+                        <th class="px-8 py-5 text-center text-green-400">Active Load</th>
+                        <th class="px-8 py-5">Throughput Visualization</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for dept in report_data %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-8 py-6">
+                            <div class="text-sm font-bold text-slate-900 uppercase tracking-tight mb-1">{{
+                                dept.department }}</div>
+                            <div
+                                class="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic flex items-center">
+                                <span class="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 shadow-sm"></span> Verified
+                                Integrity
+                            </div>
+                        </td>
+                        <td class="px-8 py-6 text-center font-bold text-slate-700 text-base">
+                            {{ dept.total_files_owned }}
+                        </td>
+                        <td class="px-8 py-6 text-center font-black text-nigeria-green text-base">
+                            {{ dept.active_files }}
+                        </td>
+                        <td class="px-8 py-6">
+                            <div class="max-w-xs space-y-2">
+                                <div
+                                    class="flex justify-between items-center text-[10px] font-bold uppercase text-slate-400 tracking-widest italic">
+                                    <span>Workload Pressure</span>
+                                    <span class="text-slate-900 font-black">{{ dept.files_currently_pending }}
+                                        pending</span>
+                                </div>
+                                <div
+                                    class="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200 p-0.5">
+                                    <div class="h-full bg-nigeria-green rounded-full shadow-sm shadow-green-900/10 transition-all duration-1000"
+                                        style="width: {% widthratio dept.files_currently_pending 50 100 %}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-10 py-24 text-center text-slate-400 italic">No departmental metrics
+                            available for synthesis.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-900 p-8 rounded-xl shadow-lg border border-slate-800 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full -mr-12 -mt-12 blur-xl"></div>
+            <dt class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Total Reporting Units</dt>
+            <dd class="text-4xl font-black text-white tracking-tight">{{ report_data|length }}</dd>
+        </div>
+
+        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+                <dt class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Governance Focus</dt>
+                <dd class="text-base font-bold text-slate-900 leading-tight">Sovereign Lifecycle Performance & Personnel
+                    Integrity</dd>
+            </div>
+            <div
+                class="mt-4 flex items-center text-[9px] font-black text-nigeria-green uppercase tracking-widest italic">
+                <svg class="w-3.5 h-3.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clip-rule="evenodd"></path>
+                </svg>
+                Protocol Validated
+            </div>
+        </div>
+
+        <div class="bg-green-50 p-8 rounded-xl border border-green-100 relative group">
+            <dt class="text-[10px] font-bold text-green-700/60 uppercase tracking-widest mb-3">Operational Target</dt>
+            <dd class="text-lg font-black text-nigeria-green uppercase tracking-tight italic">Optimized Throughput</dd>
+            <div class="mt-6 flex space-x-1">
+                <div class="h-1 flex-1 bg-green-200 rounded-full"></div>
+                <div class="h-1 flex-1 bg-green-200 rounded-full"></div>
+                <div class="h-1 flex-1 bg-nigeria-green rounded-full shadow-sm shadow-green-900/20"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
