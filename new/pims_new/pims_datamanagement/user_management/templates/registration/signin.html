@@ -4,7 +4,8 @@
 {% block title %}Sign In | PIMS{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-lg px-4">
+<div class="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div class="w-full max-w-xl">
     <!-- Logo -->
     <div class="text-center mb-10">
         <div
@@ -16,10 +17,10 @@
     </div>
 
     <!-- Sign In Card -->
-    <div class="bg-white py-14 px-10 rounded-xl shadow-md border border-slate-200">
+    <div class="bg-white py-16 px-12 rounded-xl shadow-md border border-slate-200">
 
 
-        <form method="post" class="space-y-6">
+        <form method="post" class="space-y-8">
             {% csrf_token %}
 
             {% for field in form %}
