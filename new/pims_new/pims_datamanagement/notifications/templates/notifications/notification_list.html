@@ -54,8 +54,7 @@
                         <div
                             class="text-sm font-bold text-slate-900 group-hover:text-gov-green transition-colors uppercase italic mb-1.5 flex items-center">
                             {% if not notification.is_read %}<span
-                                class="w-1.5 h-1.5 bg-gov-green rounded-full mr-2 shadow-sm animate-pulse"></span>{%
-                            endif %}
+                                class="w-1.5 h-1.5 bg-gov-green rounded-full mr-2 shadow-sm animate-pulse"></span>{% endif %}
                             {% if notification.link %}
                             <a href="{{ notification.get_link }}" class="hover:underline">{{ notification.message }}</a>
                             {% else %}
@@ -86,9 +85,9 @@
                 {% endif %}
             </div>
         </div>
+        </div>
         {% endfor %}
     </div>
-    {% endif %}
 
     {# Pagination #}
     {% if is_paginated %}
