@@ -1,148 +1,192 @@
 {% extends 'base.html' %}
 
-{% block title %}Audit Log{% endblock %}
+{% block title %}Forensic Traces | PIMS{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-md">
-    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Audit Log Entries</h2>
-
-    {# Filter Form #}
-    <form method="get" class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <label for="id_user" class="block text-sm font-medium text-gray-700">User</label>
-                <select name="user" id="id_user" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">All Users</option>
-                    {% for user_obj in all_users %}
-                        <option value="{{ user_obj.pk }}" {% if selected_user|as_int == user_obj.pk %}selected{% endif %}>{{ user_obj.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="id_action" class="block text-sm font-medium text-gray-700">Action</label>
-                <select name="action" id="id_action" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">All Actions</option>
-                    {% for action_type in all_actions %}
-                        <option value="{{ action_type }}" {% if selected_action == action_type %}selected{% endif %}>{{ action_type }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="id_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
-                <input type="date" name="start_date" id="id_start_date" value="{{ selected_start_date }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="id_end_date" class="block text-sm font-medium text-gray-700">End Date</label>
-                <input type="date" name="end_date" id="id_end_date" value="{{ selected_end_date }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
-        </div>
-        <div class="mt-4 flex items-center">
-            <input type="text" name="q" value="{{ search_query }}" placeholder="Search details, IP, user agent..." class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm mr-4">
-            <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Filter</button>
-            <a href="{% url 'audit_log:audit_log_list' %}" class="ml-2 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Reset</a>
-        </div>
-    </form>
-
-
-    {# Audit Log Table #}
-    {% if log_entries %}
-    <div class="overflow-x-auto mt-6">
-        <table class="w-full text-sm text-left text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3">Timestamp</th>
-                    <th scope="col" class="px-6 py-3">User</th>
-                    <th scope="col" class="px-6 py-3">Action</th>
-                    <th scope="col" class="px-6 py-3">IP Address</th>
-                    <th scope="col" class="px-6 py-3">User Agent</th>
-                    <th scope="col" class="px-6 py-3">Object</th>
-                    <th scope="col" class="px-6 py-3">Details</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for entry in log_entries %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">{{ entry.timestamp|date:"Y-m-d H:i:s" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{% if entry.user %}{{ entry.user.username }}{% else %}Anonymous{% endif %}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ entry.action }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ entry.ip_address|default:"N/A" }}</td>
-                    <td class="px-6 py-4 text-xs">{{ entry.user_agent|default:"N/A"|truncatechars:50 }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if entry.content_object %}
-                            {{ entry.content_type.model|title }}: {{ entry.content_object }} (ID: {{ entry.object_id }})
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 text-xs">{{ entry.details|default:"N/A" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="space-y-8">
+    <!-- Header Section -->
+    <div>
+        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Forensic Activity Ledger</h2>
+        <p class="text-sm text-slate-500 font-medium italic">Official System-wide Monitoring & Immutability Protocols
+        </p>
     </div>
 
-    {# Pagination #}
-    <nav class="mt-4 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-        <div class="flex flex-1 justify-between sm:hidden">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
-            {% endif %}
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
-            {% endif %}
-        </div>
-        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-                <p class="text-sm text-gray-700">
-                    Showing
-                    <span class="font-medium">{{ page_obj.start_index }}</span>
-                    to
-                    <span class="font-medium">{{ page_obj.end_index }}</span>
-                    of
-                    <span class="font-medium">{{ page_obj.paginator.count }}</span>
-                    results
-                </p>
+    <!-- Filter Deck -->
+    <div class="bg-slate-900 p-8 rounded-xl shadow-lg border border-slate-800">
+        <form method="get" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Selects side-by-side -->
+                <div class="space-y-1.5">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target
+                        Principal</label>
+                    <select name="user"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
+                        <option value="" class="bg-slate-900 text-slate-400">All Identities</option>
+                        {% for user_obj in all_users %}
+                        <option value="{{ user_obj.pk }}" {% if selected_user|as_int==user_obj.pk %}selected{% endif %}
+                            class="bg-slate-900">{{ user_obj.username|upper }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operation
+                        Vector</label>
+                    <select name="action"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
+                        <option value="" class="bg-slate-900 text-slate-400">All Vectors</option>
+                        {% for action_type in all_actions %}
+                        <option value="{{ action_type }}" {% if selected_action==action_type %}selected{% endif %}
+                            class="bg-slate-900">{{ action_type|upper }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Temporal
+                        Start</label>
+                    <input type="date" name="start_date" value="{{ selected_start_date }}"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Temporal
+                        End</label>
+                    <input type="date" name="end_date" value="{{ selected_end_date }}"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
+                </div>
             </div>
-            <div>
-                <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                            <span class="sr-only">Previous</span>
-                            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
-                            </svg>
-                        </a>
-                    {% endif %}
-                    {% for i in page_obj.paginator.page_range %}
-                        <a href="?page={{ i }}" class="relative {% if page_obj.number == i %}z-10 bg-indigo-600 text-white focus:outline-offset-0{% else %}inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0{% endif %}">
-                            {{ i }}
-                        </a>
+
+            <div class="pt-6 border-t border-white/5 flex flex-col md:flex-row gap-4 items-center">
+                <div class="relative flex-1 group">
+                    <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-500">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </span>
+                    <input type="text" name="q" value="{{ search_query }}"
+                        placeholder="Search by IP, Host, or Signature Result..."
+                        class="w-full bg-black/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-[11px] font-bold text-green-400 placeholder-slate-700 outline-none focus:border-nigeria-green transition-all uppercase tracking-widest">
+                </div>
+                <div class="flex items-center space-x-3 shrink-0">
+                    <a href="{% url 'audit_log:audit_log_list' %}"
+                        class="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest px-4">Clear
+                        All</a>
+                    <button type="submit"
+                        class="bg-gov-green hover:bg-nigeria-dark text-white px-8 py-2.5 rounded-lg text-xs font-bold transition-all shadow-sm">Initialize
+                        Analysis</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Forensic Ledger -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {% if log_entries %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr
+                        class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-200">
+                        <th class="px-8 py-4">Temporal Signature</th>
+                        <th class="px-8 py-4">Principal Identity</th>
+                        <th class="px-8 py-4 text-center">Operation</th>
+                        <th class="px-8 py-4">Asset Matrix</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for entry in log_entries %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-8 py-6 whitespace-nowrap">
+                            <div class="font-bold text-slate-900">{{ entry.timestamp|date:"M d, Y" }}</div>
+                            <div class="text-[10px] text-gov-green font-mono mt-0.5">{{ entry.timestamp|date:"H:i:s.u"
+                                }}</div>
+                        </td>
+                        <td class="px-8 py-6">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-8 h-8 rounded bg-slate-900 flex items-center justify-center text-[10px] text-white font-bold">
+                                    {{ entry.user.username|slice:":1"|upper|default:"?" }}
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-900 uppercase">{% if entry.user %}{{
+                                        entry.user.username }}{% else %}Public Node{% endif %}</div>
+                                    <div class="text-[10px] text-slate-400 font-mono">{{ entry.ip_address|default:"-" }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-8 py-6 text-center">
+                            <span
+                                class="inline-block px-3 py-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase tracking-widest border border-slate-200">
+                                {{ entry.action }}
+                            </span>
+                        </td>
+                        <td class="px-8 py-6">
+                            <div class="max-w-md space-y-2">
+                                <div class="text-[10px] font-bold text-slate-800 uppercase leading-none">
+                                    {% if entry.content_object %}
+                                    <span class="text-nigeria-green">{{ entry.content_type.model|upper }}</span> <span
+                                        class="text-slate-300 mx-1">|</span> {{ entry.content_object|truncatechars:40 }}
+                                    {% else %}
+                                    <span class="text-slate-400 italic font-medium">Global System Signal</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-[10px] text-slate-500 font-medium truncate italic"
+                                    title="{{ entry.details }}">
+                                    {{ entry.details|default:"No operational metadata recorded." }}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
                     {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div
+            class="px-8 py-6 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+                Precision Logs
+            </p>
+            <nav class="flex items-center space-x-1.5 p-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{{ query_params }}"
+                    class="p-2 text-slate-400 hover:text-gov-green transition-colors">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
+                </a>
+                {% endif %}
+
+                {% for i in page_obj.paginator.page_range %}
+                {% if i >= page_obj.number|add:-2 and i <= page_obj.number|add:2 %} <a
+                    href="?page={{ i }}{{ query_params }}"
+                    class="px-3 py-1 text-[10px] font-bold transition-all rounded 
+                           {% if page_obj.number == i %}bg-gov-green text-white shadow-sm{% else %}text-slate-500 hover:text-gov-green hover:bg-slate-50{% endif %}">
+                    {{ i }}
+                    </a>
+                    {% endif %}
+                    {% endfor %}
+
                     {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                            <span class="sr-only">Next</span>
-                            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
-                            </svg>
-                        </a>
+                    <a href="?page={{ page_obj.next_page_number }}{{ query_params }}"
+                        class="p-2 text-slate-400 hover:text-gov-green transition-colors">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7">
+                            </path>
+                        </svg>
+                    </a>
                     {% endif %}
-                </nav>
-            </div>
+            </nav>
         </div>
-    </nav>
-    {% else %}
-    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
-        <p>No audit log entries found.</p>
+        {% else %}
+        <div class="px-8 py-24 text-center bg-slate-50/50">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] font-black italic">No forensic
+                signatures manifest in the current alignment.</p>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Helper function to cast a string to int, used for select comparison
-    HTMLSelectElement.prototype.as_int = function() {
-        return parseInt(this.value);
-    };
-</script>
 {% endblock %}

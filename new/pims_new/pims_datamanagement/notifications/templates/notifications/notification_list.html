@@ -1,99 +1,143 @@
 {% extends 'base.html' %}
 
-{% block title %}My Notifications{% endblock %}
+{% block title %}Signal Stream | PIMS{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-md">
-    <h2 class="text-2xl font-semibold text-gray-800 mb-4">My Notifications</h2>
-
-    <div class="flex justify-end mb-4">
+<div class="space-y-8 max-w-5xl mx-auto">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Signal Stream</h2>
+            <p class="text-sm text-slate-500 font-medium italic">Official Intelligence Feed & System Alerts</p>
+        </div>
+        {% if notifications %}
         <form action="{% url 'notifications:mark_all_as_read' %}" method="post">
             {% csrf_token %}
-            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Mark All As Read</button>
+            <button type="submit"
+                class="inline-flex items-center px-6 py-2 bg-slate-900 text-white text-[11px] font-bold rounded-lg shadow-sm hover:bg-black transition-all uppercase tracking-widest italic group">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Sync Feed
+            </button>
         </form>
+        {% endif %}
     </div>
 
     {% if notifications %}
-        <div class="divide-y divide-gray-200">
-            {% for notification in notifications %}
-                <div class="py-4 {% if not notification.is_read %}bg-blue-50{% endif %}">
-                    <div class="flex items-center justify-between">
-                        <p class="text-gray-800 {% if not notification.is_read %}font-semibold{% endif %}">
-                            {% if notification.link %}
-                                <a href="{{ notification.get_link }}" class="text-blue-600 hover:underline">{{ notification.message }}</a>
-                            {% else %}
-                                {{ notification.message }}
-                            {% endif %}
-                        </p>
-                        <span class="text-sm text-gray-500">{{ notification.timestamp|date:"P, M j Y" }}</span>
-                    </div>
-                    <div class="mt-2 flex justify-end">
-                        {% if not notification.is_read %}
-                            <form action="{% url 'notifications:mark_as_read' pk=notification.pk %}" method="post">
-                                {% csrf_token %}
-                                <button type="submit" class="text-sm text-blue-500 hover:text-blue-700">Mark as Read</button>
-                            </form>
+    <div class="space-y-4">
+        {% for notification in notifications %}
+        <div
+            class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md {% if not notification.is_read %}border-l-4 border-l-gov-green bg-green-50/20{% endif %} overflow-hidden">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-6 relative">
+                <div class="flex items-start space-x-4 flex-1">
+                    <div
+                        class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 shrink-0 shadow-inner group-hover:bg-gov-green group-hover:text-white transition-colors duration-200">
+                        {% if 'activated' in notification.message|lower %}
+                        <svg class="w-5 h-5 text-gov-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {% elif 'sent' in notification.message|lower or 'received' in notification.message|lower %}
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                        {% else %}
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
                         {% endif %}
                     </div>
+                    <div class="space-y-1">
+                        <div
+                            class="text-sm font-bold text-slate-900 group-hover:text-gov-green transition-colors uppercase italic mb-1.5 flex items-center">
+                            {% if not notification.is_read %}<span
+                                class="w-1.5 h-1.5 bg-gov-green rounded-full mr-2 shadow-sm animate-pulse"></span>{%
+                            endif %}
+                            {% if notification.link %}
+                            <a href="{{ notification.get_link }}" class="hover:underline">{{ notification.message }}</a>
+                            {% else %}
+                            {{ notification.message }}
+                            {% endif %}
+                        </div>
+                        <div
+                            class="flex items-center space-x-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest italic border-t border-slate-50 pt-1.5">
+                            <svg class="w-3 h-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>{{ notification.timestamp|date:"M d, Y @ P" }}</span>
+                        </div>
+                    </div>
                 </div>
-            {% endfor %}
-        </div>
 
-        {# Pagination #}
-        {% if is_paginated %}
-            <nav class="mt-4 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-                <div class="flex flex-1 justify-between sm:hidden">
-                    {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
-                    {% endif %}
-                    {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
-                    {% endif %}
+                {% if not notification.is_read %}
+                <div class="shrink-0">
+                    <form action="{% url 'notifications:mark_as_read' pk=notification.pk %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit"
+                            class="px-3 py-1.5 border border-gov-green text-gov-green text-[9px] font-bold rounded-lg hover:bg-gov-green hover:text-white transition-all uppercase tracking-widest italic">
+                            Resolve Alert
+                        </button>
+                    </form>
                 </div>
-                <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                    <div>
-                        <p class="text-sm text-gray-700">
-                            Showing
-                            <span class="font-medium">{{ page_obj.start_index }}</span>
-                            to
-                            <span class="font-medium">{{ page_obj.end_index }}</span>
-                            of
-                            <span class="font-medium">{{ page_obj.paginator.count }}</span>
-                            results
-                        </p>
-                    </div>
-                    <div>
-                        <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                            {% if page_obj.has_previous %}
-                                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                                    <span class="sr-only">Previous</span>
-                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
-                                    </svg>
-                                </a>
-                            {% endif %}
-                            {% for i in page_obj.paginator.page_range %}
-                                <a href="?page={{ i }}" class="relative {% if page_obj.number == i %}z-10 bg-indigo-600 text-white focus:outline-offset-0{% else %}inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0{% endif %}">
-                                    {{ i }}
-                                </a>
-                            {% endfor %}
-                            {% if page_obj.has_next %}
-                                <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
-                                    <span class="sr-only">Next</span>
-                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
-                                    </svg>
-                                </a>
-                            {% endif %}
-                        </nav>
-                    </div>
-                </div>
-            </nav>
-        {% endif %}
-    {% else %}
-        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4" role="alert">
-            <p>No notifications found.</p>
+                {% endif %}
+            </div>
         </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Pagination #}
+    {% if is_paginated %}
+    <div class="mt-12 flex justify-center">
+        <nav class="flex items-center space-x-1 p-1.5 bg-white border border-slate-200 rounded-xl shadow-sm">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}"
+                class="p-2 text-slate-400 hover:text-gov-green hover:bg-slate-50 transition-all rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            {% endif %}
+
+            {% for i in page_obj.paginator.page_range %}
+            <a href="?page={{ i }}"
+                class="px-4 py-2 text-[10px] font-bold transition-all rounded-lg 
+                           {% if page_obj.number == i %}bg-gov-green text-white shadow-sm{% else %}text-slate-400 hover:text-gov-green hover:bg-slate-50{% endif %} uppercase italic tracking-widest">
+                {{ i }}
+            </a>
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}"
+                class="p-2 text-slate-400 hover:text-gov-green hover:bg-slate-50 transition-all rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+    {% else %}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 border-dashed py-32 text-center group transition-all hover:border-gov-green">
+        <div class="max-w-xs mx-auto space-y-4">
+            <div
+                class="w-16 h-16 bg-slate-50 rounded-lg flex items-center justify-center text-slate-200 mx-auto shadow-inner group-hover:bg-green-50 group-hover:text-gov-green transition-all duration-300">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4">
+                    </path>
+                </svg>
+            </div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] font-black italic">End of signal
+                stream. No alerts manifest.</p>
+        </div>
+    </div>
     {% endif %}
 </div>
 {% endblock %}
