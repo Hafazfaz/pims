@@ -28,42 +28,17 @@ from audit_log.utils import log_action # Import audit logging utility
 from notifications.utils import create_notification, notify_admins_of_critical_event # Import notification utilities
 from document_management.models import File, Document # Import for admin health dashboard
 from audit_log.models import AuditLogEntry # Import for admin health dashboard
+from .otp_utils import generate_otp, send_otp_email, set_otp_in_session, verify_otp_in_session, clear_otp_session # Import OTP utilities
 
 logger = logging.getLogger(__name__) # Initialize logger
 
 PASSWORD_HISTORY_LIMIT = 5
 
-# Configuration for SMS OTP (for now, just logging)
-ENABLE_SMS_OTP = True # Set to True to activate SMS OTP (logged to console)
+# Configuration for Email OTP
+ENABLE_EMAIL_OTP = True
 
 class CustomLoginView(LoginView):
-    template_name = "registration/login.html"
-
-    def _send_sms_otp(self, user):
-        """Generates, stores, and logs an OTP for the user."""
-        if settings.DEBUG:
-            otp_code = "123456" # Hardcoded OTP for testing in development
-            logger.info(f"DEBUG: Using hardcoded OTP for {user.username}: {otp_code}")
-        else:
-            otp_code = str(random.randint(100000, 999999))
-        otp_expiry = timezone.now() + timedelta(minutes=10)
-
-        self.request.session["otp_sms_code"] = otp_code
-        self.request.session["otp_sms_expiry"] = otp_expiry.isoformat()
-        self.request.session["otp_sms_user_id"] = user.id
-
-        # Log the OTP for now instead of sending via Twilio
-        # Assuming Staff model has a phone_number field and is linked to CustomUser
-        try:
-            staff = user.staff
-            if staff.phone_number:
-                logger.info(f"SMS OTP for {user.username} ({staff.phone_number}): {otp_code}")
-                messages.info(self.request, f"An OTP has been sent to your phone number ending with {staff.phone_number[-4:]}.")
-            else:
-                logger.warning(f"SMS OTP generated for {user.username}: {otp_code}, but no phone number found for staff.")
-        except ObjectDoesNotExist: # Import ObjectDoesNotExist if this path is taken
-            logger.warning(f"SMS OTP generated for {user.username}: {otp_code}, but user is not associated with a staff profile.")
-
+    template_name = "registration/signin.html"
 
     def form_invalid(self, form):
         # Check if a lockout message was set in the session by the authentication backend
@@ -102,12 +77,15 @@ class CustomLoginView(LoginView):
             messages.info(self.request, "You must change your password before proceeding.")
             return redirect("user_management:password_change_force")
 
-        # If password is fine and SMS OTP is enabled, proceed with SMS OTP
-        if ENABLE_SMS_OTP:
-            self._send_sms_otp(user)
-            return redirect("user_management:otp_sms_verify")
+        # If password is fine and Email OTP is enabled, proceed with Email OTP
+        if ENABLE_EMAIL_OTP:
+            otp = generate_otp()
+            send_otp_email(user, otp)
+            set_otp_in_session(self.request, user.id, otp)
+            messages.info(self.request, f"A 6-digit OTP has been sent to your email address.")
+            return redirect("user_management:otp_email_verify")
         
-        # If no password change and no SMS OTP, proceed to home
+        # If no password change and no OTP, proceed to home
         return redirect(reverse_lazy("home"))
 
 
@@ -155,64 +133,42 @@ class ForcePasswordChangeView(View):
         return render(request, self.template_name, {"form": form})
 
 
-class SMSOTPVerifyView(View):
-    template_name = "registration/otp_sms_verify.html"
+class EmailOTPVerifyView(View):
+    template_name = "registration/otp_email_verify.html"
 
     def get(self, request, *args, **kwargs):
         # Ensure there's an OTP in session to verify
-        if not request.session.get("otp_sms_user_id"):
-            messages.error(request, "Invalid request. Please try logging in again.")
+        if not request.session.get("pending_otp_user_id"):
+            messages.error(request, "OTP session not found. Please log in again.")
             return redirect("user_management:login")
         return render(request, self.template_name)
 
     def post(self, request, *args, **kwargs):
-        user_id = request.session.get("otp_sms_user_id")
-        otp_code_session = request.session.get("otp_sms_code")
-        otp_expiry_session = request.session.get("otp_sms_expiry")
-        user_token = request.POST.get("otp_token")
-
-        if not all([user_id, otp_code_session, otp_expiry_session, user_token]):
-            messages.error(request, "Invalid request. Please try logging in again.")
-            return redirect("user_management:login")
-
-        otp_expiry = datetime.fromisoformat(otp_expiry_session)
-
-        if otp_expiry < timezone.now():
-            messages.error(request, "OTP has expired. Please try again.")
-            # Clean up session only if expired
-            self.clean_otp_session(request)
-            return redirect("user_management:login")
-
-        if user_token != otp_code_session:
-            messages.error(request, "Invalid OTP token.")
+        otp_input = request.POST.get("otp_token")
+        if not otp_input:
+            messages.error(request, "Please enter the OTP.")
             return render(request, self.template_name)
 
-        # OTP is valid, proceed
+        user_id, error_message = verify_otp_in_session(request, otp_input)
+
+        if error_message:
+            messages.error(request, error_message)
+            # If expired, verify_otp_in_session already cleared it, so redirect to login
+            if "expired" in error_message.lower() or "not found" in error_message.lower():
+                return redirect("user_management:login")
+            return render(request, self.template_name)
+
+        # Success
         try:
             user = CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
-            messages.error(request, "User not found. Please try logging in again.")
-            self.clean_otp_session(request)
+            messages.error(request, "User not found. Please log in again.")
+            clear_otp_session(request)
             return redirect("user_management:login")
 
-        messages.success(request, "Successfully logged in.")
-
-        # Clean up session
-        self.clean_otp_session(request)
-
-        # Update last login IP (future session management task)
-        # user.last_login_ip = self.request.META.get('REMOTE_ADDR') # Consider a more robust way to get client IP
-        # user.save()
-
+        messages.success(request, "Verify success. You are now logged in.")
+        clear_otp_session(request)
         return redirect(reverse_lazy("home"))
-
-    def clean_otp_session(self, request):
-        if "otp_sms_user_id" in request.session:
-            del request.session["otp_sms_user_id"]
-        if "otp_sms_code" in request.session:
-            del request.session["otp_sms_code"]
-        if "otp_sms_expiry" in request.session:
-            del request.session["otp_sms_expiry"]
 
 
 from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin, UserPassesTestMixin
