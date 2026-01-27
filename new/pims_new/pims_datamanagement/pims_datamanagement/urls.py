@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from . import views as main_views # Import project-level views
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,5 +26,9 @@ urlpatterns = [
     path('documents/', include('document_management.urls')),
     path('audit/', include('audit_log.urls')),
     path('notifications/', include('notifications.urls')),
+
     path('', main_views.HomeView.as_view(), name='home'), # Home page
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

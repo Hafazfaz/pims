@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "widget_tweaks",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -45,10 +46,10 @@ INSTALLED_APPS = [
     "notifications", # Added this line
     # "tailwind",
     # "theme",
-    "widget_tweaks",
     "django_otp",
     "django_otp.plugins.otp_static",
     "django_otp.plugins.otp_totp",
+
     # "axes",
 ]
 
@@ -147,10 +148,23 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+MEDIA_URL = '/attachments/'
+MEDIA_ROOT = BASE_DIR / 'attachments'
+
 AUTH_USER_MODEL = "user_management.CustomUser"
 
-# Email settings for development (prints emails to console)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# Email settings
+if DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    # In production, use SMTP
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.example.com")  
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ["true", "1", "yes"]
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")  
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "your-password")  
+
 DEFAULT_FROM_EMAIL = "noreply@example.com"
 BASE_URL = "http://localhost:8000"
 
@@ -182,6 +196,16 @@ DOCUMENT_WATERMARK_TEXT = "PIMS Confidential - Do Not Copy"
 # Password Expiry Settings
 PASSWORD_EXPIRY_WARNING_DAYS = 7 # Warn users 7 days before password expires
 
+from django.contrib.messages import constants as messages
+
+MESSAGE_TAGS = {
+    messages.DEBUG: 'alert-secondary',
+    messages.INFO: 'alert-info',
+    messages.SUCCESS: 'alert-success',
+    messages.WARNING: 'alert-warning',
+    messages.ERROR: 'alert-danger',
+}
+
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
@@ -190,3 +214,5 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+X_FRAME_OPTIONS = 'SAMEORIGIN'

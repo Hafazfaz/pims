@@ -449,7 +449,7 @@ def create_fixtures():
     }
     fixtures.append(demo_document)
 
-    with open("pims_datamanagement/fixtures/initial_data.json", "w") as f:
+    with open("fixtures/initial_data.json", "w") as f:
         json.dump(fixtures, f, indent=4)
 
 
