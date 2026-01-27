@@ -18,4 +18,5 @@ urlpatterns = [
     path('admin/dashboard/', views.DirectorAdminDashboardView.as_view(), name='admin_dashboard'),
     path('reports/daily-movement/', report_views.DailyFileMovementReportView.as_view(), name='report_daily_movement'),
     path('reports/dept-performance/', report_views.DepartmentPerformanceReportView.as_view(), name='report_dept_performance'),
+    path('recipient-search/', views.RecipientSearchView.as_view(), name='recipient_search'),
 ]

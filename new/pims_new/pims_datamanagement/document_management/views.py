@@ -675,3 +675,24 @@ class DirectorAdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListVi
             self.request, "You do not have permission to access the Director Admin dashboard."
         )
         return redirect("document_management:my_files")
+class RecipientSearchView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        query = request.GET.get('q', '').strip()
+        if not query or len(query) < 2:
+            return HttpResponse("")
+
+        # Filter staff who are HODs or Unit Managers
+        recipients = Staff.objects.filter(
+            Q(headed_department__isnull=False) | Q(headed_unit__isnull=False)
+        ).filter(
+            Q(user__username__icontains=query) |
+            Q(user__first_name__icontains=query) |
+            Q(user__last_name__icontains=query) |
+            Q(department__name__icontains=query) |
+            Q(unit__name__icontains=query)
+        ).distinct()[:10]  # Limit results to 10 for performance
+
+        return render(request, 'document_management/recipient_search_results.html', {
+            'recipients': recipients,
+            'query': query
+        })
