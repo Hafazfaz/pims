@@ -118,6 +118,15 @@ class Document(models.Model):
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    # Hierarchical threading
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        related_name='replies'
+    )
+
     # A document can be either a text minute or an uploaded file
     minute_content = models.TextField(blank=True, null=True)
     attachment = models.FileField(upload_to="", blank=True, null=True)

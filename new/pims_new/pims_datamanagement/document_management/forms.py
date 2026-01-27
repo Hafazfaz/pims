@@ -129,8 +129,9 @@ class FileForm(forms.ModelForm):
 class DocumentForm(forms.ModelForm):
     class Meta:
         model = Document
-        fields = ["minute_content", "attachment"]
+        fields = ["minute_content", "attachment", "parent"]
         widgets = {
+            "parent": forms.HiddenInput(),
             "minute_content": forms.Textarea(
                 attrs={
                     "class": "form-control",

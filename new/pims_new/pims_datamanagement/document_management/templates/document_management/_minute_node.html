@@ -1,0 +1,63 @@
+<div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active py-8">
+    <!-- Dot -->
+    <div class="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-hover:bg-nigeria-green group-hover:text-white text-slate-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-colors duration-200">
+         <div class="w-2.5 h-2.5 rounded-full bg-current"></div>
+    </div>
+    <!-- Content -->
+    <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-nigeria-green/20">
+        <div class="flex items-center justify-between space-x-2 mb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold text-[10px]">
+                    {{ doc.uploaded_by.username|slice:":1"|upper }}
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold text-slate-900 leading-none">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}</div>
+                    <time class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{{ doc.uploaded_at|date:"M d, Y @ P" }}</time>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                {% if doc.attachment %}
+                <a href="{{ doc.attachment.url }}" download class="text-nigeria-green hover:bg-green-50 p-1.5 rounded-lg transition-colors border border-transparent hover:border-green-100">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                </a>
+                {% endif %}
+                <button type="button" @click="$dispatch('reply-to-minute', { id: '{{ doc.id }}', username: '{{ doc.uploaded_by.username }}' })" 
+                    class="text-slate-400 hover:text-nigeria-green p-1.5 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        {% if doc.minute_content %}
+        <div class="text-sm text-slate-700 leading-relaxed bg-slate-50/50 p-4 rounded-lg border border-slate-100 italic quill-content">
+            {{ doc.minute_content|safe }}
+        </div>
+        {% endif %}
+        
+        {% if doc.attachment %}
+        <div class="mt-4 border-t border-slate-50 pt-4">
+            <div class="inline-flex items-center px-2 py-1 bg-slate-100 border border-slate-200 rounded text-[9px] font-bold text-slate-500 hover:text-nigeria-green transition-colors">
+                <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                </svg>
+                {{ doc.attachment.name|truncatechars:30 }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Replies (Indented) -->
+{% if doc.replies.exists %}
+<div class="ml-12 md:ml-24 border-l-2 border-slate-100 pl-8 space-y-4">
+    {% for reply in doc.replies.all %}
+    {% with doc=reply %}
+        {% include 'document_management/_minute_node.html' %}
+    {% endwith %}
+    {% endfor %}
+</div>
+{% endif %}

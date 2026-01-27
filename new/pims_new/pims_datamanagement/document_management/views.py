@@ -369,7 +369,8 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["documents"] = self.object.documents.all()
+        # Fetch only top-level documents (those without a parent)
+        context["documents"] = self.object.documents.filter(parent__isnull=True).order_by("-uploaded_at")
         context["document_form"] = DocumentForm()
         context["send_file_form"] = SendFileForm(user=self.request.user)
         return context

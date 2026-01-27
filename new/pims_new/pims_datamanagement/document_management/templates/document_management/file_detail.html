@@ -49,7 +49,18 @@
         <!-- Main Content (Left) -->
         <div class="lg:col-span-2 space-y-8">
             <!-- Analysis Engine (Tabs) -->
-            <div x-data="{ activeTab: 'details' }" class="space-y-6">
+            <div x-data="{ 
+                activeTab: 'details',
+                parentId: '',
+                replyingTo: ''
+            }" 
+            class="space-y-6"
+            @reply-to-minute.window="
+                parentId = $event.detail.id;
+                replyingTo = $event.detail.username;
+                activeTab = 'add';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            ">
                 <div class="flex border-b border-slate-200">
                     <button @click="activeTab = 'details'"
                         :class="activeTab === 'details' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
@@ -98,50 +109,7 @@
                 <div x-show="activeTab === 'history'" class="space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                     {% if documents %}
                     {% for doc in documents %}
-                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active py-8">
-                        <!-- Dot -->
-                        <div class="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-hover:bg-nigeria-green group-hover:text-white text-slate-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-colors duration-200">
-                             <div class="w-2.5 h-2.5 rounded-full bg-current"></div>
-                        </div>
-                        <!-- Content -->
-                        <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-nigeria-green/20">
-                            <div class="flex items-center justify-between space-x-2 mb-4">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold text-[10px]">
-                                        {{ doc.uploaded_by.username|slice:":1"|upper }}
-                                    </div>
-                                    <div>
-                                        <div class="text-[11px] font-bold text-slate-900 leading-none">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}</div>
-                                        <time class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{{ doc.uploaded_at|date:"M d, Y @ P" }}</time>
-                                    </div>
-                                </div>
-                                {% if doc.attachment %}
-                                <a href="{{ doc.attachment.url }}" download class="text-nigeria-green hover:bg-green-50 p-1.5 rounded-lg transition-colors border border-transparent hover:border-green-100">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                    </svg>
-                                </a>
-                                {% endif %}
-                            </div>
-                            
-                            {% if doc.minute_content %}
-                            <div class="text-sm text-slate-700 leading-relaxed bg-slate-50/50 p-4 rounded-lg border border-slate-100 italic quill-content">
-                                {{ doc.minute_content|safe }}
-                            </div>
-                            {% endif %}
-                            
-                            {% if doc.attachment %}
-                            <div class="mt-4 border-t border-slate-50 pt-4">
-                                <div class="inline-flex items-center px-2 py-1 bg-slate-100 border border-slate-200 rounded text-[9px] font-bold text-slate-500 hover:text-nigeria-green transition-colors">
-                                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
-                                    </svg>
-                                    {{ doc.attachment.name|truncatechars:30 }}
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                        {% include 'document_management/_minute_node.html' %}
                     {% endfor %}
                     {% else %}
                     <div class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-16 text-center">
@@ -150,14 +118,34 @@
                     {% endif %}
                 </div>
 
-                <div x-show="activeTab === 'add'" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-                    <h3
-                        class="text-sm font-bold text-slate-900 mb-8 uppercase tracking-wider border-b border-slate-100 pb-3 text-center">
-                        Add New Minute</h3>
+                <div x-show="activeTab === 'add'" 
+                     class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm"
+                >
+                    <h3 class="text-sm font-bold text-slate-900 mb-8 uppercase tracking-wider border-b border-slate-100 pb-3 text-center">
+                        Add New Minute
+                    </h3>
+                    
                     <form method="post" enctype="multipart/form-data" class="space-y-6 max-w-2xl mx-auto">
                         {% csrf_token %}
+                        
+                        <!-- Threading Info -->
+                        <div x-show="parentId" x-cloak class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[9px] font-black text-white bg-nigeria-green px-1.5 py-0.5 rounded uppercase">Reply</span>
+                                <span class="text-xs font-bold text-slate-600">Replying to <span class="text-nigeria-green" x-text="replyingTo"></span></span>
+                            </div>
+                            <button type="button" @click="parentId = ''; replyingTo = ''" class="text-slate-400 hover:text-red-500 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <input type="hidden" name="parent" :value="parentId">
+
                         {% for field in document_form %}
                         <div class="space-y-1">
+                            {% if field.name != 'parent' %}
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
                             {% if field.name == 'minute_content' %}
                             <div id="quill-editor" class="bg-white"></div>
@@ -167,6 +155,7 @@
                             {% endif %}
                             {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold">{{ error }}</p>
                             {% endfor %}
+                            {% endif %}
                         </div>
                         {% endfor %}
                         <button type="submit"
@@ -185,7 +174,20 @@
                     Administrative Controls</h3>
                 <div id="file-actions-messages" class="mb-4"></div>
                 {% if perms.document_management.send_file %}
-                <div class="p-6 bg-slate-50 rounded-xl border border-slate-200 space-y-6">
+                <div class="p-6 bg-slate-50 rounded-xl border border-slate-200 space-y-6"
+                    x-data="{ 
+                        recipientId: '', 
+                        recipientName: '', 
+                        showResults: false,
+                        searchQuery: '' 
+                    }"
+                    @recipient-selected.window="
+                        recipientId = $event.detail.id;
+                        recipientName = $event.detail.username;
+                        showResults = false;
+                        searchQuery = '';
+                    "
+                >
                     <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center">
                         <svg class="w-5 h-5 mr-2 text-nigeria-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
@@ -194,9 +196,11 @@
                     
                     <div class="space-y-4">
                         <!-- Recipient Search -->
-                        <div class="relative">
+                        <div class="relative" @click.away="showResults = false">
                             <input type="text" 
                                 name="recipient_search"
+                                x-model="searchQuery"
+                                @input="showResults = true"
                                 placeholder="Search HOD or Unit Manager..."
                                 hx-get="{% url 'document_management:recipient_search' %}"
                                 hx-trigger="keyup changed delay:500ms"
@@ -204,17 +208,17 @@
                                 class="w-full px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-nigeria-green outline-none font-bold"
                             >
                             <!-- Search Results Table Container -->
-                            <div id="search-results"></div>
+                            <div id="search-results" x-show="showResults && searchQuery.length >= 2" x-cloak></div>
                         </div>
 
                         <!-- Selected Recipient Display -->
-                        <div id="selected-recipient-badge" class="hidden">
+                        <div x-show="recipientId" x-cloak>
                             <div class="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
                                 <div>
                                     <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Selected Recipient</p>
-                                    <p id="recipient-name" class="text-xs font-bold text-nigeria-green"></p>
+                                    <p x-text="recipientName" class="text-xs font-bold text-nigeria-green"></p>
                                 </div>
-                                <button type="button" onclick="clearRecipient()" class="text-slate-400 hover:text-red-500">
+                                <button type="button" @click="recipientId = ''; recipientName = ''" class="text-slate-400 hover:text-red-500">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                     </svg>
@@ -225,8 +229,8 @@
                         <form method="post" hx-post="{% url 'document_management:file_detail' pk=file.pk %}"
                             hx-target="#file-actions-messages" class="space-y-4" id="send-file-form">
                             {% csrf_token %}
-                            <input type="hidden" name="recipient" id="id_recipient">
-                            <button type="submit" id="send-button" disabled
+                            <input type="hidden" name="recipient" :value="recipientId">
+                            <button type="submit" :disabled="!recipientId"
                                 class="w-full bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black text-white py-3.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
                                 Dispatch File
                             </button>
