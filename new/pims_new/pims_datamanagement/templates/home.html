@@ -1,38 +1,136 @@
 {% extends 'base.html' %}
 
-{% block title %}Welcome to PIMS{% endblock %}
+{% block title %}Home | PIMS{% endblock %}
 
 {% block content %}
-<div class="jumbotron bg-light p-5 rounded-3">
-    <h1 class="display-4">Welcome, {{ user_name }}!</h1>
-    <p class="lead">This is your PIMS dashboard. Use the navigation to manage files and documents.</p>
-    <hr class="my-4">
-    <p>Your current location is: <strong>{{ request.user.staff.department.name|default:"N/A" }} - {{ request.user.staff.unit.name|default:"N/A" }}</strong></p>
-    <p>Your designation is: <strong>{{ request.user.staff.designation.name|default:"N/A" }}</strong></p>
-    <a class="btn btn-primary btn-lg" href="{% url 'document_management:my_files' %}" role="button">Go to My Files</a>
-    {% if perms.document_management.view_file %}
-        <a class="btn btn-secondary btn-lg" href="{% url 'document_management:registry_dashboard' %}" role="button">Go to Registry Dashboard</a>
-    {% endif %}
+<div class="space-y-10">
+    <!-- Hero Section -->
+    <div class="bg-nigeria-green rounded-xl p-10 lg:p-14 text-white shadow-sm relative overflow-hidden">
+        <div class="relative z-10 max-w-2xl">
+            <h1 class="text-3xl lg:text-4xl font-bold mb-4 tracking-tight">
+                Welcome, {{ user.get_full_name|default:user.username }}
+            </h1>
+            <p class="text-lg text-white/90 mb-8 font-medium leading-relaxed">
+                Personnel Intelligence & Management System for the Federal Republic of Nigeria. Securely manage
+                governmental records and authority segments.
+            </p>
+
+            <div class="flex flex-wrap gap-4">
+                <a href="{% url 'document_management:my_files' %}"
+                    class="bg-white text-nigeria-green px-8 py-3 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors">
+                    View My Records
+                </a>
+                {% if perms.document_management.create_file %}
+                <a href="{% url 'document_management:file_create' %}"
+                    class="bg-nigeria-dark text-white px-8 py-3 rounded-lg font-bold text-sm shadow-sm hover:bg-opacity-90 transition-colors border border-white/10">
+                    Register New Asset
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Decorative icon -->
+        <div class="absolute right-0 bottom-0 opacity-10 -mr-10 -mb-10">
+            <svg class="w-48 h-48" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Quick Access Matrix -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- My Documents -->
+        <div
+            class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm hover:border-nigeria-green/20 transition-all">
+            <div class="w-10 h-10 bg-green-50 rounded flex items-center justify-center text-nigeria-green mb-6">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">My Desk</h3>
+            <p class="text-sm text-slate-500 mb-6 leading-relaxed">Manage personnel files and records registered under
+                your administrative authority.</p>
+            <a href="{% url 'document_management:my_files' %}"
+                class="text-sm font-bold text-nigeria-green hover:underline flex items-center">
+                Open Records <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+        </div>
+
+        <!-- Registry -->
+        {% if perms.document_management.view_file %}
+        <div
+            class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm hover:border-nigeria-green/20 transition-all">
+            <div class="w-10 h-10 bg-slate-50 rounded flex items-center justify-center text-slate-600 mb-6">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Registry Hub</h3>
+            <p class="text-sm text-slate-500 mb-6 leading-relaxed">Access the central registry for record lifecycle
+                management and archival controls.</p>
+            <a href="{% url 'document_management:registry_dashboard' %}"
+                class="text-sm font-bold text-nigeria-green hover:underline flex items-center">
+                Access Hub <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Notifications -->
+        <div
+            class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm hover:border-nigeria-green/20 transition-all">
+            <div class="w-10 h-10 bg-amber-50 rounded flex items-center justify-center text-amber-600 mb-6">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                    </path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">System Signals</h3>
+            <p class="text-sm text-slate-500 mb-6 font-medium leading-relaxed">
+                {% if unread_notifications_count > 0 %}
+                You have <span class="font-bold text-amber-600 underline underline-offset-4 decoration-amber-200">{{
+                    unread_notifications_count }} unread</span> alerts in your stream.
+                {% else %}
+                No new system alerts or file movement notifications at this time.
+                {% endif %}
+            </p>
+            <a href="{% url 'notifications:notification_list' %}"
+                class="text-sm font-bold text-nigeria-green hover:underline flex items-center">
+                View Signals <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Governance Footer -->
+    <div class="bg-slate-100 rounded-xl p-8 border border-slate-200">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="space-y-1">
+                <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Platform Status</h4>
+                <p class="text-sm font-bold text-slate-700 flex items-center">
+                    <span class="w-2 h-2 bg-nigeria-green rounded-full mr-2.5"></span>
+                    Governance Operational Interface
+                </p>
+            </div>
+            <div class="flex items-center space-x-10 text-right">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                    <p class="text-sm font-bold text-slate-900">{{ user.staff.department.name|default:"General Section"
+                        }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Authority</p>
+                    <p class="text-sm font-bold text-nigeria-green">{{ user.staff.designation.name|default:"Officer" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-{% endblock %}
-
-{% block sidebar_left %}
-    {{ block.super }} {# Keep default sidebar content #}
-    <div class="card mb-3">
-        <div class="card-header">User Info</div>
-        <div class="card-body">
-            <p><strong>Role:</strong> {{ request.user.groups.first.name|default:"Staff" }}</p>
-            <p><strong>Email:</strong> {{ request.user.email }}</p>
-        </div>
-    </div>
-{% endblock %}
-
-{% block sidebar_right %}
-    {{ block.super }} {# Keep default sidebar content #}
-    <div class="card mb-3">
-        <div class="card-header">Announcements</div>
-        <div class="card-body">
-            <p>No new announcements.</p>
-        </div>
-    </div>
 {% endblock %}

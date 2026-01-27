@@ -1,129 +1,146 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Dashboard | PIMS{% endblock %}
 
 {% block content %}
-<div class="p-4">
-    <div class="flex justify-between items-center mb-4">
+<div class="space-y-10">
+    <!-- Welcome Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 class="text-2xl font-semibold text-gray-800">Hello {{user.first_name}}</h2>
-            <p class="text-gray-500">Here is a quick status summary of your currently active documents.</p>
+            <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+            <p class="text-sm text-slate-500 font-medium mt-1">Welcome, {{ user_name }}. Access your administrative summary and file activity.</p>
+        </div>
+        <div
+            class="flex items-center space-x-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+            <span class="w-2 h-2 bg-nigeria-green rounded-full animate-pulse"></span>
+            Operational Status: Nominal
         </div>
     </div>
 
-    <!-- Grid for dashboard cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <!-- Card 1: Waiting for me -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700">Waiting for me</h3>
-                    <p class="text-3xl font-bold text-gray-900">0</p>
-                </div>
-                <div class="bg-purple-100 p-2 rounded-md">
-                    <svg class="h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    <!-- Tier 1 Metrics: Action Queue -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div
+            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-nigeria-green transition-all">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pending Authorization</p>
+            <div class="flex items-end justify-between">
+                <p class="text-4xl font-bold text-slate-900 group-hover:text-nigeria-green transition-colors">{{ pending_files }}</p>
+                <div class="p-3 bg-slate-50 rounded-xl group-hover:bg-nigeria-light transition-colors">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-nigeria-green" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                 </div>
             </div>
-             <div class="mt-4 border-t pt-4">
-                <p class="text-gray-500 text-center">Nothing to sign yet</p>
-            </div>
         </div>
-        <!-- Card 2: Waiting for others -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700">Waiting for others</h3>
-                    <p class="text-3xl font-bold text-gray-900">0</p>
-                </div>
-                <div class="bg-green-100 p-2 rounded-md">
-                    <svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-            </div>
-            <div class="mt-4 border-t pt-4">
-                <p class="text-gray-500 text-center">Nothing awaited to be signed yet</p>
-            </div>
-        </div>
-        <!-- Card 3: Needs Attention -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700">Needs Attention</h3>
-                    <p class="text-3xl font-bold text-gray-900">0</p>
-                </div>
-                <div class="bg-red-100 p-2 rounded-md">
-                    <svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-            </div>
-            <div class="mt-4 border-t pt-4">
-                <p class="text-gray-500 text-center">Nothing needs your attention yet.</p>
-            </div>
-        </div>
-        <!-- Card 4: Recently Revoked, Declined and Completed -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700">Recently Revoked...</h3>
-                    <p class="text-3xl font-bold text-gray-900">0</p>
-                </div>
-                <div class="bg-blue-100 p-2 rounded-md">
-                    <svg class="h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                </div>
-            </div>
-            <div class="mt-4 border-t pt-4">
-                <p class="text-gray-500 text-center">No recent activity here.</p>
-            </div>
-        </div>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Card 5: Documents (Total) -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700">Documents (Total)</h3>
-                    <p class="text-3xl font-bold text-gray-900">{{ total_documents }}</p>
-                </div>
-                <div class="flex space-x-4">
-                    <div>
-                        <p class="text-gray-500">Sent</p>
-                        <p class="text-xl font-bold text-gray-900">01</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Received</p>
-                        <p class="text-xl font-bold text-gray-900">00</p>
-                    </div>
+        <div
+            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-amber-500 transition-all">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Awaiting Signal</p>
+            <div class="flex items-end justify-between">
+                <p class="text-4xl font-bold text-slate-900 group-hover:text-amber-600 transition-colors">0</p>
+                <div class="p-3 bg-slate-50 rounded-xl group-hover:bg-amber-50 transition-colors">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-amber-600" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                        </path>
+                    </svg>
                 </div>
             </div>
         </div>
-        <!-- Card 6: Documents (This month) -->
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700">Documents (This month)</h3>
-                    <p class="text-3xl font-bold text-gray-900">02</p>
+
+        <div
+            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-nigeria-green transition-all">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Active Ledgers</p>
+            <div class="flex items-end justify-between">
+                <p class="text-4xl font-bold text-slate-900 group-hover:text-nigeria-green transition-colors">{{ total_files }}</p>
+                <div class="p-3 bg-slate-50 rounded-xl group-hover:bg-nigeria-light transition-colors">
+                    <svg class="w-6 h-6 text-slate-400 group-hover:text-nigeria-green" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
                 </div>
-                <div class="flex space-x-4">
-                    <div>
-                        <p class="text-gray-500">Sent</p>
-                        <p class="text-xl font-bold text-gray-900">01</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Received</p>
-                        <p class="text-xl font-bold text-gray-900">01</p>
-                    </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Total Documents</p>
+            <div class="flex items-end justify-between">
+                <p class="text-4xl font-bold text-slate-900">{{ total_documents }}</p>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Tier 2 Summary: Efficiency & Activity -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Monthly Flux -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-xs font-bold text-slate-900 uppercase tracking-widest">Document Activity Summary</h3>
+                <span class="text-[9px] font-bold text-nigeria-green bg-green-50 px-2 py-1 rounded">Current Month
+                    Spectrum</span>
+            </div>
+            <div class="p-8">
+                <div class="flex items-baseline space-x-4 mb-8">
+                    <span class="text-5xl font-black text-slate-900 tracking-tighter">{{ documents_this_month }}</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">New Signals
+                        Registered</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-5 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Outgoing Files
+                        </p>
+                        <p class="text-2xl font-bold text-slate-900">01</p>
+                    </div>
+                    <div class="p-5 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incoming Files
+                        </p>
+                        <p class="text-2xl font-bold text-slate-900">01</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Notices / Quick Actions -->
+        <div class="space-y-6">
+            <div class="bg-slate-900 rounded-2xl p-8 shadow-xl relative overflow-hidden group">
+                <div
+                    class="absolute top-0 right-0 w-32 h-32 bg-nigeria-green opacity-10 blur-3xl -mr-10 -mt-10 group-hover:opacity-20 transition-opacity">
+                </div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 relative">Protocol Hub</h3>
+                <div class="space-y-3 relative">
+                    <a href="{% url 'document_management:file_create' %}"
+                        class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group/btn">
+                        <span class="text-sm font-bold text-white uppercase tracking-tight">Create New File</span>
+                        <svg class="w-5 h-5 text-nigeria-green group-hover/btn:translate-x-1 transition-transform"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                            </path>
+                        </svg>
+                    </a>
+                    <a href="{% url 'document_management:registry_dashboard' %}"
+                        class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group/btn">
+                        <span class="text-sm font-bold text-white uppercase tracking-tight">Registry Operations Hub</span>
+                        <svg class="w-5 h-5 text-nigeria-green group-hover/btn:translate-x-1 transition-transform"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

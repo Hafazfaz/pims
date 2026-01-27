@@ -1,21 +1,32 @@
-{% load static %}
+{% extends 'base.html' %}
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}PIMS{% endblock %}</title>
-    <link rel="icon" href="{% static 'favicon.ico' %}">
-      <script src="https://cdn.tailwindcss.com"></script>
-    {% block extra_head %}{% endblock %}
-  </head>
-  <body class="bg-slate-50">
-    {% block content %}
-    {% endblock %}
+{% block body_class %}items-center justify-center{% endblock %}
 
-    <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuCgKZKODp3HTDr4yQopR0doLHRD2Ygvg2Iqx4Ngc5HiAWQSaVEIroL" crossorigin="anonymous"></script>
-    {% block extra_js %}{% endblock %}
-  </body>
-</html>
+{% block sidebar %}{% endblock %}
+{% block top_nav %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Standardized Input Styling for Auth Pages */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="tel"] {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: all 0.2s;
+  }
+
+  input:focus {
+    box-shadow: 0 0 0 1px #008751;
+    border-color: #008751;
+  }
+</style>
+{% endblock %}

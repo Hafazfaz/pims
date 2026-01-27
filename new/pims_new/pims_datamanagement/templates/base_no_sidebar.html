@@ -1,16 +1,10 @@
 {% extends 'base.html' %}
 
-{% block sidebar_left %}{% endblock %}
-{% block sidebar_right %}{% endblock %}
+{% block sidebar %}{% endblock %}
 
 {% block content %}
-<div class="container"> {# Use a regular container for centered content #}
-    <div class="row justify-content-center">
-        <div class="col-md-8"> {# Adjust column size as needed #}
-            {% block no_sidebar_content %}
-            {# Content specific to pages without sidebars will go here #}
-            {% endblock %}
-        </div>
-    </div>
+<div class="max-w-4xl mx-auto py-12 px-6">
+    {% block no_sidebar_content %}
+    {% endblock %}
 </div>
 {% endblock %}
