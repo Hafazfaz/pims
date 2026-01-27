@@ -17,16 +17,7 @@
 
     <!-- Sign In Card -->
     <div class="bg-white p-10 rounded-xl shadow-md border border-slate-200">
-        {% if messages %}
-        <div class="mb-6 space-y-2">
-            {% for message in messages %}
-            <div
-                class="p-4 rounded-lg text-xs font-bold {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-nigeria-green{% endif %} border border-current opacity-90 uppercase tracking-widest">
-                {{ message }}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+
 
         <form method="post" class="space-y-6">
             {% csrf_token %}
