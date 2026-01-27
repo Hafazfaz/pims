@@ -111,7 +111,7 @@
                     </div>
                 </div>
 
-                <div x-show="activeTab === 'history'" class="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                <div x-show="activeTab === 'history'" class="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                     {% if documents %}
                     {% for doc in documents %}
                         {% include 'document_management/_minute_node.html' %}
