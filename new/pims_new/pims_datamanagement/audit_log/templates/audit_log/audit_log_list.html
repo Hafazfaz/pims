@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 
-{% block title %}Forensic Traces | PIMS{% endblock %}
+{% block title %}Audit Logs | PIMS{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <!-- Header Section -->
     <div>
-        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Forensic Activity Ledger</h2>
-        <p class="text-sm text-slate-500 font-medium italic">Official System-wide Monitoring & Immutability Protocols
+        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">System Audit Logs</h2>
+        <p class="text-sm text-slate-500 font-medium italic">Official System-wide Activity Tracking & Monitoring
         </p>
     </div>
 
@@ -21,7 +21,7 @@
                         Principal</label>
                     <select name="user"
                         class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
-                        <option value="" class="bg-slate-900 text-slate-400">All Identities</option>
+                        <option value="" class="bg-slate-900 text-slate-400">All Users</option>
                         {% for user_obj in all_users %}
                         <option value="{{ user_obj.pk }}" {% if selected_user == user_obj.pk %}selected{% endif %}
                             class="bg-slate-900">{{ user_obj.username|upper }}</option>
@@ -35,7 +35,7 @@
                         class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
                         <option value="" class="bg-slate-900 text-slate-400">All Vectors</option>
                         {% for action_type in all_actions %}
-                        <option value="{{ action_type }}" {% if selected_action==action_type %}selected{% endif %}
+                        <option value="{{ action_type }}" {% if selected_action == action_type %}selected{% endif %}
                             class="bg-slate-900">{{ action_type|upper }}</option>
                         {% endfor %}
                     </select>
@@ -78,7 +78,7 @@
         </form>
     </div>
 
-    <!-- Forensic Ledger -->
+    <!-- Audit Logs -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {% if log_entries %}
         <div class="overflow-x-auto">
@@ -87,7 +87,7 @@
                     <tr
                         class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-200">
                         <th class="px-8 py-4">Temporal Signature</th>
-                        <th class="px-8 py-4">Principal Identity</th>
+                        <th class="px-8 py-4">User Account</th>
                         <th class="px-8 py-4 text-center">Operation</th>
                         <th class="px-8 py-4">Asset Matrix</th>
                     </tr>
@@ -97,8 +97,7 @@
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="px-8 py-6 whitespace-nowrap">
                             <div class="font-bold text-slate-900">{{ entry.timestamp|date:"M d, Y" }}</div>
-                            <div class="text-[10px] text-gov-green font-mono mt-0.5">{{ entry.timestamp|date:"H:i:s.u"
-                                }}</div>
+                            <div class="text-[10px] text-gov-green font-mono mt-0.5">{{ entry.timestamp|date:"H:i:s.u" }}</div>
                         </td>
                         <td class="px-8 py-6">
                             <div class="flex items-center space-x-3">
@@ -107,10 +106,8 @@
                                     {{ entry.user.username|slice:":1"|upper|default:"?" }}
                                 </div>
                                 <div>
-                                    <div class="text-xs font-bold text-slate-900 uppercase">{% if entry.user %}{{
-                                        entry.user.username }}{% else %}Public Node{% endif %}</div>
-                                    <div class="text-[10px] text-slate-400 font-mono">{{ entry.ip_address|default:"-" }}
-                                    </div>
+                                    <div class="text-xs font-bold text-slate-900 uppercase">{% if entry.user %}{{ entry.user.username }}{% else %}Public Node{% endif %}</div>
+                                    <div class="text-[10px] text-slate-400 font-mono">{{ entry.ip_address|default:"-" }}</div>
                                 </div>
                             </div>
                         </td>
@@ -147,7 +144,7 @@
             class="px-8 py-6 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
             <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} of {{ page_obj.paginator.count }}
-                Precision Logs
+                Activity Logs
             </p>
             <nav class="flex items-center space-x-1.5 p-1 bg-white border border-slate-200 rounded-lg shadow-sm">
                 {% if page_obj.has_previous %}
@@ -183,7 +180,7 @@
         </div>
         {% else %}
         <div class="px-8 py-24 text-center bg-slate-50/50">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] font-black italic">No forensic
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] font-black italic">No audit log
                 signatures manifest in the current alignment.</p>
         </div>
         {% endif %}

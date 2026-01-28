@@ -22,6 +22,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import ListView # Added this import
 from django.core.exceptions import ObjectDoesNotExist # Import ObjectDoesNotExist
+from django.db.models import Q
 
 from .models import CustomUser, PasswordHistory # Import PasswordHistory
 from audit_log.utils import log_action # Import audit logging utility
@@ -29,6 +30,7 @@ from notifications.utils import create_notification, notify_admins_of_critical_e
 from document_management.models import File, Document # Import for admin health dashboard
 from audit_log.models import AuditLogEntry # Import for admin health dashboard
 from .otp_utils import generate_otp, send_otp_email, set_otp_in_session, verify_otp_in_session, clear_otp_session # Import OTP utilities
+from organization.models import Department, Unit # Added for filtering
 
 logger = logging.getLogger(__name__) # Initialize logger
 
@@ -178,14 +180,55 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'user_management/user_list.html'
     context_object_name = 'users'
     permission_required = 'auth.view_user'
+    paginate_by = 20
 
     def get_queryset(self):
-        return CustomUser.objects.all().order_by('username')
+        queryset = CustomUser.objects.all().order_by('username')
+        
+        # Filtering
+        dept_id = self.request.GET.get('department')
+        unit_id = self.request.GET.get('unit')
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+        search_query = self.request.GET.get('q')
+
+        if dept_id:
+            queryset = queryset.filter(staff__department_id=dept_id)
+        if unit_id:
+            queryset = queryset.filter(staff__unit_id=unit_id)
+        if start_date:
+            queryset = queryset.filter(date_joined__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(date_joined__date__lte=end_date)
+        if search_query:
+            queryset = queryset.filter(
+                Q(username__icontains=search_query) |
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
         context['locked_users'] = {user.pk for user in context['users'] if user.lockout_until and user.lockout_until > now}
+        
+        # Filter context
+        context['all_departments'] = Department.objects.all().order_by('name')
+        context['all_units'] = Unit.objects.all().order_by('name')
+        context['selected_department'] = int(self.request.GET.get('department')) if self.request.GET.get('department', '').isdigit() else ''
+        context['selected_unit'] = int(self.request.GET.get('unit')) if self.request.GET.get('unit', '').isdigit() else ''
+        context['selected_start_date'] = self.request.GET.get('start_date', '')
+        context['selected_end_date'] = self.request.GET.get('end_date', '')
+        context['search_query'] = self.request.GET.get('q', '')
+
+        # Preserve query parameters for pagination
+        params = self.request.GET.copy()
+        if 'page' in params:
+            del params['page']
+        context['query_params'] = '&' + params.urlencode() if params else ''
+        
         return context
 
     def handle_no_permission(self):
@@ -269,6 +312,13 @@ class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
             return redirect('user_management:user_list')
         
         username_deleted = user_to_delete.username # Capture username before deletion
+        
+        # Purge OTP devices to avoid IntegrityError (PROTECT/RESTRICT constraints)
+        from django_otp.plugins.otp_static.models import StaticDevice
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        StaticDevice.objects.filter(user=user_to_delete).delete()
+        TOTPDevice.objects.filter(user=user_to_delete).delete()
+        
         user_to_delete.delete()
         log_action(self.request.user, 'USER_DELETED', request=self.request, details={'username': username_deleted})
         

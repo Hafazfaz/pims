@@ -105,6 +105,7 @@
                     <span class="text-sm font-bold uppercase tracking-wider">Dashboard</span>
                 </a>
 
+                {% if not user.is_superuser %}
                 <a href="{% url 'document_management:my_files' %}"
                     class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'my_files' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,8 +115,9 @@
                     </svg>
                     <span class="text-sm font-bold uppercase tracking-wider">My Records</span>
                 </a>
+                {% endif %}
 
-                {% if perms.document_management.view_file %}
+                {% if not user.is_superuser and perms.document_management.view_file or user.staff.is_registry %}
                 <a href="{% url 'document_management:registry_dashboard' %}"
                     class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'registry' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +129,7 @@
                 </a>
                 {% endif %}
 
-                {% if user.is_superuser %}
+                {% if user.is_superuser or perms.auth.view_user %}
                 <a href="{% url 'user_management:user_list' %}"
                     class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'user_management' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,8 +137,11 @@
                             d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
                         </path>
                     </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Identities</span>
+                    <span class="text-sm font-bold uppercase tracking-wider">Users</span>
                 </a>
+                {% endif %}
+
+                {% if user.is_superuser or perms.audit_log.view_auditlogentry %}
                 <a href="{% url 'audit_log:audit_log_list' %}"
                     class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'audit' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,7 +149,7 @@
                             d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
                         </path>
                     </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Forensics</span>
+                    <span class="text-sm font-bold uppercase tracking-wider">Audit Logs</span>
                 </a>
                 {% endif %}
             </nav>
@@ -156,7 +161,7 @@
                 <div class="flex-1 overflow-hidden">
                     <p class="text-[11px] font-bold truncate">{{ user.username }}</p>
                     <form action="{% url 'user_management:logout' %}" method="post">{% csrf_token %}<button
-                            class="text-[9px] text-slate-400 hover:text-white uppercase tracking-widest font-black transition-colors">Terminate</button>
+                            class="text-[9px] text-slate-400 hover:text-white uppercase tracking-widest font-black transition-colors">Logout</button>
                     </form>
                 </div>
             </div>
