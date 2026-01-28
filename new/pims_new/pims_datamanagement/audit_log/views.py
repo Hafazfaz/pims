@@ -43,7 +43,10 @@ class AuditLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['all_users'] = CustomUser.objects.all().order_by('username')
         context['all_actions'] = sorted(list(set(AuditLogEntry.objects.values_list('action', flat=True))))
-        context['selected_user'] = self.request.GET.get('user', '')
+        
+        user_id = self.request.GET.get('user', '')
+        context['selected_user'] = int(user_id) if user_id.isdigit() else ''
+        
         context['selected_action'] = self.request.GET.get('action', '')
         context['selected_start_date'] = self.request.GET.get('start_date', '')
         context['selected_end_date'] = self.request.GET.get('end_date', '')

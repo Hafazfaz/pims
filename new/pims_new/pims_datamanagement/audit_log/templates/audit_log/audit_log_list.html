@@ -23,7 +23,7 @@
                         class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
                         <option value="" class="bg-slate-900 text-slate-400">All Identities</option>
                         {% for user_obj in all_users %}
-                        <option value="{{ user_obj.pk }}" {% if selected_user|as_int==user_obj.pk %}selected{% endif %}
+                        <option value="{{ user_obj.pk }}" {% if selected_user == user_obj.pk %}selected{% endif %}
                             class="bg-slate-900">{{ user_obj.username|upper }}</option>
                         {% endfor %}
                     </select>
