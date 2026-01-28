@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(".env")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True 
 
 ALLOWED_HOSTS = []
 
@@ -43,14 +46,13 @@ INSTALLED_APPS = [
     "user_management",
     "organization",
     "document_management",
-    "audit_log", # Added this line
-    "notifications", # Added this line
+    "audit_log",  # Added this line
+    "notifications",  # Added this line
     # "tailwind",
     # "theme",
     "django_otp",
     "django_otp.plugins.otp_static",
     "django_otp.plugins.otp_totp",
-
     # "axes",
 ]
 
@@ -58,7 +60,7 @@ INSTALLED_APPS = [
 UNFOLD = {
     "SITE_TITLE": "PIMS Administration",
     "SITE_HEADER": "PIMS Records Matrix",
-    "SITE_SYMBOL": "speed", # Symbol in the top left corner.
+    "SITE_SYMBOL": "speed",  # Symbol in the top left corner.
     "COLORS": {
         "primary": {
             "50": "230 243 238",
@@ -66,7 +68,7 @@ UNFOLD = {
             "200": "153 207 187",
             "300": "102 183 153",
             "400": "51 159 119",
-            "500": "0 135 81",   # Nigeria Green (#008751)
+            "500": "0 135 81",  # Nigeria Green (#008751)
             "600": "0 121 73",
             "700": "0 94 57",
             "800": "0 67 41",
@@ -104,7 +106,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "notifications.context_processors.unread_notifications", # Added this line
+                "notifications.context_processors.unread_notifications",  # Added this line
             ],
         },
     },
@@ -170,27 +172,33 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-MEDIA_URL = '/attachments/'
-MEDIA_ROOT = BASE_DIR / 'attachments'
+MEDIA_URL = "/attachments/"
+MEDIA_ROOT = BASE_DIR / "attachments"
 
 AUTH_USER_MODEL = "user_management.CustomUser"
 
 # Email settings
-if DEBUG:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-else:
-    # In production, use SMTP
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.example.com")  
-    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.example.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+
+# Port 465 requires SSL, port 587 requires TLS (STARTTLS)
+# Allow explicit override via environment variables
+if EMAIL_PORT == 465:
+    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "true").lower() in ["true", "1", "yes"]
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in ["true", "1", "yes"]
+else:  # Port 587 or other
+    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in ["true", "1", "yes"]
     EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ["true", "1", "yes"]
-    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")  
-    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "your-password")  
 
-DEFAULT_FROM_EMAIL = "noreply@example.com"
-BASE_URL = "http://localhost:8000"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "your-password")
 
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+BASE_URL = "pims.fmcabuja.gov.ng"
 AUTHENTICATION_BACKENDS = [
     "user_management.backends.CustomOTPBackend",
     "django.contrib.auth.backends.ModelBackend",
@@ -199,34 +207,34 @@ AUTHENTICATION_BACKENDS = [
 # Session settings
 SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_ENGINE = 'django.contrib.sessions.backends.db' # Explicitly set session engine
-SESSION_FLUSH_AT_LOGIN = True # Flush other sessions on login
+SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Explicitly set session engine
+SESSION_FLUSH_AT_LOGIN = True  # Flush other sessions on login
 
 # Axes settings
 # AXES_FAILURE_LIMIT = 3
 AXES_LOCKOUT_CALLABLE = "user_management.views.custom_lockout_view"
 
 # Redirect after login
-LOGIN_REDIRECT_URL = 'home'
+LOGIN_REDIRECT_URL = "home"
 
 # Redirect after logout
-LOGOUT_REDIRECT_URL = 'user_management:login'
+LOGOUT_REDIRECT_URL = "user_management:login"
 
 # Document Watermarking Settings
 ENABLE_DOCUMENT_WATERMARKING = True
 DOCUMENT_WATERMARK_TEXT = "PIMS Confidential - Do Not Copy"
 
 # Password Expiry Settings
-PASSWORD_EXPIRY_WARNING_DAYS = 7 # Warn users 7 days before password expires
+PASSWORD_EXPIRY_WARNING_DAYS = 7  # Warn users 7 days before password expires
 
 from django.contrib.messages import constants as messages
 
 MESSAGE_TAGS = {
-    messages.DEBUG: 'alert-secondary',
-    messages.INFO: 'alert-info',
-    messages.SUCCESS: 'alert-success',
-    messages.WARNING: 'alert-warning',
-    messages.ERROR: 'alert-danger',
+    messages.DEBUG: "alert-secondary",
+    messages.INFO: "alert-info",
+    messages.SUCCESS: "alert-success",
+    messages.WARNING: "alert-warning",
+    messages.ERROR: "alert-danger",
 }
 
 if not DEBUG:
@@ -238,4 +246,4 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+X_FRAME_OPTIONS = "SAMEORIGIN"
