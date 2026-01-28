@@ -1,82 +1,187 @@
 {% extends 'base.html' %}
 
-{% block title %}Admin Health Dashboard{% endblock %}
+{% block title %}System Health | PIMS Administration{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-md">
-    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Admin Health Dashboard</h2>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-blue-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-blue-800">Total Users</h4>
-            <p class="text-2xl font-bold">{{ stats.users.total }}</p>
+<div class="space-y-8 pb-12">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">System Health Matrix</h2>
+            <p class="text-sm text-slate-500 font-medium">Real-time Oversignt of Organizational Infrastructure & Security</p>
         </div>
-        <div class="bg-green-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-green-800">Active Users</h4>
-            <p class="text-2xl font-bold">{{ stats.users.active }}</p>
-        </div>
-        <div class="bg-red-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-red-800">Locked Users</h4>
-            <p class="text-2xl font-bold">{{ stats.users.locked }}</p>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-blue-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-blue-800">Total Files</h4>
-            <p class="text-2xl font-bold">{{ stats.files.total }}</p>
-        </div>
-        <div class="bg-green-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-green-800">Active Files</h4>
-            <p class="text-2xl font-bold">{{ stats.files.active }}</p>
-        </div>
-        <div class="bg-orange-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-orange-800">Closed Files</h4>
-            <p class="text-2xl font-bold">{{ stats.files.closed }}</p>
+        <div class="flex items-center space-x-3">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                Last Synchronized: {% now "H:i:s" %}
+            </span>
+            <a href="." class="p-2 bg-white border border-slate-200 text-slate-400 hover:text-nigeria-green rounded-lg transition-all shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </a>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-gray-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-gray-800">Archived Files</h4>
-            <p class="text-2xl font-bold">{{ stats.files.archived }}</p>
+    <!-- Core Metrics Deck -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Identity Statistics -->
+        <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-xl overflow-hidden relative group">
+            <div class="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                <svg class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            <div class="relative">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Identity Deployment</h3>
+                <div class="flex items-end space-x-2 mb-6">
+                    <span class="text-4xl font-black text-white leading-none">{{ stats.users.total }}</span>
+                    <span class="text-xs font-bold text-nigeria-green pb-1 uppercase">Total Users</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/5 border border-white/5 p-3 rounded-lg">
+                        <div class="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Active</div>
+                        <div class="text-lg font-bold text-white">{{ stats.users.active }}</div>
+                    </div>
+                    <div class="bg-white/5 border border-white/5 p-3 rounded-lg">
+                        <div class="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Sec. Locked</div>
+                        <div class="text-lg font-bold text-red-400">{{ stats.users.locked }}</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="bg-purple-100 p-4 rounded-lg text-center">
-            <h4 class="text-lg font-semibold text-purple-800">Total Documents</h4>
-            <p class="text-2xl font-bold">{{ stats.documents.total }}</p>
+
+        <!-- Organizational Hierarchy -->
+        <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-xl overflow-hidden relative group">
+            <div class="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                <svg class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+            </div>
+            <div class="relative">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Infrastructure Base</h3>
+                <div class="flex items-end space-x-2 mb-6">
+                    <span class="text-4xl font-black text-white leading-none">{{ stats.org.departments }}</span>
+                    <span class="text-xs font-bold text-green-400 pb-1 uppercase">Departments</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/5 border border-white/5 p-3 rounded-lg">
+                        <div class="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Units</div>
+                        <div class="text-lg font-bold text-white">{{ stats.org.units }}</div>
+                    </div>
+                    <div class="bg-white/5 border border-white/5 p-3 rounded-lg">
+                        <div class="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Staff Count</div>
+                        <div class="text-lg font-bold text-white">{{ stats.users.total }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Assets -->
+        <div class="bg-nigeria-green rounded-xl p-6 shadow-xl overflow-hidden relative group">
+            <div class="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                <svg class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div class="relative">
+                <h3 class="text-[10px] font-bold text-white/60 uppercase tracking-widest mb-4">Total System Assets</h3>
+                <div class="flex items-end space-x-2 mb-6 text-white">
+                    <span class="text-4xl font-black leading-none">{{ stats.files.total }}</span>
+                    <span class="text-xs font-bold pb-1 uppercase">Official Files</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-black/10 border border-white/10 p-3 rounded-lg">
+                        <div class="text-[9px] font-bold text-white/50 uppercase tracking-tighter mb-1">Live Records</div>
+                        <div class="text-lg font-bold text-white">{{ stats.files.active }}</div>
+                    </div>
+                    <div class="bg-black/10 border border-white/10 p-3 rounded-lg">
+                        <div class="text-[9px] font-bold text-white/50 uppercase tracking-tighter mb-1">Documents</div>
+                        <div class="text-lg font-bold text-white">{{ stats.documents.total }}</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">Recent Failed Logins</h3>
-            {% if stats.recent_failed_logins %}
-            <ul class="divide-y divide-gray-200">
-                {% for entry in stats.recent_failed_logins %}
-                <li class="py-2 text-gray-700 text-sm">
-                    {{ entry.timestamp|date:"Y-m-d H:i:s" }} - User: {{ entry.user.username|default:"N/A" }} (IP: {{ entry.ip_address|default:"N/A" }})
-                </li>
+    <!-- Secondary Insights Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Asset Lifecycle -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-[11px] font-bold text-slate-800 uppercase tracking-widest">Asset Lifecycle Breakdown</h3>
+                <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div class="p-6 space-y-4">
+                {% for item in stats.files.breakdown %}
+                <div class="flex items-center justify-between group">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-1.5 h-1.5 rounded-full bg-{{ item.color }}-500"></div>
+                        <span class="text-xs font-bold text-slate-600 uppercase tracking-tighter group-hover:text-slate-900 transition-colors">{{ item.label }}</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-{{ item.color }}-500" style="width: {{ item.percentage }}%"></div>
+                        </div>
+                        <span class="text-xs font-black text-slate-900 w-8 text-right">{{ item.count }}</span>
+                    </div>
+                </div>
                 {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-gray-600 italic">No recent failed login attempts.</p>
-            {% endif %}
+            </div>
         </div>
 
-        <div class="bg-white p-4 rounded-lg shadow-md">
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">Recent Locked Accounts</h3>
-            {% if stats.recent_locked_accounts %}
-            <ul class="divide-y divide-gray-200">
-                {% for entry in stats.recent_locked_accounts %}
-                <li class="py-2 text-gray-700 text-sm">
-                    {{ entry.timestamp|date:"Y-m-d H:i:s" }} - User: {{ entry.user.username|default:"N/A" }} (IP: {{ entry.ip_address|default:"N/A" }})
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-gray-600 italic">No recent account lockouts.</p>
-            {% endif %}
+        <!-- Security Oversight -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-[11px] font-bold text-slate-800 uppercase tracking-widest">Security Activity Audit</h3>
+                <span class="bg-red-50 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded border border-red-100">LOCKED: {{ stats.users.locked }}</span>
+            </div>
+            <div class="divide-y divide-slate-50">
+                <div class="p-4 bg-red-50/30 border-b border-red-50">
+                    <h4 class="text-[9px] font-bold text-red-800 uppercase tracking-widest mb-3">Critical Lockout Events</h4>
+                    {% if stats.recent_locked_accounts %}
+                        <div class="space-y-2">
+                        {% for entry in stats.recent_locked_accounts %}
+                            <div class="flex items-start justify-between text-[11px] bg-white p-2 rounded border border-red-100/50 shadow-sm">
+                                <div>
+                                    <span class="font-bold text-slate-900">{{ entry.user.username|default:"ANONYMOUS" }}</span>
+                                    <span class="text-slate-400 font-medium ml-1">locked from {{ entry.ip_address }}</span>
+                                </div>
+                                <span class="text-[9px] text-slate-400 font-bold uppercase">{{ entry.timestamp|date:"H:i" }}</span>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-[10px] text-slate-400 italic font-medium">No critical lockout sessions detected.</p>
+                    {% endif %}
+                </div>
+                
+                <div class="p-4">
+                    <h4 class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3">Login Integrity (Failures)</h4>
+                    {% if stats.recent_failed_logins %}
+                        <div class="space-y-2">
+                        {% for entry in stats.recent_failed_logins %}
+                            <div class="flex items-center justify-between text-[11px] p-1.5 hover:bg-slate-50 rounded transition-colors">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                    <span class="font-bold text-slate-600 lowercase">{{ entry.details.username|default:entry.user.username|default:"unknown" }}</span>
+                                </div>
+                                <span class="text-[9px] text-slate-400 font-bold">{{ entry.timestamp|timesince }} ago</span>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-[10px] text-slate-400 italic font-medium">Login integrity maintained.</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Custom Helpers for this view -->
+<style>
+    .bg-nigeria-green { background-color: #008751; }
+</style>
 {% endblock %}
