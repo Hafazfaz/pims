@@ -18,7 +18,7 @@
     <!-- Filter Deck -->
     <div class="bg-slate-900 p-8 rounded-xl shadow-lg border border-slate-800">
         <form method="get" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <!-- Selects side-by-side -->
                 <div class="space-y-1.5">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Department</label>
@@ -42,13 +42,25 @@
                         {% endfor %}
                     </select>
                 </div>
+                <!-- New Designation Filter -->
                 <div class="space-y-1.5">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registered Since</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Designation</label>
+                    <select name="designation"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
+                        <option value="" class="bg-slate-900 text-slate-400">All Designations</option>
+                        {% for desig in all_designations %}
+                        <option value="{{ desig.pk }}" {% if selected_designation == desig.pk %}selected{% endif %}
+                            class="bg-slate-900">{{ desig.name|upper }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Since</label>
                     <input type="date" name="start_date" value="{{ selected_start_date }}"
                         class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
                 </div>
                 <div class="space-y-1.5">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registered Until</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Until</label>
                     <input type="date" name="end_date" value="{{ selected_end_date }}"
                         class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-nigeria-green transition-all">
                 </div>
