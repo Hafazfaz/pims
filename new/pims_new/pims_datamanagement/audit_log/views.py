@@ -9,7 +9,7 @@ class AuditLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'audit_log/audit_log_list.html'
     context_object_name = 'log_entries'
     permission_required = 'audit_log.view_auditlogentry'
-    paginate_by = 25
+    paginate_by = 20
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -51,4 +51,11 @@ class AuditLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context['selected_start_date'] = self.request.GET.get('start_date', '')
         context['selected_end_date'] = self.request.GET.get('end_date', '')
         context['search_query'] = self.request.GET.get('q', '')
+        
+        # Preserve query parameters for pagination
+        params = self.request.GET.copy()
+        if 'page' in params:
+            del params['page']
+        context['query_params'] = '&' + params.urlencode() if params else ''
+        
         return context
