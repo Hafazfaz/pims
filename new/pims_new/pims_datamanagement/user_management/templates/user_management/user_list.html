@@ -10,8 +10,18 @@
             <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Official User Directory</h2>
             <p class="text-sm text-slate-500 font-medium whitespace-nowrap">Oversight of Administrative Access & System Users</p>
         </div>
-        <div class="bg-green-50 border border-green-100 px-4 py-2 rounded-lg">
-            <span class="text-sm font-bold text-nigeria-green">{{ paginator.count }} Registered System Users</span>
+        <div class="flex items-center space-x-4">
+            {% if user.is_superuser %}
+            <a href="{% url 'user_management:user_batch_upload' %}" class="bg-slate-900 hover:bg-nigeria-green text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center space-x-2 shadow-lg transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <span>Batch Add New Users</span>
+            </a>
+            {% endif %}
+            <div class="bg-green-50 border border-green-100 px-4 py-2 rounded-lg">
+                <span class="text-sm font-bold text-nigeria-green">{{ paginator.count }} Registered System Users</span>
+            </div>
         </div>
     </div>
     
