@@ -53,7 +53,7 @@ class PasswordHistoryValidator:
         self.history_limit = history_limit
 
     def validate(self, password, user=None):
-        if not user:
+        if not user or not user.pk:
             return
 
         recent_passwords = PasswordHistory.objects.filter(user=user).order_by('-timestamp')[:self.history_limit]
