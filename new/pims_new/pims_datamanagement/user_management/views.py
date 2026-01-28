@@ -20,7 +20,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.generic import ListView # Added this import
+from django.views.generic import ListView, TemplateView # Added TemplateView
 from django.core.exceptions import ObjectDoesNotExist # Import ObjectDoesNotExist
 from django.db.models import Q
 
@@ -180,7 +180,7 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'user_management/user_list.html'
     context_object_name = 'users'
     permission_required = 'auth.view_user'
-    paginate_by = 20
+    paginate_by = 10
 
     def get_queryset(self):
         queryset = CustomUser.objects.all().order_by('username')
@@ -442,8 +442,143 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         }
         return context
 
+
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return redirect('user_management:login')
         messages.error(self.request, 'You do not have permission to access the admin health dashboard.')
         return redirect('home')
+class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'user_management/user_batch_upload.html'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def post(self, request, *args, **kwargs):
+        import csv
+        import io
+        from organization.models import Department, Unit, Designation, Staff
+        from django.db import transaction
+        from django.utils.crypto import get_random_string
+
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            messages.error(request, 'Please select a CSV file to upload.')
+            return self.get(request, *args, **kwargs)
+
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'The uploaded file is not a CSV.')
+            return self.get(request, *args, **kwargs)
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+        except Exception as e:
+            messages.error(request, f'Failed to read CSV: {str(e)}')
+            return self.get(request, *args, **kwargs)
+
+        results = {
+            'success': [],
+            'errors': []
+        }
+
+        required_cols = ['username', 'email', 'first_name', 'last_name', 'department_code', 'unit_name', 'designation_name', 'staff_type']
+        
+        # Check columns
+        if not reader.fieldnames or not all(col in reader.fieldnames for col in required_cols):
+            missing = [c for c in required_cols if not reader.fieldnames or c not in reader.fieldnames]
+            messages.error(request, f'CSV is missing required columns: {", ".join(missing)}')
+            return self.get(request, *args, **kwargs)
+
+        for row_idx, row in enumerate(reader, start=2):
+            try:
+                with transaction.atomic():
+                    # 1. Create User
+                    username = row['username'].strip()
+                    email = row['email'].strip()
+                    temp_password = get_random_string(length=12)
+                    
+                    if CustomUser.objects.filter(username=username).exists():
+                        raise ValueError(f'Username "{username}" already exists.')
+
+                    user = CustomUser.objects.create_user(
+                        username=username,
+                        email=email,
+                        first_name=row['first_name'].strip(),
+                        last_name=row['last_name'].strip(),
+                        password=temp_password,
+                        must_change_password=True
+                    )
+
+                    # 2. Resolve Org Units
+                    dept = Department.objects.filter(code=row['department_code'].strip()).first()
+                    if not dept:
+                        raise ValueError(f'Department code "{row["department_code"]}" not found.')
+
+                    unit = Unit.objects.filter(name=row['unit_name'].strip(), department=dept).first()
+                    if not unit:
+                        raise ValueError(f'Unit "{row["unit_name"]}" not found in Dept "{dept.name}".')
+
+                    designation = Designation.objects.filter(name=row['designation_name'].strip()).first()
+                    if not designation:
+                        raise ValueError(f'Designation "{row["designation_name"]}" not found.')
+
+                    # 3. Create Staff
+                    Staff.objects.create(
+                        user=user,
+                        department=dept,
+                        unit=unit,
+                        designation=designation,
+                        staff_type=row['staff_type'].strip().lower()
+                    )
+
+                    results['success'].append(f'User "{username}" created.')
+                    log_action(request.user, 'USER_CREATED_BATCH', request=request, details={'username': username, 'batch': True})
+
+                    # 4. Send Welcome Email
+                    try:
+                        subject = 'Welcome to PIMS - Account Provisioned'
+                        message = (
+                            f'Hello {user.first_name or user.username},\n\n'
+                            f'Your account has been provisioned on the Personnel Information Management System (PIMS).\n\n'
+                            f'Username: {username}\n'
+                            f'Temporary Password: {temp_password}\n\n'
+                            f'Please log in at {request.build_absolute_uri("/")} and change your password immediately.\n\n'
+                            f'Regards,\nPIMS Administration'
+                        )
+                        send_mail(
+                            subject,
+                            message,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [user.email],
+                            fail_silently=False,
+                        )
+                    except Exception as mail_err:
+                        logger.error(f'Failed to send welcome email to {email}: {mail_err}')
+                        results['success'][-1] += ' (Email notification failed)'
+
+            except Exception as e:
+                results['errors'].append(f'Row {row_idx}: {str(e)}')
+
+        return render(request, self.template_name, {'results': results})
+
+class DownloadSampleUserCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get(self, request, *args, **kwargs):
+        import csv
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="pims_user_upload_sample.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['username', 'email', 'first_name', 'last_name', 'department_code', 'unit_name', 'designation_name', 'staff_type'])
+        
+        # Add sample row
+        writer.writerow(['jdoe', 'jdoe@example.com', 'John', 'Doe', 'HR', 'Payroll', 'Manager', 'permanent'])
+        writer.writerow(['asmith', 'asmith@example.com', 'Alice', 'Smith', 'IT', 'Networking', 'Officer', 'contract'])
+
+        return response

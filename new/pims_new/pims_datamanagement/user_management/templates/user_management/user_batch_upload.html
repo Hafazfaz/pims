@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Batch User Upload | PIMS Administration{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Batch Personnel Ingestion</h2>
+            <p class="text-sm text-slate-500 font-medium">Mass provision of organizational user accounts via CSV</p>
+        </div>
+        <a href="{% url 'user_management:user_list' %}" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center space-x-2 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            <span>Back to Directory</span>
+        </a>
+    </div>
+
+    <!-- Upload Card -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-8 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-1">Required CSV Specification</h3>
+                <p class="text-[10px] text-slate-500 font-medium uppercase tracking-tight">Follow this structure for error-free ingestion</p>
+            </div>
+            <a href="{% url 'user_management:user_sample_csv' %}" class="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-slate-900 text-white text-[10px] font-black rounded-lg shadow-sm transition-all uppercase tracking-widest">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                <span>Download Sample Template</span>
+            </a>
+        </div>
+                <div class="space-y-2">
+                    <p class="text-slate-500 font-bold uppercase tracking-tighter">Essential Columns:</p>
+                    <ul class="list-disc list-inside text-slate-400 space-y-1">
+                        <li><span class="text-slate-700">username</span>, <span class="text-slate-700">email</span></li>
+                        <li><span class="text-slate-700">first_name</span>, <span class="text-slate-700">last_name</span></li>
+                        <li><span class="text-slate-700">department_code</span> (e.g. ICT, HR)</li>
+                        <li><span class="text-slate-700">unit_name</span>, <span class="text-slate-700">designation_name</span></li>
+                        <li><span class="text-slate-700">staff_type</span> (permanent, contract, etc.)</li>
+                    </ul>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-lg">
+                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Sample Format</p>
+                    <code class="text-indigo-300 block break-all leading-relaxed">
+                        username,email,first_name,last_name,department_code,unit_name,designation_name,staff_type<br>
+                        jdoe,j@ex.com,John,Doe,ICT,Software,Manager,permanent
+                    </code>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="p-8 space-y-6">
+            {% csrf_token %}
+            <div class="space-y-2">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Select Target Archive (CSV)</label>
+                <div class="relative group">
+                    <input type="file" name="csv_file" accept=".csv" required
+                           class="w-full px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:border-indigo-500 transition-all cursor-pointer">
+                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-300 group-hover:text-indigo-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-slate-100">
+                <button type="submit" class="px-8 py-3 bg-slate-900 hover:bg-nigeria-green text-white text-[11px] font-black rounded-lg shadow-lg hover:shadow-nigeria-green/20 transition-all uppercase tracking-widest flex items-center space-x-3">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                    <span>Execute Data Ingestion</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Section -->
+    {% if results %}
+    <div class="space-y-6">
+        <h3 class="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center space-x-2">
+            <span>Ingestion Audit Log</span>
+            <div class="h-px flex-1 bg-slate-100"></div>
+        </h3>
+
+        {% if results.success %}
+        <div class="bg-green-50 border border-green-100 rounded-xl p-6">
+            <h4 class="text-[10px] font-black text-nigeria-green uppercase tracking-widest mb-3 flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span>Successful Provisions ({{ results.success|length }})</span>
+            </h4>
+            <ul class="text-[11px] text-slate-600 space-y-1 font-medium">
+                {% for msg in results.success %}
+                <li>{{ msg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if results.errors %}
+        <div class="bg-red-50 border border-red-100 rounded-xl p-6">
+            <h4 class="text-[10px] font-black text-red-600 uppercase tracking-widest mb-3 flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <span>Data Anomalies Detected ({{ results.errors|length }})</span>
+            </h4>
+            <ul class="text-[11px] text-red-700 space-y-1 font-medium font-mono">
+                {% for error in results.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

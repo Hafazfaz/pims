@@ -15,4 +15,6 @@ urlpatterns = [
     path('users/<int:pk>/suspend/', views.UserSuspendView.as_view(), name='user_suspend'),
     path('users/<int:pk>/delete/', views.UserDeleteView.as_view(), name='user_delete'),
     path('admin/dashboard/health/', views.AdminDashboardHealthView.as_view(), name='admin_dashboard_health'),
+    path('admin/users/batch-upload/', views.UserBatchUploadView.as_view(), name='user_batch_upload'),
+    path('admin/users/sample-csv/', views.DownloadSampleUserCSVView.as_view(), name='user_sample_csv'),
 ]
