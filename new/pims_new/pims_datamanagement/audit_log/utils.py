@@ -19,7 +19,7 @@ def log_action(user, action, request=None, obj=None, details=None):
         object_id = obj.pk
 
     AuditLogEntry.objects.create(
-        user=user if user.is_authenticated else None, # Store None for anonymous users
+        user=user if user and user.is_authenticated else None, # Store None for anonymous users
         action=action,
         ip_address=ip_address,
         user_agent=user_agent,

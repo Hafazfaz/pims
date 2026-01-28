@@ -30,7 +30,7 @@ from notifications.utils import create_notification, notify_admins_of_critical_e
 from document_management.models import File, Document # Import for admin health dashboard
 from audit_log.models import AuditLogEntry # Import for admin health dashboard
 from .otp_utils import generate_otp, send_otp_email, set_otp_in_session, verify_otp_in_session, clear_otp_session # Import OTP utilities
-from organization.models import Department, Unit # Added for filtering
+from organization.models import Department, Unit, Designation # Added Designation for filtering
 
 logger = logging.getLogger(__name__) # Initialize logger
 
@@ -188,6 +188,7 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         # Filtering
         dept_id = self.request.GET.get('department')
         unit_id = self.request.GET.get('unit')
+        designation_id = self.request.GET.get('designation')
         start_date = self.request.GET.get('start_date')
         end_date = self.request.GET.get('end_date')
         search_query = self.request.GET.get('q')
@@ -196,6 +197,8 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             queryset = queryset.filter(staff__department_id=dept_id)
         if unit_id:
             queryset = queryset.filter(staff__unit_id=unit_id)
+        if designation_id:
+            queryset = queryset.filter(staff__designation_id=designation_id)
         if start_date:
             queryset = queryset.filter(date_joined__date__gte=start_date)
         if end_date:
@@ -217,8 +220,10 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         # Filter context
         context['all_departments'] = Department.objects.all().order_by('name')
         context['all_units'] = Unit.objects.all().order_by('name')
+        context['all_designations'] = Designation.objects.all().order_by('level')
         context['selected_department'] = int(self.request.GET.get('department')) if self.request.GET.get('department', '').isdigit() else ''
         context['selected_unit'] = int(self.request.GET.get('unit')) if self.request.GET.get('unit', '').isdigit() else ''
+        context['selected_designation'] = int(self.request.GET.get('designation')) if self.request.GET.get('designation', '').isdigit() else ''
         context['selected_start_date'] = self.request.GET.get('start_date', '')
         context['selected_end_date'] = self.request.GET.get('end_date', '')
         context['search_query'] = self.request.GET.get('q', '')
@@ -311,9 +316,29 @@ class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
             messages.error(request, "Cannot delete a superuser.")
             return redirect('user_management:user_list')
         
-        username_deleted = user_to_delete.username # Capture username before deletion
+        # Capture username before deletion
+        username_deleted = user_to_delete.username
         
-        # Purge OTP devices to avoid IntegrityError (PROTECT/RESTRICT constraints)
+        # Explicit cleanup for related objects to satisfy strict DB constraints (SQLite NO ACTION)
+        # 1. Clear Many-to-Many relationships
+        user_to_delete.groups.clear()
+        user_to_delete.user_permissions.clear()
+        
+        # 2. Delete One-to-One and Related Models
+        from .models import PasswordHistory
+        PasswordHistory.objects.filter(user=user_to_delete).delete()
+        
+        from organization.models import Staff
+        Staff.objects.filter(user=user_to_delete).delete()
+        
+        # 3. Handle models where User is SET_NULL (SQLite might still block if NO ACTION is enforced)
+        from audit_log.models import AuditLogEntry
+        AuditLogEntry.objects.filter(user=user_to_delete).update(user=None)
+        
+        from notifications.models import Notification
+        Notification.objects.filter(user=user_to_delete).delete()
+        
+        # 4. Purge OTP devices (keep existing logic)
         from django_otp.plugins.otp_static.models import StaticDevice
         from django_otp.plugins.otp_totp.models import TOTPDevice
         StaticDevice.objects.filter(user=user_to_delete).delete()
@@ -357,10 +382,18 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         active_users = CustomUser.objects.filter(is_active=True).count()
         inactive_users = CustomUser.objects.filter(is_active=False).count()
         locked_users = CustomUser.objects.filter(lockout_until__gt=timezone.now()).count()
+        must_change_password_users = CustomUser.objects.filter(must_change_password=True).count()
+
+        # Organization Statistics
+        total_departments = Department.objects.count()
+        total_units = Unit.objects.count()
 
         # File Statistics
         total_files = File.objects.count()
+        inactive_files = File.objects.filter(status='inactive').count()
+        pending_activation_files = File.objects.filter(status='pending_activation').count()
         active_files = File.objects.filter(status='active').count()
+        in_transit_files = File.objects.filter(status='in_transit').count()
         closed_files = File.objects.filter(status='closed').count()
         archived_files = File.objects.filter(status='archived').count()
 
@@ -372,18 +405,33 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         recent_locked_accounts = AuditLogEntry.objects.filter(action='ACCOUNT_LOCKED').order_by('-timestamp')[:5]
         recent_unlocked_accounts = AuditLogEntry.objects.filter(action='ACCOUNT_UNLOCKED').order_by('-timestamp')[:5]
 
+        # Asset Breakdown for UI
+        file_status_breakdown = [
+            {'label': 'Inactive', 'count': inactive_files, 'color': 'slate'},
+            {'label': 'Pending Activation', 'count': pending_activation_files, 'color': 'amber'},
+            {'label': 'Active', 'count': active_files, 'color': 'green'},
+            {'label': 'In Transit', 'count': in_transit_files, 'color': 'blue'},
+            {'label': 'Closed', 'count': closed_files, 'color': 'orange'},
+            {'label': 'Archived', 'count': archived_files, 'color': 'purple'},
+        ]
+        for item in file_status_breakdown:
+            item['percentage'] = (item['count'] / total_files * 100) if total_files > 0 else 0
+
         context['stats'] = {
             'users': {
                 'total': total_users,
                 'active': active_users,
                 'inactive': inactive_users,
                 'locked': locked_users,
+                'must_change_password': must_change_password_users,
+            },
+            'org': {
+                'departments': total_departments,
+                'units': total_units,
             },
             'files': {
                 'total': total_files,
-                'active': active_files,
-                'closed': closed_files,
-                'archived': archived_files,
+                'breakdown': file_status_breakdown,
             },
             'documents': {
                 'total': total_documents,

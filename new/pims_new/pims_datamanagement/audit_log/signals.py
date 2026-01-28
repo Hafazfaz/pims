@@ -19,5 +19,6 @@ def log_user_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=CustomUser)
 def log_user_delete(sender, instance, **kwargs):
-    # Request is not directly available in signals
-    log_action(instance, 'USER_DELETED', obj=instance, details={'username': instance.username})
+    # Avoid passing instance as the user or obj since it's already deleted in the DB
+    # when this signal runs, which would cause an IntegrityError in SQLite.
+    log_action(None, 'USER_DELETED', obj=None, details={'username': instance.username})
