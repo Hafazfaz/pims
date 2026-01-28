@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Operational Units | PIMS Administration{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Active Operational Units</h2>
+            <p class="text-sm text-slate-500 font-medium">Baseline Command Structure Oversight</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-100 px-4 py-2 rounded-lg">
+            <span class="text-sm font-bold text-blue-600">{{ paginator.count }} Total Units</span>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-800">
+                        <th class="px-8 py-5">Unit Name</th>
+                        <th class="px-8 py-5">Parent Department</th>
+                        <th class="px-8 py-5 text-center">Personnel</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for unit in units %}
+                    <tr class="hover:bg-slate-50 transition-colors group">
+                        <td class="px-8 py-6">
+                            <div>
+                                <div class="font-bold text-slate-900 uppercase tracking-tight">{{ unit.name }}</div>
+                                <div class="text-[10px] text-slate-400 font-bold uppercase">HOD: {{ unit.head|default:"NOT ASSIGNED" }}</div>
+                            </div>
+                        </td>
+                        <td class="px-8 py-6">
+                            <a href="{% url 'organization:department_detail' pk=unit.department.pk %}" class="inline-flex items-center space-x-2 group/dept">
+                                <span class="w-8 h-8 bg-slate-100 group-hover/dept:bg-blue-600 group-hover/dept:text-white rounded flex items-center justify-center text-[10px] font-black text-slate-500 transition-colors">
+                                    {{ unit.department.code }}
+                                </span>
+                                <span class="text-xs font-bold text-slate-600 group-hover/dept:text-slate-900 uppercase tracking-tighter">{{ unit.department.name }}</span>
+                            </a>
+                        </td>
+                        <td class="px-8 py-6 text-center">
+                            <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded font-black text-xs">{{ unit.staff_members.count }}</span>
+                        </td>
+                        <td class="px-8 py-6 text-right">
+                             <button class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-8 py-16 text-center text-slate-400 font-medium italic">No operational units found in the alignment.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="px-8 py-6 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} of {{ paginator.count }} Units
+            </p>
+            <nav class="flex items-center space-x-1.5 p-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                {% endif %}
+
+                {% for i in paginator.page_range %}
+                {% if i >= page_obj.number|add:-2 and i <= page_obj.number|add:2 %}
+                <a href="?page={{ i }}" class="px-3 py-1 text-[10px] font-bold transition-all rounded 
+                           {% if page_obj.number == i %}bg-blue-600 text-white shadow-sm{% else %}text-slate-500 hover:text-blue-600 hover:bg-slate-50{% endif %}">
+                    {{ i }}
+                </a>
+                {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

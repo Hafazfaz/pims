@@ -26,6 +26,7 @@ urlpatterns = [
     path('documents/', include('document_management.urls')),
     path('audit/', include('audit_log.urls')),
     path('notifications/', include('notifications.urls')),
+    path('org/', include('organization.urls')),
 
     path('', main_views.HomeView.as_view(), name='home'), # Home page
 ]
