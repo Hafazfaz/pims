@@ -1,8 +1,11 @@
 import secrets
+import logging
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta, datetime
+
+logger = logging.getLogger(__name__)
 
 def generate_otp():
     """Generates a random 6-digit OTP."""
@@ -13,9 +16,23 @@ def send_otp_email(user, otp):
     subject = "Your PIMS Login OTP"
     message = f"Hello {user.get_full_name() or user.username},\n\nYour One-Time Password (OTP) for PIMS login is: {otp}\n\nThis OTP is valid for 10 minutes.\n\nIf you did not request this, please ignore this email."
     from_email = settings.DEFAULT_FROM_EMAIL
+    
+    if not user.email:
+        logger.error(f"Error: User {user.username} has no email address.")
+        return
+
     recipient_list = [user.email]
     
-    send_mail(subject, message, from_email, recipient_list)
+    logger.info(f"Attempting to send OTP email to {user.email} from {from_email}")
+    try:
+        sent_count = send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+        if sent_count == 1:
+            logger.info(f"OTP email sent successfully to {user.email}")
+        else:
+            logger.warning(f"OTP email sent returned count {sent_count} for {user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send OTP email to {user.email}: {e}")
+        raise e
 
 def set_otp_in_session(request, user_id, otp):
     """Stores the OTP and its metadata in the session."""
