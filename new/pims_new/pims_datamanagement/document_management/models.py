@@ -1,10 +1,10 @@
-import os
-import io # Added for BytesIO
-from django.core.files.base import ContentFile # Added for saving watermarked content
+from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db import models
 from organization.models import Department, Staff
-from .utils import watermark_pdf_file # Import the utility
+from core.constants import FILE_TYPE_CHOICES, STATUS_CHOICES
+from core.utils.pdf import watermark_pdf_file
+
 
 
 class File(models.Model):
@@ -12,19 +12,6 @@ class File(models.Model):
     Represents a File, which is a container for documents, minutes, and actions.
     This corresponds to a physical file in the registry.
     """
-
-    FILE_TYPE_CHOICES = [
-        ("personal", "Personal"),
-        ("policy", "Policy"),
-    ]
-    STATUS_CHOICES = [
-        ("inactive", "Inactive"),
-        ("pending_activation", "Pending Activation"),
-        ("active", "Active"),
-        ("in_transit", "In Transit"), # Added new status
-        ("closed", "Closed"),
-        ("archived", "Archived"), # Added archived status
-    ]
 
     title = models.CharField(
         max_length=255, help_text="The title of the file, always in uppercase."
@@ -142,6 +129,8 @@ class Document(models.Model):
         if self.attachment and settings.ENABLE_DOCUMENT_WATERMARKING:
             # Check if it's a PDF
             if self.attachment.name.lower().endswith('.pdf'):
+                import io
+                import os
                 # Read the original PDF content
                 original_pdf_content = self.attachment.read()
                 original_pdf_file = io.BytesIO(original_pdf_content)
@@ -158,6 +147,7 @@ class Document(models.Model):
                 self.attachment.save(filename, ContentFile(watermarked_pdf_content.getvalue()), save=False)
 
         super().save(*args, **kwargs)
+
 
     def __str__(self):
         if self.minute_content:
