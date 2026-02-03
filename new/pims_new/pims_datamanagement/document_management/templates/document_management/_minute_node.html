@@ -16,6 +16,14 @@
                 </div>
             </div>
             <div class="flex items-center space-x-2">
+                {% if doc.has_signature %}
+                <div class="flex items-center px-2 py-0.5 bg-blue-50 border border-blue-100 rounded text-[9px] font-bold text-blue-600 uppercase tracking-widest" title="Digitally Signed by {{ doc.uploaded_by.get_full_name }}">
+                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
+                    </svg>
+                    Signed
+                </div>
+                {% endif %}
                 {% if doc.attachment %}
                 <a href="{{ doc.attachment.url }}" download class="text-nigeria-green hover:bg-green-50 p-1.5 rounded-lg transition-colors border border-transparent hover:border-green-100">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

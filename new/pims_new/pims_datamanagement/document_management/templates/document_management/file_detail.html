@@ -244,6 +244,46 @@
                 </div>
                 {% endif %}
 
+                <!-- NEW: Temporary Access Request Section -->
+                {% if not has_approved_access and file.owner != user.staff and file.current_location != user.staff %}
+                <div class="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>Original File Access
+                    </h4>
+                    
+                    {% if pending_access_request %}
+                    <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                        <p class="text-[10px] font-bold text-amber-700 uppercase tracking-tight">Request Pending</p>
+                        <p class="text-[9px] text-amber-600 mt-1">Registry will review your request soon.</p>
+                    </div>
+                    {% else %}
+                    <p class="text-[10px] text-slate-500 leading-relaxed font-medium">To view unwatermarked original attachments, you must request temporary access from the Registry.</p>
+                    
+                    <form method="post" class="space-y-3">
+                        {% csrf_token %}
+                        {{ access_request_form.reason|add_class:"w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-nigeria-green outline-none font-medium h-20" }}
+                        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                            Request Original Access
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% elif has_approved_access %}
+                <div class="mt-8 p-4 bg-green-50 border border-green-100 rounded-xl flex items-center gap-3">
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-green-800 uppercase tracking-widest">Full Access Granted</p>
+                        <p class="text-[9px] text-green-600">You can now view original documents.</p>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="space-y-3 pt-8">
                     {% if file.status == 'active' and perms.document_management.close_file %}<form
                         action="{% url 'document_management:file_close' pk=file.pk %}" method="post">

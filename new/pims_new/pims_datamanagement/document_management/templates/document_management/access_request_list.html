@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Access Requests | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Pending Access Requests</h2>
+        <a href="{% url 'document_management:registry_dashboard' %}" class="text-xs font-bold text-nigeria-green hover:underline uppercase tracking-widest">Back to Dashboard</a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Requester</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">File</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Reason</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Requested At</th>
+                        <th class="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for req in requests %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                    {{ req.requested_by.username|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-slate-900">{{ req.requested_by.get_full_name|default:req.requested_by.username }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ req.requested_by.staff.designation.name }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="text-sm font-bold text-nigeria-green">{{ req.file.file_number }}</p>
+                            <p class="text-[10px] text-slate-500 truncate max-w-xs">{{ req.file.title }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="text-xs text-slate-600 italic">"{{ req.reason }}"</p>
+                        </td>
+                        <td class="px-6 py-4 text-xs text-slate-500 font-medium">
+                            {{ req.created_at|date:"M d, Y @ H:i" }}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <form method="post" action="{% url 'document_management:access_request_approve' pk=req.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-transparent hover:border-green-100" title="Approve">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'document_management:access_request_reject' pk=req.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100" title="Reject">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center">
+                            <p class="text-sm font-semibold text-slate-400 italic">No pending access requests.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
