@@ -49,6 +49,7 @@ class Staff(models.Model):
     staff_type = models.CharField(max_length=20, choices=STAFF_TYPE_CHOICES, default='permanent')
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)
+    signature = models.ImageField(upload_to='signatures/', blank=True, null=True)
 
     def __str__(self):
         try:
@@ -66,4 +67,8 @@ class Staff(models.Model):
     def is_hod(self):
         if self.designation and any(role in self.designation.name.lower() for role in ["head of department", "hod", "director"]):
             return True
-        return False
+        return hasattr(self, 'headed_department') and self.headed_department is not None
+
+    @property
+    def is_unit_manager(self):
+        return hasattr(self, 'headed_unit') and self.headed_unit is not None
