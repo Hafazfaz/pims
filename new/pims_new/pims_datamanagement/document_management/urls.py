@@ -19,4 +19,7 @@ urlpatterns = [
     path('reports/daily-movement/', report_views.DailyFileMovementReportView.as_view(), name='report_daily_movement'),
     path('reports/dept-performance/', report_views.DepartmentPerformanceReportView.as_view(), name='report_dept_performance'),
     path('recipient-search/', views.RecipientSearchView.as_view(), name='recipient_search'),
+    path('access-requests/', views.FileAccessRequestListView.as_view(), name='access_request_list'),
+    path('access-requests/<int:pk>/approve/', views.FileAccessRequestApproveView.as_view(), name='access_request_approve'),
+    path('access-requests/<int:pk>/reject/', views.FileAccessRequestRejectView.as_view(), name='access_request_reject'),
 ]

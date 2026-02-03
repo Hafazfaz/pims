@@ -3,7 +3,7 @@ from organization.models import Department, Staff, Unit
 from user_management.models import CustomUser
 
 
-from .models import Document, File
+from .models import Document, File, FileAccessRequest
 
 
 class FileForm(forms.ModelForm):
@@ -123,6 +123,11 @@ class FileForm(forms.ModelForm):
             if owner.user != creator:
                 raise forms.ValidationError("You can only create files for yourself.")
 
+        # New restriction: Only HODs/Managers can create Policy files
+        if cleaned_data.get("file_type") == "policy":
+            if not (is_hod or is_unit_manager):
+                raise forms.ValidationError("Only Department Heads or Unit Managers can create Policy files.")
+
         return cleaned_data
 
 
@@ -145,6 +150,26 @@ class DocumentForm(forms.ModelForm):
             "minute_content": "Minute Content",
             "attachment": "Upload Attachment",
         }
+
+    include_signature = forms.BooleanField(
+        required=False,
+        label="Attach Digital Signature",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        
+        # Only HODs or Unit Managers can see the signature checkbox
+        can_sign = False
+        if self.user and hasattr(self.user, 'staff'):
+            staff = self.user.staff
+            if staff.is_hod or staff.is_unit_manager:
+                can_sign = True
+        
+        if not can_sign:
+            self.fields.pop('include_signature', None)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -251,12 +276,22 @@ class DocumentUploadForm(forms.ModelForm):
         else:
             self.fields['file'].queryset = File.objects.none()
 
-    def clean(self):
-        cleaned_data = super().clean()
-        attachment = cleaned_data.get("attachment")
-
         if not attachment:
             raise forms.ValidationError(
                 "Please upload an attachment."
             )
         return cleaned_data
+
+class FileAccessRequestForm(forms.ModelForm):
+    class Meta:
+        model = FileAccessRequest
+        fields = ["reason"]
+        widgets = {
+            "reason": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "State your reason for requesting access to the original file...",
+                }
+            ),
+        }

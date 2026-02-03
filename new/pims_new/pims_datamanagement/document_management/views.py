@@ -15,7 +15,7 @@ from organization.models import Staff
 
 from .forms import (DocumentForm, DocumentUploadForm, FileForm, FileUpdateForm,
                     SendFileForm)
-from .models import Document, File
+from .models import Document, File, FileAccessRequest
 from django.utils import timezone
 from datetime import timedelta
 from organization.models import Department, Staff
@@ -192,6 +192,7 @@ class FileCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 
         form.instance.current_location = user
         form.instance.department = user.department
+        form.instance.created_by = self.request.user
 
         self.object = form.save()
 
@@ -364,15 +365,61 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             ):
                 return True
 
+        # NEW: Logic for temporary access via FileAccessRequest
+        from .models import FileAccessRequest
+        active_request = FileAccessRequest.objects.filter(
+            file=target_file,
+            requested_by=user,
+            status='approved',
+            expires_at__gt=timezone.now()
+        ).exists()
+        if active_request:
+            return True
+
         # If none of the above conditions are met, deny permission
         return False
+
+    def can_view_original(self, file, user):
+        """Helper to determine if user can view original (unwatermarked) files."""
+        if user.is_superuser:
+            return True
+        
+        try:
+            staff = Staff.objects.get(user=user)
+        except Staff.DoesNotExist:
+            return False
+
+        # Direct access (Registry in their unit, or HOD in their dept)
+        if staff.is_registry and file.owner and file.owner.unit == staff.unit:
+            return True
+        if staff.is_hod and file.owner and file.owner.department == staff.department:
+            return True
+
+        # Approved temporary access
+        from .models import FileAccessRequest
+        return FileAccessRequest.objects.filter(
+            file=file,
+            requested_by=user,
+            status='approved',
+            expires_at__gt=timezone.now()
+        ).exists()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Fetch only top-level documents (those without a parent)
         context["documents"] = self.object.documents.filter(parent__isnull=True).order_by("-uploaded_at")
-        context["document_form"] = DocumentForm()
+        context["document_form"] = DocumentForm(user=self.request.user)
         context["send_file_form"] = SendFileForm(user=self.request.user)
+        
+        # Access Request info
+        from .forms import FileAccessRequestForm
+        from .models import FileAccessRequest
+        context["access_request_form"] = FileAccessRequestForm()
+        context["has_approved_access"] = self.can_view_original(self.object, self.request.user)
+        context["pending_access_request"] = FileAccessRequest.objects.filter(
+            file=self.object, requested_by=self.request.user, status='pending'
+        ).first()
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -391,11 +438,25 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                 )
                 return redirect(self.object.get_absolute_url())
 
-            form = DocumentForm(request.POST, request.FILES)
+            form = DocumentForm(request.POST, request.FILES, user=request.user)
             if form.is_valid():
                 document = form.save(commit=False)
                 document.file = self.object
                 document.uploaded_by = request.user
+                
+                # Digital Signature logic
+                if form.cleaned_data.get('include_signature'):
+                    try:
+                        staff = request.user.staff
+                        if staff.signature:
+                            document.has_signature = True
+                            # Note: In a real app we might want to actually burn this into the PDF
+                            # For now we mark it so the UI can display it
+                        else:
+                            messages.warning(request, "You checked 'Include Signature' but have no signature uploaded in your profile.")
+                    except Staff.DoesNotExist:
+                        pass
+
                 document.save()
                 log_action(
                     request.user,
@@ -409,6 +470,24 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             else:
                 context = self.get_context_data()
                 context["document_form"] = form
+                return self.render_to_response(context)
+        elif "reason" in request.POST:
+            # FileAccessRequest submission
+            from .forms import FileAccessRequestForm
+            form = FileAccessRequestForm(request.POST)
+            if form.is_valid():
+                from .models import FileAccessRequest
+                access_req = form.save(commit=False)
+                access_req.file = self.object
+                access_req.requested_by = request.user
+                access_req.save()
+                
+                log_action(request.user, "ACCESS_REQUEST_SUBMITTED", request=request, obj=self.object)
+                messages.success(request, "Access request submitted to Registry.")
+                return redirect(self.object.get_absolute_url())
+            else:
+                context = self.get_context_data()
+                context["access_request_form"] = form
                 return self.render_to_response(context)
         elif "recipient" in request.POST:
             # SendFileForm submission
@@ -527,14 +606,11 @@ class FileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return response
 
     def test_func(self):
-        # Only the owner of the file can update it
-        file = self.get_object()
-        user_staff = None
-        try:
-            user_staff = Staff.objects.get(user=self.request.user)
-        except Staff.DoesNotExist:
-            return False  # Not a staff user
+        # Restriction: The creator of a file cannot edit it (must be edited by Registry/HOD)
+        if file.created_by == self.request.user:
+            return False
 
+        # Only the owner of the file can update it
         return file.owner == user_staff
 
     def handle_no_permission(self):
@@ -697,3 +773,54 @@ class RecipientSearchView(LoginRequiredMixin, View):
             'recipients': recipients,
             'query': query
         })
+
+class FileAccessRequestListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = FileAccessRequest
+    template_name = "document_management/access_request_list.html"
+    context_object_name = "requests"
+    permission_required = "document_management.activate_file" # Reusing registry-level permission
+
+    def get_queryset(self):
+        return FileAccessRequest.objects.filter(status='pending').order_by('-created_at')
+
+class FileAccessRequestApproveView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "document_management.activate_file"
+
+    def post(self, request, pk):
+        from core.constants import ACCESS_REQUEST_DURATION_HOURS
+        access_req = get_object_or_404(FileAccessRequest, pk=pk)
+        access_req.status = 'approved'
+        access_req.approved_at = timezone.now()
+        access_req.expires_at = timezone.now() + timedelta(hours=ACCESS_REQUEST_DURATION_HOURS)
+        access_req.save()
+
+        log_action(request.user, "ACCESS_REQUEST_APPROVED", request=request, obj=access_req.file, details={'requested_by': access_req.requested_by.username})
+        
+        create_notification(
+            user=access_req.requested_by,
+            message=f"Your access request for file '{access_req.file.title}' has been approved. Access expires in {ACCESS_REQUEST_DURATION_HOURS} hours.",
+            obj=access_req.file,
+            link=access_req.file.get_absolute_url()
+        )
+        
+        messages.success(request, f"Access request for {access_req.requested_by.username} approved.")
+        return redirect('document_management:access_request_list')
+
+class FileAccessRequestRejectView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "document_management.activate_file"
+
+    def post(self, request, pk):
+        access_req = get_object_or_404(FileAccessRequest, pk=pk)
+        access_req.status = 'rejected'
+        access_req.save()
+
+        log_action(request.user, "ACCESS_REQUEST_REJECTED", request=request, obj=access_req.file, details={'requested_by': access_req.requested_by.username})
+        
+        create_notification(
+            user=access_req.requested_by,
+            message=f"Your access request for file '{access_req.file.title}' has been rejected.",
+            obj=access_req.file
+        )
+        
+        messages.success(request, f"Access request for {access_req.requested_by.username} rejected.")
+        return redirect('document_management:access_request_list')
