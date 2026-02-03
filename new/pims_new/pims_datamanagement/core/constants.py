@@ -26,5 +26,8 @@ STATUS_CHOICES = [
 # OTP constants
 OTP_EXPIRY_MINUTES = 10
 
+# Access request constants
+ACCESS_REQUEST_DURATION_HOURS = 5
+
 # PDF constants
 DEFAULT_WATERMARK_TEXT = getattr(settings, 'DOCUMENT_WATERMARK_TEXT', "PIMS Confidential - Do Not Copy")

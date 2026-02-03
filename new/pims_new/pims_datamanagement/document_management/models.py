@@ -40,6 +40,13 @@ class File(models.Model):
         blank=True,
         related_name="files_at_location",
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_files",
+    )
+
 
     class Meta:
         permissions = [
@@ -117,6 +124,8 @@ class Document(models.Model):
     # A document can be either a text minute or an uploaded file
     minute_content = models.TextField(blank=True, null=True)
     attachment = models.FileField(upload_to="", blank=True, null=True)
+    has_signature = models.BooleanField(default=False)
+
 
     class Meta:
         ordering = ["-uploaded_at"]
@@ -155,3 +164,34 @@ class Document(models.Model):
         elif self.attachment:
             return f"Attachment for {self.file.title} at {self.uploaded_at.strftime('%Y-%m-%d')}"
         return f"Empty document entry for {self.file.title}"
+
+
+class FileAccessRequest(models.Model):
+    """
+    Model for requesting temporary access to a file's original documents.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('expired', 'Expired'),
+    ]
+
+    file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='access_requests')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    reason = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Request for {self.file.file_number} by {self.requested_by.username}"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        return self.status == 'approved' and (self.expires_at is None or self.expires_at > timezone.now())
