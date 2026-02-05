@@ -18,7 +18,8 @@ from .forms import (DocumentForm, DocumentUploadForm, FileForm, FileUpdateForm,
 from .models import Document, File, FileAccessRequest
 from django.utils import timezone
 from datetime import timedelta
-from organization.models import Department, Staff
+from organization.models import Department, Staff, Unit
+from core.constants import FILE_TYPE_CHOICES, STATUS_CHOICES
 
 
 class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -26,22 +27,32 @@ class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
     template_name = "document_management/registry_dashboard.html"
     context_object_name = "files"
     permission_required = "document_management.view_file"  # Custom permission
+    paginate_by = 15
 
     def get_queryset(self):
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
-        queryset = File.objects.filter(owner__unit=staff_user.unit)
+        # Role-based filtering
+        if staff_user.is_registry:
+            # Registry sees everything in their unit (as per current design, or maybe global?)
+            # The current design filters by owner__unit. I'll maintain that but allow global if user wants.
+            queryset = File.objects.filter(owner__unit=staff_user.unit)
+        elif staff_user.is_hod:
+            # HOD sees their department
+            queryset = File.objects.filter(department=staff_user.department)
+        elif staff_user.is_unit_manager:
+            # Unit Manager sees their unit
+            queryset = File.objects.filter(owner__unit=staff_user.unit)
+        else:
+            # Regular staff sees ONLY their own files in Registry View
+            queryset = File.objects.filter(owner=staff_user)
 
         # Apply search filters
         search_query = self.request.GET.get("q")
         file_type = self.request.GET.get("file_type")
         status = self.request.GET.get("status")
-        owner_id = self.request.GET.get("owner")
-        current_location_id = self.request.GET.get("current_location")
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
 
         if search_query:
             queryset = queryset.filter(
@@ -52,14 +63,15 @@ class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             queryset = queryset.filter(file_type=file_type)
         if status:
             queryset = queryset.filter(status=status)
-        if owner_id:
-            queryset = queryset.filter(owner_id=owner_id)
-        if current_location_id:
-            queryset = queryset.filter(current_location_id=current_location_id)
-        if start_date:
-            queryset = queryset.filter(created_at__date__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(created_at__date__lte=end_date)
+
+        # New Hierarchy Filters
+        department_filter = self.request.GET.get("department")
+        unit_filter = self.request.GET.get("unit")
+        
+        if department_filter:
+            queryset = queryset.filter(department_id=department_filter)
+        if unit_filter:
+            queryset = queryset.filter(owner__unit_id=unit_filter)
 
         # Exclude archived files from the main list by default, but allow explicit search
         if status != "archived":
@@ -73,33 +85,30 @@ class RegistryDashboardView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
-        # Pending activation files and archived files (unchanged)
-        context["pending_activation_files"] = File.objects.filter(
-            status="pending_activation", owner__unit=staff_user.unit
-        ).order_by("-created_at")
-        context["archived_files"] = File.objects.filter(
-            status="archived", owner__unit=staff_user.unit
-        ).order_by("-created_at")
+        # Base Filter Scope for summaries
+        if staff_user.is_registry:
+            base_scope = Q(owner__unit=staff_user.unit)
+        elif staff_user.is_hod:
+            base_scope = Q(department=staff_user.department)
+        elif staff_user.is_unit_manager:
+            base_scope = Q(owner__unit=staff_user.unit)
+        else:
+            base_scope = Q(owner=staff_user)
 
-        # Add filter options to context for form stickiness and dropdowns
-        context["all_file_types"] = File.FILE_TYPE_CHOICES
-        context["all_statuses"] = File.STATUS_CHOICES
-        context["all_owners_in_unit"] = Staff.objects.filter(
-            unit=staff_user.unit
-        ).order_by("user__username")
-        context["all_locations_in_unit"] = Staff.objects.filter(
-            unit=staff_user.unit
-        ).order_by("user__username")
+        # Pending activation files and archived files
+        context["pending_activation_files"] = File.objects.filter(base_scope, status="pending_activation").order_by("-created_at")
+        context["archived_files"] = File.objects.filter(base_scope, status="archived").order_by("-created_at")
 
+        context["all_file_types"] = FILE_TYPE_CHOICES
         context["selected_search_query"] = self.request.GET.get("q", "")
         context["selected_file_type"] = self.request.GET.get("file_type", "")
         context["selected_status"] = self.request.GET.get("status", "")
-        context["selected_owner"] = self.request.GET.get("owner", "")
-        context["selected_current_location"] = self.request.GET.get(
-            "current_location", ""
-        )
-        context["selected_start_date"] = self.request.GET.get("start_date", "")
-        context["selected_end_date"] = self.request.GET.get("end_date", "")
+
+        # New Filter Options
+        context["all_departments"] = Department.objects.all().order_by("name")
+        context["all_units"] = Unit.objects.all().order_by("name")
+        context["selected_department"] = self.request.GET.get("department") and int(self.request.GET.get("department"))
+        context["selected_unit"] = self.request.GET.get("unit") and int(self.request.GET.get("unit"))
 
         return context
 
@@ -127,7 +136,7 @@ class HODDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or self.request.user.is_superuser)
+        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or self.request.user.is_superuser)
 
     def get_queryset(self):
         staff_user = self.get_staff_user()
@@ -177,8 +186,16 @@ class FileCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = File
     form_class = FileForm
     template_name = "document_management/file_form.html"
-    success_url = reverse_lazy("document_management:registry_dashboard")
     permission_required = "document_management.create_file"
+    
+    def get_success_url(self):
+        try:
+            staff = self.request.user.staff
+            if "registry" in staff.designation.name.lower() if staff.designation else False:
+                return reverse_lazy("document_management:registry_dashboard")
+        except Staff.DoesNotExist:
+            pass
+        return reverse_lazy("document_management:my_files")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -229,21 +246,51 @@ class MyFilesView(LoginRequiredMixin, ListView):
     model = File
     template_name = "document_management/my_files.html"
     context_object_name = "owned_files"  # Renamed to be specific
+    paginate_by = 10
 
     def get_queryset(self):
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
-        return File.objects.filter(owner=staff_user).order_by("-created_at")
+        
+        queryset = File.objects.filter(owner=staff_user)
+
+        # Apply search filters (File ID or Title)
+        search_query = self.request.GET.get("q")
+        if search_query:
+            queryset = queryset.filter(
+                Q(title__icontains=search_query)
+                | Q(file_number__icontains=search_query)
+            )
+        
+        return queryset.order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
         context = super().get_context_data(**kwargs)
-        context["inbox_files"] = File.objects.filter(
+        
+        # Incoming files (Inbox)
+        inbox_queryset = File.objects.filter(
             current_location=staff_user
-        ).order_by("-created_at")
+        )
+
+        # Apply search to inbox too
+        search_query = self.request.GET.get("q")
+        if search_query:
+            inbox_queryset = inbox_queryset.filter(
+                Q(title__icontains=search_query)
+                | Q(file_number__icontains=search_query)
+            )
+
+        # Paginate inbox_files manually (for display)
+        from django.core.paginator import Paginator
+        paginator = Paginator(inbox_queryset.order_by("-created_at"), 10)
+        page_number = self.request.GET.get('page_inbox', 1)
+        
+        context["inbox_files"] = paginator.get_page(page_number)
+        context["selected_search_query"] = search_query or ""
         return context
 
     def get_staff_user(self):
@@ -269,12 +316,45 @@ class FileRequestActivationView(LoginRequiredMixin, View):
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
         file = get_object_or_404(File, pk=pk, owner=staff_user)
+        
         if file.status == "inactive":
-            file.status = "pending_activation"
-            file.save()
-            messages.success(
-                request, f"Activation request for file '{file.title}' submitted."
-            )
+            # Hierarchical Activation Flow
+            if staff_user.is_unit_manager:
+                # Unit Manager -> Send to HOD
+                if staff_user.department and staff_user.department.head:
+                    file.current_location = staff_user.department.head
+                    file.save()
+                    messages.success(request, f"Activation request for '{file.title}' forwarded to Department Head.")
+                else:
+                    # Fallback if no HOD (should rare), send to Pending Activation for Registry
+                    file.status = "pending_activation"
+                    file.save()
+                    messages.success(request, f"Activation request for '{file.title}' submitted to Registry.")
+            
+            elif staff_user.is_hod:
+                # HOD -> Direct to Registry (Pending Activation)
+                # Or could skip to active if HOD has power? Assuming Registry gatekeeper role.
+                file.status = "pending_activation"
+                file.save()
+                messages.success(request, f"Activation request for '{file.title}' submitted to Registry.")
+            
+            else:
+                # Regular Staff -> Send to Unit Manager
+                if staff_user.unit and staff_user.unit.head:
+                     file.current_location = staff_user.unit.head
+                     file.save()
+                     messages.success(request, f"Activation request for '{file.title}' forwarded to Unit Manager.")
+                elif staff_user.department and staff_user.department.head:
+                     # Fallback to HOD if no Unit Manager
+                     file.current_location = staff_user.department.head
+                     file.save()
+                     messages.success(request, f"Activation request for '{file.title}' forwarded to Department Head (No Unit Manager found).")
+                else:
+                    # Fallback to Registry if orphaned
+                    file.status = "pending_activation"
+                    file.save()
+                    messages.success(request, f"Activation request for '{file.title}' submitted to Registry.")
+
         else:
             messages.warning(
                 request, f"File '{file.title}' is already {file.get_status_display()}."
@@ -323,27 +403,34 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     permission_required = "document_management.view_file"
 
     def has_permission(self):
-        # First, check if the user has the general 'view_file' permission
-        if not super().has_permission():
-            return False
+        user = self.request.user
+        # Admins/Superusers always have access
+        if user.is_superuser or user.is_staff:
+            return True
 
         # Get the file object that is being accessed
         try:
             target_file = self.get_object()
         except Http404:
-            return False  # File not found, so no permission
-
-        user = self.request.user
-        # Admins/Superusers always have access
-        if user.is_superuser or user.is_staff:
-            return True
+            return False  # File not found
 
         # Try to get the Staff object for the current user
         staff_user = None
         try:
             staff_user = Staff.objects.get(user=user)
         except Staff.DoesNotExist:
-            return False  # User is not a staff member, so no access beyond generic permission
+            return False
+
+        # Check if the user is the owner or has the file in their current location
+        if (
+            staff_user == target_file.owner
+            or staff_user == target_file.current_location
+        ):
+            return True
+
+        # If they are NOT the owner/location, check for the general permission (Registry/HOD)
+        if not super().has_permission():
+            return False
 
         # Check if the user is the owner or has the file in their current location
         if (
@@ -428,6 +515,15 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         # Determine which form was submitted
         if "minute_content" in request.POST or "attachment" in request.FILES:
             # DocumentForm submission
+            if self.object.status != 'active':
+                messages.error(request, "Minutes can only be added to active files.")
+                return redirect(self.object.get_absolute_url())
+
+            # Only current custodian can add minutes
+            if not hasattr(request.user, 'staff') or self.object.current_location != request.user.staff:
+                messages.error(request, "Only the current custodian can add minutes to this file.")
+                return redirect(self.object.get_absolute_url())
+
             if not (
                 request.user.has_perm("document_management.add_minute")
                 or request.user.has_perm("document_management.add_attachment")
@@ -575,6 +671,43 @@ class FileDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                     messages.error(request, error)
                 return self.render_to_response(context)
 
+        elif request.POST.get("action") == "return_to_owner":
+            # Return file to owner
+            if not hasattr(request.user, 'staff') or self.object.current_location != request.user.staff:
+                messages.error(request, "Only the current custodian can return this file.")
+                return redirect(self.object.get_absolute_url())
+            
+            if self.object.owner == request.user.staff:
+                messages.warning(request, "You are already the owner of this file.")
+                return redirect(self.object.get_absolute_url())
+
+            previous_location = self.object.current_location
+            self.object.current_location = self.object.owner
+            self.object.save()
+            
+            log_action(
+                request.user,
+                "FILE_RETURNED",
+                request=request,
+                obj=self.object,
+                details={
+                    "from_location": str(previous_location),
+                    "to_location": str(self.object.owner),
+                },
+            )
+            
+            # Notify the owner
+            if self.object.owner and self.object.owner.user:
+                create_notification(
+                    user=self.object.owner.user,
+                    message=f"File '{self.object.title}' ({self.object.file_number}) has been returned to you.",
+                    obj=self.object,
+                    link=self.object.get_absolute_url(),
+                )
+            
+            messages.success(request, f"File returned to {self.object.owner.get_full_name() or 'owner'}.")
+            return redirect("document_management:my_files")
+
         # Fallback if no form is recognized
         messages.error(request, "Invalid form submission.")
         return redirect(self.object.get_absolute_url())
@@ -606,12 +739,24 @@ class FileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return response
 
     def test_func(self):
-        # Restriction: The creator of a file cannot edit it (must be edited by Registry/HOD)
-        if file.created_by == self.request.user:
+        file_obj = self.get_object()
+        user = self.request.user
+        
+        # Superusers can do anything (optional, but usually helpful)
+        if user.is_superuser:
+            return True
+
+        # Check if file is active
+        if file_obj.status != 'active':
             return False
 
-        # Only the owner of the file can update it
-        return file.owner == user_staff
+        try:
+            user_staff = user.staff
+        except Staff.DoesNotExist:
+            return False
+
+        # Only the current custodian can edit the file
+        return file_obj.current_location == user_staff
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -647,8 +792,16 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
         return redirect("document_management:my_files")
 
 
-class FileCloseView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = "document_management.close_file"
+class FileCloseView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        file = get_object_or_404(File, pk=self.kwargs['pk'])
+        user = self.request.user
+        # Allow if user has specific perm (Registry) OR is the owner AND current custodian
+        if user.has_perm("document_management.close_file"):
+            return True
+        if hasattr(user, 'staff'):
+            return file.owner == user.staff and file.current_location == user.staff
+        return False
 
     def post(self, request, pk):
         file = get_object_or_404(File, pk=pk)
@@ -666,7 +819,7 @@ class FileCloseView(LoginRequiredMixin, PermissionRequiredMixin, View):
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return redirect("user_management:login")
-        messages.error(self.request, "You do not have permission to close files.")
+        messages.error(self.request, "You do not have permission to close this file.")
         return redirect("document_management:my_files")
 
 
@@ -759,6 +912,8 @@ class RecipientSearchView(LoginRequiredMixin, View):
             return HttpResponse("")
 
         # Filter staff who are HODs or Unit Managers
+        # Only Managers/HODs can be recipients for dispatch logic usually, ensuring hierarchy
+        # Exclude self to prevent sending to oneself
         recipients = Staff.objects.filter(
             Q(headed_department__isnull=False) | Q(headed_unit__isnull=False)
         ).filter(
@@ -767,12 +922,41 @@ class RecipientSearchView(LoginRequiredMixin, View):
             Q(user__last_name__icontains=query) |
             Q(department__name__icontains=query) |
             Q(unit__name__icontains=query)
-        ).distinct()[:10]  # Limit results to 10 for performance
+        ).exclude(user=request.user).distinct()[:10]
 
-        return render(request, 'document_management/recipient_search_results.html', {
-            'recipients': recipients,
-            'query': query
-        })
+        # Simple HTML response for HTMX - Dispatch Modal Layout
+        html = '<div class="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto">'
+        if recipients:
+            for staff in recipients:
+                name = staff.user.get_full_name() or staff.user.username
+                designation = staff.designation.name if staff.designation else "Staff"
+                role_label = ""
+                if staff.is_hod:
+                    role_label = '<span class="ml-2 text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">HOD</span>'
+                elif staff.is_unit_manager:
+                     role_label = '<span class="ml-2 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">Manager</span>'
+
+                dept_code = staff.department.code if staff.department else 'N/A'
+                
+                html += f"""
+                <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors"
+                     @click="$dispatch('recipient-selected', {{ id: '{staff.user.id}', username: '{name}' }})">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-slate-900">{name} {role_label}</p>
+                            <p class="text-[10px] text-slate-500 font-medium">{designation}</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{dept_code}</p>
+                        </div>
+                    </div>
+                </div>
+                """
+        else:
+            html += '<div class="px-4 py-3 text-xs text-slate-500 italic text-center">No matching HODs or Managers found.</div>'
+        html += '</div>'
+        
+        return HttpResponse(html)
 
 class FileAccessRequestListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = FileAccessRequest
@@ -824,3 +1008,36 @@ class FileAccessRequestRejectView(LoginRequiredMixin, PermissionRequiredMixin, V
         
         messages.success(request, f"Access request for {access_req.requested_by.username} rejected.")
         return redirect('document_management:access_request_list')
+
+class StaffSearchView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        query = request.GET.get('q', '').strip()
+        
+        # Start with all staff
+        queryset = Staff.objects.all()
+
+        # Exclude Superusers
+        queryset = queryset.exclude(user__is_superuser=True)
+
+        # Exclude Registry staff (assuming 'registry' in designation or department name)
+        queryset = queryset.exclude(
+            Q(designation__name__icontains='registry') | 
+            Q(department__name__icontains='registry')
+        )
+
+        # Apply search query
+        if query:
+            queryset = queryset.filter(
+                Q(user__username__icontains=query) |
+                Q(user__first_name__icontains=query) |
+                Q(user__last_name__icontains=query) |
+                Q(department__name__icontains=query)
+            )
+        
+        # Limit results
+        staff_members = queryset.select_related('user', 'department', 'designation').order_by('user__first_name')[:10]
+
+        return render(request, 'document_management/partials/staff_search_results.html', {
+            'staff_members': staff_members,
+            'query': query
+        })
