@@ -7,18 +7,37 @@
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green">My Records</h2>
-            <p class="text-sm text-slate-500 font-medium">Access and manage files under your ownership or custody.</p>
+            {% if user.staff.is_registry %}
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green">File Distribution</h2>
+                <p class="text-sm text-slate-500 font-medium">Manage and distribute files across the organization.</p>
+            {% else %}
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green">My Records</h2>
+                <p class="text-sm text-slate-500 font-medium">Access and manage files under your ownership or custody.</p>
+            {% endif %}
         </div>
-        {% if perms.document_management.create_file %}
-        <a href="{% url 'document_management:file_create' %}"
-            class="inline-flex items-center px-6 py-2.5 bg-gov-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-colors">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Create New File
-        </a>
-        {% endif %}
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <!-- Search Bar -->
+            <form method="GET" class="relative group min-w-[300px]">
+                <input type="text" name="q" value="{{ selected_search_query }}"
+                    placeholder="Search by File ID or Title..."
+                    class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-sm">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </form>
+            
+            {% if perms.document_management.create_file %}
+            <a href="{% url 'document_management:file_create' %}"
+                class="inline-flex items-center px-6 py-2.5 bg-gov-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-colors whitespace-nowrap">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Create New File
+            </a>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Incoming Files (Inbox) -->
@@ -59,7 +78,13 @@
                                 </span>
                             </td>
                             <td class="px-8 py-7">
-                                <div class="text-xs font-bold text-slate-900">{{ file.owner.get_full_name|default:file.owner.user.username }}</div>
+                                <div class="text-xs font-bold text-slate-900">
+                                    {% if file.owner %}
+                                        {{ file.owner.get_full_name|default:file.owner.user.username }}
+                                    {% else %}
+                                        <span class="text-slate-400 italic">No Owner</span>
+                                    {% endif %}
+                                </div>
                                 <div class="text-[10px] text-slate-400 font-semibold uppercase mt-1">Recieved: {{ file.created_at|date:"M d @ P" }}</div>
                             </td>
                             <td class="px-8 py-7 text-right">
@@ -73,6 +98,7 @@
                     </tbody>
                 </table>
             </div>
+            {% include 'document_management/partials/_pagination.html' with page_obj=inbox_files page_param='page_inbox' %}
         </div>
         {% else %}
         <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl py-16 text-center">
@@ -123,7 +149,11 @@
                             <td class="px-8 py-8">
                                 <div class="text-[11px] font-bold text-slate-900 uppercase">
                                     <span class="text-slate-400 font-medium tracking-[0.1em] mr-1 italic">Active:</span>
-                                    {{ file.current_location.get_full_name|default:file.current_location.user.username }}
+                                    {% if file.current_location %}
+                                        {{ file.current_location.get_full_name|default:file.current_location.user.username }}
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
                                 </div>
                                 <div class="text-[9px] text-slate-400 font-medium uppercase mt-1 italic">Registrated: {{ file.created_at|date:"M d, Y" }}</div>
                             </td>
@@ -151,6 +181,7 @@
                     </tbody>
                 </table>
             </div>
+            {% include 'document_management/partials/_pagination.html' with page_obj=page_obj page_param='page' %}
         </div>
         {% else %}
         <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl py-16 text-center">
