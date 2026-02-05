@@ -63,10 +63,48 @@
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit"
-                class="w-full py-2 bg-nigeria-green text-white text-sm font-bold rounded-lg hover:bg-nigeria-dark transition-colors">
-                Apply Filters
-            </button>
+            <div>
+                <select name="status"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none bg-white font-medium">
+                    <option value="">All Statuses</option>
+                    <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="closed" {% if selected_status == 'closed' %}selected{% endif %}>Closed</option>
+                    <option value="archived" {% if selected_status == 'archived' %}selected{% endif %}>Archived</option>
+                    <option value="pending_activation" {% if selected_status == 'pending_activation' %}selected{% endif %}>Pending Activation</option>
+                </select>
+            </div>
+            {% if user.staff.is_registry %}
+            <div>
+                <select name="department" onchange="this.form.submit()"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none bg-white font-medium">
+                    <option value="">All Departments</option>
+                    {% for dept in all_departments %}
+                    <option value="{{ dept.id }}" {% if selected_department == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            
+            {% if user.staff.is_registry or user.staff.is_hod %}
+            <div>
+                <select name="unit"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none bg-white font-medium">
+                    <option value="">All Units</option>
+                    {% for unit in all_units %}
+                    <!-- Optional: Simple conditional to hide units not in selected dept if logic allows, otherwise show all -->
+                    {% if not selected_department or unit.department_id == selected_department %}
+                    <option value="{{ unit.id }}" {% if selected_unit == unit.id %}selected{% endif %}>{{ unit.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="md:col-span-4 flex justify-end">
+                <button type="submit"
+                    class="w-auto px-8 py-2 bg-nigeria-green text-white text-sm font-bold rounded-lg hover:bg-nigeria-dark transition-colors">
+                    Apply Filters
+                </button>
+            </div>
         </form>
     </div>
 
@@ -106,14 +144,30 @@
                             </span>
                         </td>
                         <td class="px-8 py-7">
-                            <div class="font-bold text-slate-900">{{ file.owner.get_full_name|default:file.owner.user.username }}</div>
-                            <div class="text-[10px] text-slate-400 italic mt-0.5">Custodian: {{ file.current_location.get_full_name|default:file.current_location.user.username }}</div>
+                            <div class="font-bold text-slate-900">
+                                {% if file.owner %}
+                                    {{ file.owner.get_full_name|default:file.owner.user.username }}
+                                {% else %}
+                                    <span class="text-xs text-red-500 italic">Unassigned</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-[10px] text-slate-400 italic mt-0.5">Custodian: 
+                                {% if file.current_location %}
+                                    {{ file.current_location.get_full_name|default:file.current_location.user.username }}
+                                {% else %}
+                                    <span class="text-slate-500">Unknown location</span>
+                                {% endif %}
+                            </div>
                         </td>
                         <td class="px-8 py-7 text-right">
+                            {% if file.owner == request.user.staff or request.user.staff.is_registry %}
                             <a href="{% url 'document_management:file_detail' pk=file.pk %}"
                                 class="inline-flex items-center px-4 py-1.5 border border-slate-200 rounded text-xs font-bold text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all">
                                 Access File
                             </a>
+                            {% else %}
+                            <span class="text-[10px] font-bold text-slate-400 uppercase italic">Restricted</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -125,6 +179,7 @@
                 </tbody>
             </table>
         </div>
+        {% include 'document_management/partials/_pagination.html' with page_obj=page_obj page_param='page' %}
     </div>
 </div>
 {% endblock %}
