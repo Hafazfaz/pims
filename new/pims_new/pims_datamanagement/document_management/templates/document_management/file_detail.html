@@ -46,7 +46,7 @@
                     {{ file.get_status_display }}
                 </span>
 
-                {% if file.owner == user.staff %}
+                {% if file.current_location == user.staff and file.status == 'active' %}
                 <a href="{% url 'document_management:file_edit' pk=file.pk %}"
                     class="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-black transition-colors shadow-sm"
                     title="Edit Metadata">
@@ -76,9 +76,11 @@
                         History
                         {% if documents %}<span class="ml-2 bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{{ documents.count }}</span>{% endif %}
                     </button>
+                    {% if file.status == 'active' and file.current_location == user.staff %}
                     <button @click="activeTab = 'add'"
                         :class="activeTab === 'add' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
                         class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">Add Minute</button>
+                    {% endif %}
                 </div>
 
                 <!-- Content Panels -->
@@ -95,12 +97,24 @@
                         <div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">File Owner
                             </p>
-                            <p class="text-sm font-semibold text-slate-900">{{ file.owner.get_full_name|default:file.owner.user.username }}</p>
+                            <p class="text-sm font-semibold text-slate-900">
+                                {% if file.owner %}
+                                    {{ file.owner.get_full_name|default:file.owner.user.username }}
+                                {% else %}
+                                    <span class="text-slate-400 italic">No Owner</span>
+                                {% endif %}
+                            </p>
                         </div>
                         <div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current
                                 Custodian</p>
-                            <p class="text-sm font-bold text-nigeria-green">{{ file.current_location.get_full_name|default:file.current_location.user.username }}</p>
+                            <p class="text-sm font-bold text-nigeria-green">
+                                {% if file.current_location %}
+                                    {{ file.current_location.get_full_name|default:file.current_location.user.username }}
+                                {% else %}
+                                    <span class="text-slate-400 italic text-xs">Unknown Location</span>
+                                {% endif %}
+                            </p>
                         </div>
                         <div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Registration
@@ -123,6 +137,7 @@
                     {% endif %}
                 </div>
 
+                {% if file.status == 'active' %}
                 <div x-show="activeTab === 'add'" 
                      class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm"
                 >
@@ -168,6 +183,11 @@
                             & Commit Entry</button>
                     </form>
                 </div>
+                {% else %}
+                <div x-show="activeTab === 'add'" class="bg-amber-50 border-2 border-dashed border-amber-200 rounded-xl p-16 text-center">
+                    <p class="text-sm font-semibold text-amber-600 italic">This file is currently {{ file.get_status_display }}. Minutes can only be added to active files.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -184,38 +204,29 @@
                         recipientId: '', 
                         recipientName: '', 
                         showResults: false,
-                        searchQuery: '' 
+                        searchQuery: '',
+                        showDispatchModal: false
                     }"
                     @recipient-selected.window="
                         recipientId = $event.detail.id;
                         recipientName = $event.detail.username;
-                        showResults = false;
+                        showDispatchModal = false;
                         searchQuery = '';
                     "
                 >
-                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-nigeria-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                        </svg>Send File
-                    </h4>
+                    <div class="flex items-center justify-between">
+                         <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-nigeria-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                            </svg>Send File
+                        </h4>
+                        <button type="button" @click="showDispatchModal = true; $nextTick(() => $refs.searchInput.focus())"
+                            class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase rounded-lg shadow-sm transition-colors">
+                            Find Recipient
+                        </button>
+                    </div>
                     
                     <div class="space-y-4">
-                        <!-- Recipient Search -->
-                        <div class="relative" @click.away="showResults = false">
-                            <input type="text" 
-                                name="recipient_search"
-                                x-model="searchQuery"
-                                @input="showResults = true"
-                                placeholder="Search HOD or Unit Manager..."
-                                hx-get="{% url 'document_management:recipient_search' %}"
-                                hx-trigger="keyup changed delay:500ms"
-                                hx-target="#search-results"
-                                class="w-full px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-nigeria-green outline-none font-bold"
-                            >
-                            <!-- Search Results Table Container -->
-                            <div id="search-results" x-show="showResults && searchQuery.length >= 2" x-cloak></div>
-                        </div>
-
                         <!-- Selected Recipient Display -->
                         <div x-show="recipientId" x-cloak>
                             <div class="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
@@ -240,6 +251,42 @@
                                 Dispatch File
                             </button>
                         </form>
+                    </div>
+
+                    <!-- Dispatch Modal -->
+                    <div x-show="showDispatchModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                            <div x-show="showDispatchModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showDispatchModal = false"></div>
+
+                            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                            <div x-show="showDispatchModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4" id="modal-title">Select Recipient</h3>
+                                    
+                                    <div class="relative">
+                                        <input type="text" 
+                                            x-ref="searchInput"
+                                            name="q"
+                                            x-model="searchQuery"
+                                            placeholder="Search HOD or Unit Manager..."
+                                            hx-get="{% url 'document_management:recipient_search' %}"
+                                            hx-trigger="keyup changed delay:500ms"
+                                            hx-target="#search-results"
+                                            class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-nigeria-green outline-none font-medium"
+                                        >
+                                        <!-- Search Results -->
+                                        <div id="search-results" class="mt-2"></div>
+                                    </div>
+                                    
+                                    <div class="mt-6 flex justify-end">
+                                        <button type="button" @click="showDispatchModal = false" class="bg-white py-2 px-4 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-nigeria-green">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endif %}
@@ -285,7 +332,7 @@
                 {% endif %}
 
                 <div class="space-y-3 pt-8">
-                    {% if file.status == 'active' and perms.document_management.close_file %}<form
+                    {% if file.status == 'active' and perms.document_management.close_file or file.status == 'active' and file.owner == user.staff and file.current_location == user.staff %}<form
                         action="{% url 'document_management:file_close' pk=file.pk %}" method="post">
                         {% csrf_token %}
                         <button type="submit"
@@ -297,6 +344,16 @@
                         <button type="submit"
                             class="w-full py-4 bg-slate-900 text-white hover:bg-black rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md">Archive
                             To Archive</button></form>{% endif %}
+                    
+                    {% if file.current_location == user.staff and file.owner != user.staff and file.status == 'active' %}
+                    <form action="{% url 'document_management:file_detail' pk=file.pk %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="return_to_owner">
+                        <button type="submit"
+                            class="w-full py-4 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">Return
+                            to Owner</button>
+                    </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -366,7 +423,7 @@
         document.getElementById('send-button').disabled = false;
         document.getElementById('search-results').innerHTML = '';
         // Clear search input
-        document.querySelector('input[name="recipient_search"]').value = '';
+        document.querySelector('input[name="q"]').value = '';
     }
 
     function clearRecipient() {
