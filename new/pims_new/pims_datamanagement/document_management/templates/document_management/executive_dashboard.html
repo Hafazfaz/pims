@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Executive Dashboard | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-10">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight font-display uppercase">Executive Dashboard</h2>
+            <p class="text-sm text-slate-500 font-bold tracking-wide mt-1">{{ scope_title }} Overview</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'document_management:my_files' %}" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors">
+                <i class="fas fa-folder mr-2"></i>My Files
+            </a>
+        </div>
+    </div>
+
+    <!-- Core Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <!-- Total Files -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600">
+                        <i class="fas fa-folder-tree text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">Total</span>
+                </div>
+                <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ total_files }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Record Containers</p>
+            </div>
+        </div>
+
+        <!-- Active Files -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600">
+                        <i class="fas fa-check-circle text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-green-400 bg-green-50 px-3 py-1 rounded-full uppercase tracking-wider">Active</span>
+                </div>
+                <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ active_files }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">In Circulation</p>
+            </div>
+        </div>
+
+        <!-- Pending Activation -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+                        <i class="fas fa-clock text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-amber-500 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider">Pending</span>
+                </div>
+                <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ pending_activation }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Awaiting Activation</p>
+            </div>
+        </div>
+
+        <!-- Overdue Files -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 {% if overdue_count > 0 %}animate-pulse{% endif %}">
+                        <i class="fas fa-exclamation-triangle text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase tracking-wider">Alert</span>
+                </div>
+                <h3 class="text-5xl font-black {% if overdue_count > 0 %}text-red-600{% else %}text-slate-900{% endif %} tracking-tight mb-1">{{ overdue_count }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Overdue Returns</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Activity Velocity -->
+        <div class="bg-slate-900 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden lg:col-span-2">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full -mr-20 -mt-20 opacity-50"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="p-3 bg-slate-800 rounded-xl">
+                        <i class="fas fa-chart-line text-2xl text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black uppercase tracking-widest">Activity Velocity</h3>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Recent throughput</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <p class="text-4xl font-black text-emerald-400">{{ docs_added_today }}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Documents Today</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl font-black text-white">{{ files_created_this_week }}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Files This Week</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Distribution -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest mb-6">File Distribution</h3>
+            
+            <div class="space-y-6">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Personal</span>
+                        <span class="text-xl font-black text-slate-900">{{ personal_files_count }}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div class="bg-blue-500 h-2 rounded-full" style="width: {% if total_files > 0 %}{% widthratio personal_files_count total_files 100 %}{% else %}0{% endif %}%"></div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Policy</span>
+                        <span class="text-xl font-black text-slate-900">{{ policy_files_count }}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div class="bg-purple-500 h-2 rounded-full" style="width: {% if total_files > 0 %}{% widthratio policy_files_count total_files 100 %}{% else %}0{% endif %}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if total_staff %}
+    <!-- Staff Performance (for HODs and Unit Managers) -->
+    <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+        <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest mb-6">Staff File Coverage</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="text-center">
+                <p class="text-4xl font-black text-slate-900 mb-2">{{ total_staff }}</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Staff</p>
+            </div>
+            <div class="text-center">
+                <p class="text-4xl font-black text-green-600 mb-2">{{ staff_with_files_count }}</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">With Files</p>
+            </div>
+            <div class="text-center">
+                <p class="text-4xl font-black text-red-600 mb-2">{{ staff_without_files_count }}</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Without Files</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity & Overdue Files -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Overdue Files List -->
+        {% if overdue_files %}
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-red-100">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Overdue Files</h3>
+                <span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-black uppercase tracking-wider">{{ overdue_count }} Total</span>
+            </div>
+            
+            <div class="space-y-4">
+                {% for item in overdue_files %}
+                <a href="{% url 'document_management:file_detail' pk=item.file.pk %}" class="block p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 transition-colors">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-slate-900">{{ item.file.file_number }}</p>
+                            <p class="text-xs text-slate-600 mt-1">{{ item.file.title|truncatewords:10 }}</p>
+                            <p class="text-xs text-slate-500 mt-2">
+                                <i class="fas fa-user text-red-500 mr-1"></i>
+                                {{ item.file.current_location.user.get_full_name|default:item.file.current_location.user.username }}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-black">{{ item.custody_duration }}d</span>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Files -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Recent Files</h3>
+                <a href="{% url 'document_management:my_files' %}" class="text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider">View All <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+            
+            <div class="space-y-3">
+                {% for file in recent_files %}
+                <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="block p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-slate-900">{{ file.file_number }}</p>
+                            <p class="text-xs text-slate-600 mt-1">{{ file.title|truncatewords:8 }}</p>
+                        </div>
+                        <span class="px-3 py-1 bg-{{ file.status }}-50 text-{{ file.status }}-600 rounded-full text-[10px] font-black uppercase tracking-wider
+                            {% if file.status == 'active' %}bg-green-50 text-green-600
+                            {% elif file.status == 'closed' %}bg-slate-100 text-slate-600
+                            {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-600
+                            {% else %}bg-slate-50 text-slate-500{% endif %}">
+                            {{ file.get_status_display }}
+                        </span>
+                    </div>
+                </a>
+                {% empty %}
+                <p class="text-center text-slate-400 text-sm italic py-8">No recent files</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
