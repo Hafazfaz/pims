@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}My Profile | PIMS{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-10">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight font-display uppercase">My Profile</h2>
+            <p class="text-sm text-slate-500 font-bold tracking-wide mt-1">Manage your identity and digital signatures</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Sidebar - User Info Summary -->
+        <div class="lg:col-span-1 space-y-8">
+            <div class="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-center overflow-hidden relative">
+                <div class="absolute top-0 left-0 w-full h-24 bg-slate-900"></div>
+                
+                <div class="relative pt-4">
+                    <div class="w-32 h-32 rounded-full border-4 border-white bg-slate-100 mx-auto flex items-center justify-center text-5xl font-black text-slate-400 shadow-md">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
+                    
+                    <h3 class="mt-6 text-xl font-black text-slate-900 uppercase tracking-tight">{{ user.get_full_name|default:user.username }}</h3>
+                    <p class="text-xs font-black text-nigeria-green uppercase tracking-widest mt-1">{{ staff.designation.name }}</p>
+                    
+                    <div class="mt-8 pt-8 border-t border-slate-50 space-y-4">
+                        <div class="flex items-center justify-between text-left">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</span>
+                            <span class="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-black uppercase tracking-wider">Active</span>
+                        </div>
+                        <div class="flex items-center justify-between text-left">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registered</span>
+                            <span class="text-xs font-bold text-slate-700">{{ user.date_joined|date:"M Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employment Badge -->
+            <div class="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                <div class="relative z-10">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Organization Unit</h4>
+                    <p class="text-lg font-black tracking-tight mb-1">{{ staff.department.name }}</p>
+                    <p class="text-xs font-bold text-nigeria-green uppercase tracking-widest">{{ staff.unit.name|default:"General Unit" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Information Grid -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                    <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Personnel Information</h3>
+                    <span class="px-3 py-1 bg-slate-200 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Read Only</span>
+                </div>
+                
+                <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Username</p>
+                        <p class="text-sm font-bold text-slate-900">{{ user.username }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Email Address</p>
+                        <p class="text-sm font-bold text-slate-900">{{ user.email }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                        <p class="text-sm font-bold text-slate-900">{{ staff.department.name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Unit</p>
+                        <p class="text-sm font-bold text-slate-900">{{ staff.unit.name|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Designation</p>
+                        <p class="text-sm font-bold text-slate-900">{{ staff.designation.name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Staff Type</p>
+                        <p class="text-sm font-bold text-slate-900">{{ staff.staff_type|upper }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signature Management -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                    <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Digital Signature</h3>
+                    {% if active_signature %}
+                        {% if active_signature.is_verified %}
+                            <span class="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Verified</span>
+                        {% else %}
+                            <span class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Pending Verification</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Not Uploaded</span>
+                    {% endif %}
+                </div>
+                
+                <div class="p-8 space-y-10">
+                    {% if active_signature %}
+                    <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 w-full">Current Active Signature</p>
+                        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group overflow-hidden">
+                            <!-- Protective Overlay -->
+                            <div class="absolute inset-0 z-10 bg-transparent cursor-default" @contextmenu.prevent></div>
+                            <img src="{{ active_signature.image.url }}" alt="Digital Signature" class="max-h-32 w-auto grayscale pointer-events-none">
+                            <div class="absolute inset-0 bg-slate-900/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                                <span class="text-[9px] font-black text-white bg-slate-900/80 px-3 py-1.5 rounded-lg uppercase tracking-widest">Verified Identity</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-sm font-black text-slate-900 uppercase tracking-tight">Upload New Signature</h4>
+                            <p class="text-xs text-slate-400 font-bold mt-1">Please upload a clear image of your handwritten signature on white background.</p>
+                        </div>
+
+                        <form method="post" enctype="multipart/form-data" class="space-y-4">
+                            {% csrf_token %}
+                            {{ signature_form.image }}
+                            
+                            <button type="submit" class="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition-all hover:-translate-y-0.5 mt-2">
+                                Update Signature
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
