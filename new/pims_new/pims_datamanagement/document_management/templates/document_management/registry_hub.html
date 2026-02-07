@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registry Hub | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Registry Hub</h2>
+            <p class="text-sm text-slate-500 font-medium">Manage Record Folder Containers</p>
+        </div>
+        <div class="flex gap-4">
+            {% if user.staff.is_registry %}
+            <a href="{% url 'document_management:access_request_list' %}"
+                class="inline-flex items-center px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-amber-600 transition-colors">
+                <i class="fas fa-key mr-2"></i>
+                Access Requests
+            </a>
+            {% endif %}
+            {% if perms.document_management.create_file %}
+            <a href="{% url 'document_management:file_create' %}"
+                class="inline-flex items-center px-6 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-colors">
+                <i class="fas fa-plus mr-2"></i>
+                Create New File
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Summary Cards with Icons -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start mb-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Folders</p>
+                <i class="fas fa-folder text-slate-200 text-xl"></i>
+            </div>
+            <p class="text-4xl font-bold text-slate-900">{{ total_files_count|default:0 }}</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start mb-2">
+                <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Awaiting Auth</p>
+                <i class="fas fa-hourglass-half text-amber-200 text-xl"></i>
+            </div>
+            <p class="text-4xl font-bold text-amber-600">{{ pending_activation_files.count|default:0 }}</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start mb-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Archived</p>
+                <i class="fas fa-archive text-slate-200 text-xl"></i>
+            </div>
+            <p class="text-4xl font-bold text-slate-900">{{ archived_files.count|default:0 }}</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start mb-2">
+                <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Files Out</p>
+                <i class="fas fa-shipping-fast text-blue-200 text-xl"></i>
+            </div>
+            <p class="text-4xl font-bold text-blue-600">{{ outgoing_files_count|default:0 }}</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 {% if outgoing_overdue_count > 0 %}border-l-[6px] border-l-red-600{% endif %}">
+            <div class="flex justify-between items-start mb-2">
+                <p class="text-[10px] font-bold text-red-600 uppercase tracking-widest">Overdue</p>
+                <i class="fas fa-exclamation-triangle text-red-200 text-xl"></i>
+            </div>
+            <p class="text-4xl font-bold {% if outgoing_overdue_count > 0 %}text-red-600{% else %}text-slate-900{% endif %}">{{ outgoing_overdue_count|default:0 }}</p>
+        </div>
+
+        {% if user.staff.is_registry %}
+        <a href="{% url 'document_management:staff_without_files' %}" 
+           class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all group cursor-pointer block h-full">
+            <div class="flex justify-between items-start mb-2">
+                <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest group-hover:text-blue-700">Uncharted Staff</p>
+                <i class="fas fa-user-secret text-blue-200 group-hover:text-blue-500 transition-colors text-xl"></i>
+            </div>
+            <div class="flex items-center justify-between mt-auto">
+                <p class="text-4xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{{ staff_without_files_count|default:0 }}</p>
+                <i class="fas fa-chevron-right text-slate-300 group-hover:text-blue-500 transition-colors"></i>
+            </div>
+        </a>
+        {% endif %}
+    </div>
+    <!-- Pending Authorization Folders (Incoming) -->
+    <div x-data="{ open: {{ pending_activation_files.count|yesno:'true,false' }} }" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+        <div @click="open = !open" class="px-8 py-5 border-b border-slate-50 flex justify-between items-center bg-amber-50/30 cursor-pointer hover:bg-amber-50 transition-colors group">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                    <i class="fas fa- hourglass-half text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Incoming Request Hub</h3>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Folders awaiting your authorization to go live</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-[11px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">{{ pending_activation_files.count|default:0 }} PENDING</span>
+                <svg :class="open ? 'rotate-180' : ''" class="w-5 h-5 text-slate-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+        <div x-show="open" x-collapse>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-widest">
+                            <th class="px-8 py-5">Folder Info</th>
+                            <th class="px-8 py-5">Requested By</th>
+                            <th class="px-8 py-5">Date Submitted</th>
+                            <th class="px-8 py-5 text-right">Decision</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium">
+                        {% for file in pending_activation_files %}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-8 py-6">
+                                <div class="font-bold text-amber-600 text-sm">{{ file.file_number }}</div>
+                                <div class="text-slate-900 mt-1 font-bold">{{ file.title }}</div>
+                            </td>
+                            <td class="px-8 py-6">
+                                <div class="font-bold text-slate-900">{{ file.owner.user.get_full_name }}</div>
+                                <div class="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{{ file.owner.department.name }}</div>
+                            </td>
+                            <td class="px-8 py-6 text-slate-500 font-bold text-xs">
+                                {{ file.created_at|date:"M d, Y" }}
+                            </td>
+                            <td class="px-8 py-6 text-right">
+                                <form action="{% url 'document_management:file_approve_activation' pk=file.pk %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-4 py-2 bg-nigeria-green text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-nigeria-dark transition-all shadow-sm">
+                                        Authorize
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-8 py-20 text-center">
+                                <div class="flex flex-col items-center opacity-40">
+                                    <i class="fas fa-check-circle text-4xl text-slate-200 mb-4"></i>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest italic">All incoming requests have been cleared.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Records Search & List -->
+    <div x-data="{ open: true }" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+        <div @click="open = !open" class="px-8 py-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 cursor-pointer hover:bg-slate-100 transition-colors group">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-nigeria-light flex items-center justify-center text-nigeria-green">
+                    <i class="fas fa-folder-open text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Active Records Hub</h3>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Search and manage all live folder containers</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-[11px] font-black text-nigeria-green bg-nigeria-light px-3 py-1 rounded-full border border-nigeria-green/10">{{ total_files_count|default:0 }} TOTAL</span>
+                <svg :class="open ? 'rotate-180' : ''" class="w-5 h-5 text-slate-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+        <div x-show="open" x-collapse>
+            <div class="p-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div class="relative group flex-1 max-w-2xl">
+                        <input type="text" name="q" value="{{ selected_search_query }}"
+                            placeholder="Enter file number, title or keyword..."
+                            hx-get="{% url 'document_management:registry_hub' %}"
+                            hx-trigger="keyup changed delay:10ms, q"
+                            hx-target="#registry-file-list"
+                            hx-indicator="#search-indicator"
+                            hx-push-url="true"
+                            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-sm group-hover:bg-white">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-slate-400 group-focus-within:text-nigeria-green transition-colors"></i>
+                        </div>
+                    </div>
+                </div>
+                {% include 'document_management/partials/_registry_file_list.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Outgoing Files Tracking -->
+    {% if user.staff.is_registry %}
+    <div x-data="{ open: true }" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+        <div @click="open = !open" class="px-8 py-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 cursor-pointer hover:bg-slate-100 transition-colors group">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <i class="fas fa-shipping-fast text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Outgoing Files Tracking</h3>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Monitor folders currently held by staff</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex gap-2">
+                    <span class="text-[11px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">{{ outgoing_files_count }} FILES OUT</span>
+                    {% if outgoing_overdue_count > 0 %}
+                    <span class="text-[11px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100">{{ outgoing_overdue_count }} OVERDUE</span>
+                    {% endif %}
+                </div>
+                <svg :class="open ? 'rotate-180' : ''" class="w-5 h-5 text-slate-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+        <div x-show="open" x-collapse>
+            <div class="p-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div class="relative group flex-1 max-w-xl">
+                        <input type="text" name="q_outgoing" value="{{ selected_outgoing_query }}"
+                            placeholder="Search by file number, title or custodian..."
+                            hx-get="{% url 'document_management:registry_hub' %}"
+                            hx-trigger="keyup changed delay:500ms, q_outgoing"
+                            hx-target="#outgoing-file-list"
+                            hx-indicator="#outgoing-search-indicator"
+                            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm group-hover:bg-white">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                        </div>
+                        <div id="outgoing-search-indicator" class="htmx-indicator absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <i class="fas fa-circle-notch fa-spin text-blue-500"></i>
+                        </div>
+                    </div>
+                </div>
+                {% include 'document_management/partials/_registry_outgoing_list.html' %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+
+</div>
+{% endblock %}
