@@ -1,15 +1,20 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import ListView
 from django.db.models import Q
 from .models import AuditLogEntry
 from user_management.models import CustomUser
 
-class AuditLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AuditLogListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = AuditLogEntry
     template_name = 'audit_log/audit_log_list.html'
     context_object_name = 'log_entries'
-    permission_required = 'audit_log.view_auditlogentry'
     paginate_by = 20
+
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser or user.is_staff:
+            return True
+        return user.groups.filter(name__iexact="Executives").exists()
 
     def get_queryset(self):
         queryset = super().get_queryset()
