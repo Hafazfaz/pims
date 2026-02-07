@@ -14,9 +14,12 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap"
         rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Tailwind with Custom Configuration -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.15.8/dist/cdn.min.js" defer></script>
     <script>
         tailwind.config = {
             theme: {
@@ -84,110 +87,10 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="bg-gray-50 flex min-h-screen {% block body_class %}{% endblock %}">
+<body class="bg-gray-50 flex min-h-screen {% block body_class %}{% endblock %}" x-data="{ sidebarOpen: false }">
     <!-- Sidebar -->
     {% block sidebar %}
-    <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden lg:flex flex-col border-r border-slate-800 sticky top-0 h-screen overflow-y-auto">
-        <div class="p-8">
-            <div class="flex items-center space-x-3 mb-10">
-                <div class="w-8 h-8 bg-nigeria-green rounded flex items-center justify-center font-bold text-lg">N</div>
-                <span class="text-xl font-bold tracking-tight">PIMS</span>
-            </div>
-
-            <nav class="space-y-1">
-                <a href="{% if user.is_superuser %}{% url 'user_management:admin_dashboard_health' %}{% else %}{% url 'home' %}{% endif %}"
-                    class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'home' or 'admin/dashboard/health' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
-                        </path>
-                    </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Dashboard</span>
-                </a>
-
-                {% if not user.is_superuser %}
-                <a href="{% url 'document_management:my_files' %}"
-                    class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'my_files' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                        </path>
-                    </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">My Records</span>
-                </a>
-                {% endif %}
-
-                {% if not user.is_superuser %}
-                    {% if perms.document_management.view_file or user.staff.is_registry %}
-                    <a href="{% url 'document_management:registry_dashboard' %}"
-                        class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'registry' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
-                            </path>
-                        </svg>
-                        <span class="text-sm font-bold uppercase tracking-wider">Registry</span>
-                    </a>
-                    {% endif %}
-                {% endif %}
-
-                {% if user.is_superuser or perms.auth.view_user %}
-                <a href="{% url 'user_management:user_list' %}"
-                    class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'user_management' in request.path and 'admin/dashboard' not in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
-                        </path>
-                    </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Users</span>
-                </a>
-                {% endif %}
-
-                {% if user.is_superuser %}
-                <a href="{% url 'organization:department_list' %}"
-                    class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/departments/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                    </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Departments</span>
-                </a>
-                <a href="{% url 'organization:unit_list' %}"
-                    class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/units/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                    </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Units</span>
-                </a>
-                {% endif %}
-
-                {% if user.is_superuser or perms.audit_log.view_auditlogentry %}
-                <a href="{% url 'audit_log:audit_log_list' %}"
-                    class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if 'audit' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
-                        </path>
-                    </svg>
-                    <span class="text-sm font-bold uppercase tracking-wider">Audit Logs</span>
-                </a>
-                {% endif %}
-            </nav>
-        </div>
-
-        <div class="mt-auto p-4 border-t border-slate-800">
-            <div class="bg-slate-800 rounded-xl p-4 flex items-center space-x-3">
-                <div class="w-8 h-8 rounded bg-slate-700 flex items-center justify-center text-xs font-bold">{{ user.username|slice:":1"|upper }}</div>
-                <div class="flex-1 overflow-hidden">
-                    <p class="text-[11px] font-bold truncate">{{ user.username }}</p>
-                    <form action="{% url 'user_management:logout' %}" method="post">{% csrf_token %}<button
-                            class="text-[9px] text-slate-400 hover:text-white uppercase tracking-widest font-black transition-colors">Logout</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </aside>
+        {% include '_sidebar.html' %}
     {% endblock %}
 
     <!-- Main Content Area -->
@@ -196,6 +99,13 @@
         {% block top_nav %}
         <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-40">
             <div class="flex items-center lg:hidden space-x-4">
+                <!-- Hamburger Menu Button -->
+                <button @click="sidebarOpen = !sidebarOpen" class="text-slate-600 hover:text-nigeria-green transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                
                 <div class="w-8 h-8 bg-nigeria-green rounded flex items-center justify-center font-bold text-white">N
                 </div>
                 <span class="text-lg font-bold tracking-tight">PIMS</span>
@@ -233,7 +143,7 @@
         {% endblock %}
 
         <!-- Page Content -->
-        <div class="p-8 lg:p-10 max-w-7xl mx-auto w-full flex-1">
+        <div class="p-8 lg:py-4 mx-auto w-full flex-1">
             {% block content %}{% endblock %}
         </div>
 
@@ -246,6 +156,7 @@
         {% endblock %}
     </main>
 
+    {% block extra_modals %}{% endblock %}
     {% block extra_js %}{% endblock %}
 </body>
 
