@@ -27,6 +27,7 @@ urlpatterns = [
     path('audit/', include('audit_log.urls')),
     path('notifications/', include('notifications.urls')),
     path('org/', include('organization.urls')),
+    path('summernote/', include('django_summernote.urls')),
 
     path('', main_views.HomeView.as_view(), name='home'), # Home page
 ]
