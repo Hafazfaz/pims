@@ -3,8 +3,11 @@ TODO.txt
 MVP_TODO.txt
 DMS_Executive_Dashboards.pdf
 Document_Management_System_Workflows.pdf
+EXECUTIVE_SUMMARY_PIMS.txt
+EXECUTIVE_SUMMARY_README.md
 db.sqlite3
 PIMS_MVP_Testing_Document.md
+EXECUTIVE_SUMMARY_PIMS.md
 send_file_form_test_plan.txt
 **/attachments/*
 .env
