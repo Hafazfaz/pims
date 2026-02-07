@@ -1,51 +1,70 @@
 import base64
 import io
 import random
-import logging # Import logging
-from django.conf import settings # Add this import
-from datetime import datetime, timedelta
-from django.utils import timezone # Add this import
+import logging  # Import logging
+from django.conf import settings  # Add this import
+from django.utils import timezone  # Add this import
 
 import qrcode
-import qrcode.image.svg
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
-from django.contrib.sessions.models import Session # Added for concurrent session control
+from django.contrib.sessions.models import (
+    Session,
+)  # Added for concurrent session control
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
-from django.contrib.auth.hashers import make_password # Import make_password
+from django.contrib.auth.hashers import make_password  # Import make_password
 from django.contrib.auth.views import LoginView
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.generic import ListView, TemplateView # Added TemplateView
-from django.core.exceptions import ObjectDoesNotExist # Import ObjectDoesNotExist
+from django.views.generic import ListView, TemplateView  # Added TemplateView
 from django.db.models import Q
 
-from .models import CustomUser, PasswordHistory # Import PasswordHistory
-from audit_log.utils import log_action # Import audit logging utility
-from notifications.utils import create_notification, notify_admins_of_critical_event # Import notification utilities
-from document_management.models import File, Document # Import for admin health dashboard
-from audit_log.models import AuditLogEntry # Import for admin health dashboard
-from .otp_utils import generate_otp, send_otp_email, set_otp_in_session, verify_otp_in_session, clear_otp_session # Import OTP utilities
-from organization.models import Department, Unit, Designation # Added Designation for filtering
+from .models import CustomUser, PasswordHistory  # Import PasswordHistory
+from audit_log.utils import log_action  # Import audit logging utility
+from notifications.utils import (
+    create_notification,
+    notify_admins_of_critical_event,
+)  # Import notification utilities
+from document_management.models import (
+    File,
+    Document,
+)  # Import for admin health dashboard
+from audit_log.models import AuditLogEntry  # Import for admin health dashboard
+from .otp_utils import (
+    generate_otp,
+    send_otp_email,
+    set_otp_in_session,
+    verify_otp_in_session,
+    clear_otp_session,
+)  # Import OTP utilities
+from organization.models import (
+    Department,
+    Unit,
+    Designation,
+    Staff,
+    StaffSignature,
+)  # Added Designation for filtering
+from .forms import SignatureUploadForm
 
-logger = logging.getLogger(__name__) # Initialize logger
+logger = logging.getLogger(__name__)  # Initialize logger
 
 PASSWORD_HISTORY_LIMIT = 5
 
 # Configuration for Email OTP
-ENABLE_EMAIL_OTP = True
+ENABLE_EMAIL_OTP = False
+
 
 class CustomLoginView(LoginView):
     template_name = "registration/signin.html"
 
     def form_invalid(self, form):
         # Check if a lockout message was set in the session by the authentication backend
-        lockout_message = self.request.session.pop('lockout_message', None)
-        locked_username = self.request.session.pop('locked_username', None)
+        lockout_message = self.request.session.pop("lockout_message", None)
+        locked_username = self.request.session.pop("locked_username", None)
 
         if lockout_message:
             messages.error(self.request, lockout_message)
@@ -59,24 +78,33 @@ class CustomLoginView(LoginView):
         login(self.request, user)
 
         # Update last login IP
-        user.last_login_ip = self.request.META.get('REMOTE_ADDR') # Simple way to get client IP
-        
+        user.last_login_ip = self.request.META.get(
+            "REMOTE_ADDR"
+        )  # Simple way to get client IP
+
         # Concurrent session prevention
-        if user.last_session_key and user.last_session_key != self.request.session.session_key:
+        if (
+            user.last_session_key
+            and user.last_session_key != self.request.session.session_key
+        ):
             try:
                 Session.objects.get(session_key=user.last_session_key).delete()
             except Session.DoesNotExist:
-                pass # Old session already expired or deleted
+                pass  # Old session already expired or deleted
 
         user.last_session_key = self.request.session.session_key
-        user.save(update_fields=['last_login_ip', 'last_session_key']) # Update both fields
+        user.save(
+            update_fields=["last_login_ip", "last_session_key"]
+        )  # Update both fields
 
         # Log successful login
-        log_action(self.request.user, 'LOGIN', request=self.request)
+        log_action(self.request.user, "LOGIN", request=self.request)
 
         # First, handle mandatory password change
         if user.must_change_password:
-            messages.info(self.request, "You must change your password before proceeding.")
+            messages.info(
+                self.request, "You must change your password before proceeding."
+            )
             return redirect("user_management:password_change_force")
 
         # If password is fine and Email OTP is enabled, proceed with Email OTP
@@ -84,9 +112,11 @@ class CustomLoginView(LoginView):
             otp = generate_otp()
             send_otp_email(user, otp)
             set_otp_in_session(self.request, user.id, otp)
-            messages.info(self.request, f"A 6-digit OTP has been sent to your email address.")
+            messages.info(
+                self.request, f"A 6-digit OTP has been sent to your email address."
+            )
             return redirect("user_management:otp_email_verify")
-        
+
         # If no password change and no OTP, proceed to home
         return redirect(reverse_lazy("home"))
 
@@ -110,22 +140,28 @@ class ForcePasswordChangeView(View):
     def post(self, request, *args, **kwargs):
         form = self.form_class(request.user, request.POST)
         if form.is_valid():
-            user = form.save(commit=False) # Don't save yet, need to handle password history
-            new_password = form.cleaned_data['new_password1'] # Get the new password
+            user = form.save(
+                commit=False
+            )  # Don't save yet, need to handle password history
+            new_password = form.cleaned_data["new_password1"]  # Get the new password
 
             # Save the new password hash to history
-            PasswordHistory.objects.create(user=user, password=make_password(new_password))
+            PasswordHistory.objects.create(
+                user=user, password=make_password(new_password)
+            )
 
             # Clean up old password history entries (keep only the last N)
-            history_entries = PasswordHistory.objects.filter(user=user).order_by('-timestamp')
+            history_entries = PasswordHistory.objects.filter(user=user).order_by(
+                "-timestamp"
+            )
             if history_entries.count() > PASSWORD_HISTORY_LIMIT:
-                history_entries.last().delete() # Delete the oldest entry
+                history_entries.last().delete()  # Delete the oldest entry
 
             user.must_change_password = False
             user.last_password_change = timezone.now()
-            user.save() # Now save the user object
+            user.save()  # Now save the user object
 
-            log_action(user, 'PASSWORD_CHANGED', request=request) # Log password change
+            log_action(user, "PASSWORD_CHANGED", request=request)  # Log password change
 
             update_session_auth_hash(
                 request, user
@@ -156,7 +192,10 @@ class EmailOTPVerifyView(View):
         if error_message:
             messages.error(request, error_message)
             # If expired, verify_otp_in_session already cleared it, so redirect to login
-            if "expired" in error_message.lower() or "not found" in error_message.lower():
+            if (
+                "expired" in error_message.lower()
+                or "not found" in error_message.lower()
+            ):
                 return redirect("user_management:login")
             return render(request, self.template_name)
 
@@ -173,25 +212,30 @@ class EmailOTPVerifyView(View):
         return redirect(reverse_lazy("home"))
 
 
-from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import (
+    PermissionRequiredMixin,
+    LoginRequiredMixin,
+    UserPassesTestMixin,
+)
+
 
 class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = CustomUser
-    template_name = 'user_management/user_list.html'
-    context_object_name = 'users'
-    permission_required = 'auth.view_user'
+    template_name = "user_management/user_list.html"
+    context_object_name = "users"
+    permission_required = "auth.view_user"
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = CustomUser.objects.all().order_by('username')
-        
+        queryset = CustomUser.objects.all().order_by("username")
+
         # Filtering
-        dept_id = self.request.GET.get('department')
-        unit_id = self.request.GET.get('unit')
-        designation_id = self.request.GET.get('designation')
-        start_date = self.request.GET.get('start_date')
-        end_date = self.request.GET.get('end_date')
-        search_query = self.request.GET.get('q')
+        dept_id = self.request.GET.get("department")
+        unit_id = self.request.GET.get("unit")
+        designation_id = self.request.GET.get("designation")
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+        search_query = self.request.GET.get("q")
 
         if dept_id:
             queryset = queryset.filter(staff__department_id=dept_id)
@@ -205,166 +249,208 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             queryset = queryset.filter(date_joined__date__lte=end_date)
         if search_query:
             queryset = queryset.filter(
-                Q(username__icontains=search_query) |
-                Q(first_name__icontains=search_query) |
-                Q(last_name__icontains=search_query) |
-                Q(email__icontains=search_query)
+                Q(username__icontains=search_query)
+                | Q(first_name__icontains=search_query)
+                | Q(last_name__icontains=search_query)
+                | Q(email__icontains=search_query)
             )
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
-        context['locked_users'] = {user.pk for user in context['users'] if user.lockout_until and user.lockout_until > now}
-        
+        context["locked_users"] = {
+            user.pk
+            for user in context["users"]
+            if user.lockout_until and user.lockout_until > now
+        }
+
         # Filter context
-        context['all_departments'] = Department.objects.all().order_by('name')
-        context['all_units'] = Unit.objects.all().order_by('name')
-        context['all_designations'] = Designation.objects.all().order_by('level')
-        context['selected_department'] = int(self.request.GET.get('department')) if self.request.GET.get('department', '').isdigit() else ''
-        context['selected_unit'] = int(self.request.GET.get('unit')) if self.request.GET.get('unit', '').isdigit() else ''
-        context['selected_designation'] = int(self.request.GET.get('designation')) if self.request.GET.get('designation', '').isdigit() else ''
-        context['selected_start_date'] = self.request.GET.get('start_date', '')
-        context['selected_end_date'] = self.request.GET.get('end_date', '')
-        context['search_query'] = self.request.GET.get('q', '')
+        context["all_departments"] = Department.objects.all().order_by("name")
+        context["all_units"] = Unit.objects.all().order_by("name")
+        context["all_designations"] = Designation.objects.all().order_by("level")
+        context["selected_department"] = (
+            int(self.request.GET.get("department"))
+            if self.request.GET.get("department", "").isdigit()
+            else ""
+        )
+        context["selected_unit"] = (
+            int(self.request.GET.get("unit"))
+            if self.request.GET.get("unit", "").isdigit()
+            else ""
+        )
+        context["selected_designation"] = (
+            int(self.request.GET.get("designation"))
+            if self.request.GET.get("designation", "").isdigit()
+            else ""
+        )
+        context["selected_start_date"] = self.request.GET.get("start_date", "")
+        context["selected_end_date"] = self.request.GET.get("end_date", "")
+        context["search_query"] = self.request.GET.get("q", "")
 
         # Preserve query parameters for pagination
         params = self.request.GET.copy()
-        if 'page' in params:
-            del params['page']
-        context['query_params'] = '&' + params.urlencode() if params else ''
-        
+        if "page" in params:
+            del params["page"]
+        context["query_params"] = "&" + params.urlencode() if params else ""
+
         return context
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect('user_management:login')
-        messages.error(self.request, 'You do not have permission to view this page.')
-        return redirect('home')
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to view this page.")
+        return redirect("home")
 
 
 class UserUnlockView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = 'auth.change_user'
+    permission_required = "auth.change_user"
 
     def post(self, request, pk):
         user_to_unlock = get_object_or_404(CustomUser, pk=pk)
         user_to_unlock.failed_login_attempts = 0
         user_to_unlock.lockout_until = None
         user_to_unlock.save()
-        log_action(self.request.user, 'ACCOUNT_UNLOCKED', request=self.request, obj=user_to_unlock) # Log account unlocked
-        
+        log_action(
+            self.request.user,
+            "ACCOUNT_UNLOCKED",
+            request=self.request,
+            obj=user_to_unlock,
+        )  # Log account unlocked
+
         # In-app notification for unlocked user
         create_notification(
             user=user_to_unlock,
             message=f"Your account has been unlocked by an administrator.",
-            obj=user_to_unlock
+            obj=user_to_unlock,
         )
         # Notify admins
         notify_admins_of_critical_event(
             message=f"User '{user_to_unlock.username}' account has been unlocked by {self.request.user.username}.",
-            obj=user_to_unlock
+            obj=user_to_unlock,
         )
-        messages.success(request, f"User '{user_to_unlock.username}' has been unlocked.")
-        return redirect('user_management:user_list')
+        messages.success(
+            request, f"User '{user_to_unlock.username}' has been unlocked."
+        )
+        return redirect("user_management:user_list")
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect('user_management:login')
-        messages.error(self.request, 'You do not have permission to unlock users.')
-        return redirect('user_management:user_list')
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to unlock users.")
+        return redirect("user_management:user_list")
 
 
 class UserSuspendView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = 'auth.change_user' # Can suspend users if can change user
+    permission_required = "auth.change_user"  # Can suspend users if can change user
 
     def post(self, request, pk):
         user_to_suspend = get_object_or_404(CustomUser, pk=pk)
         if user_to_suspend.is_superuser:
             messages.error(request, "Cannot suspend a superuser.")
-            return redirect('user_management:user_list')
-        
+            return redirect("user_management:user_list")
+
         user_to_suspend.is_active = False
         user_to_suspend.save()
-        log_action(self.request.user, 'USER_SUSPENDED', request=self.request, obj=user_to_suspend, details={'username': user_to_suspend.username})
-        
+        log_action(
+            self.request.user,
+            "USER_SUSPENDED",
+            request=self.request,
+            obj=user_to_suspend,
+            details={"username": user_to_suspend.username},
+        )
+
         # In-app notification for suspended user
         create_notification(
             user=user_to_suspend,
             message=f"Your account has been suspended by an administrator. Please contact support.",
-            obj=user_to_suspend
+            obj=user_to_suspend,
         )
         # Notify admins
         notify_admins_of_critical_event(
             message=f"User '{user_to_suspend.username}' account has been suspended by {self.request.user.username}.",
-            obj=user_to_suspend
+            obj=user_to_suspend,
         )
-        messages.success(request, f"User '{user_to_suspend.username}' has been suspended.")
-        return redirect('user_management:user_list')
+        messages.success(
+            request, f"User '{user_to_suspend.username}' has been suspended."
+        )
+        return redirect("user_management:user_list")
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect('user_management:login')
-        messages.error(self.request, 'You do not have permission to suspend users.')
-        return redirect('user_management:user_list')
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to suspend users.")
+        return redirect("user_management:user_list")
+
 
 class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = 'auth.delete_user' # Can delete users
+    permission_required = "auth.delete_user"  # Can delete users
 
     def post(self, request, pk):
         user_to_delete = get_object_or_404(CustomUser, pk=pk)
         if user_to_delete.is_superuser:
             messages.error(request, "Cannot delete a superuser.")
-            return redirect('user_management:user_list')
-        
+            return redirect("user_management:user_list")
+
         # Capture username before deletion
         username_deleted = user_to_delete.username
-        
+
         # Explicit cleanup for related objects to satisfy strict DB constraints (SQLite NO ACTION)
         # 1. Clear Many-to-Many relationships
         user_to_delete.groups.clear()
         user_to_delete.user_permissions.clear()
-        
+
         # 2. Delete One-to-One and Related Models
         from .models import PasswordHistory
+
         PasswordHistory.objects.filter(user=user_to_delete).delete()
-        
+
         from organization.models import Staff
+
         Staff.objects.filter(user=user_to_delete).delete()
-        
+
         # 3. Handle models where User is SET_NULL (SQLite might still block if NO ACTION is enforced)
         from audit_log.models import AuditLogEntry
+
         AuditLogEntry.objects.filter(user=user_to_delete).update(user=None)
-        
+
         from notifications.models import Notification
+
         Notification.objects.filter(user=user_to_delete).delete()
-        
+
         # 4. Purge OTP devices (keep existing logic)
         from django_otp.plugins.otp_static.models import StaticDevice
         from django_otp.plugins.otp_totp.models import TOTPDevice
+
         StaticDevice.objects.filter(user=user_to_delete).delete()
         TOTPDevice.objects.filter(user=user_to_delete).delete()
-        
+
         user_to_delete.delete()
-        log_action(self.request.user, 'USER_DELETED', request=self.request, details={'username': username_deleted})
-        
+        log_action(
+            self.request.user,
+            "USER_DELETED",
+            request=self.request,
+            details={"username": username_deleted},
+        )
+
         # Notify admins about user deletion
         notify_admins_of_critical_event(
             message=f"User '{username_deleted}' account has been deleted by {self.request.user.username}.",
-            obj=None # User object no longer exists
+            obj=None,  # User object no longer exists
         )
         messages.success(request, f"User '{username_deleted}' has been deleted.")
-        return redirect('user_management:user_list')
+        return redirect("user_management:user_list")
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect('user_management:login')
-        messages.error(self.request, 'You do not have permission to delete users.')
-        return redirect('user_management:user_list')
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to delete users.")
+        return redirect("user_management:user_list")
 
 
 class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    template_name = 'user_management/admin_dashboard_health.html'
-    context_object_name = 'stats' # Will pass a dictionary of stats
+    template_name = "user_management/admin_dashboard_health.html"
+    context_object_name = "stats"  # Will pass a dictionary of stats
 
     def test_func(self):
         # Only superusers can access this dashboard
@@ -381,8 +467,12 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         total_users = CustomUser.objects.count()
         active_users = CustomUser.objects.filter(is_active=True).count()
         inactive_users = CustomUser.objects.filter(is_active=False).count()
-        locked_users = CustomUser.objects.filter(lockout_until__gt=timezone.now()).count()
-        must_change_password_users = CustomUser.objects.filter(must_change_password=True).count()
+        locked_users = CustomUser.objects.filter(
+            lockout_until__gt=timezone.now()
+        ).count()
+        must_change_password_users = CustomUser.objects.filter(
+            must_change_password=True
+        ).count()
 
         # Organization Statistics
         total_departments = Department.objects.count()
@@ -390,66 +480,84 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
 
         # File Statistics
         total_files = File.objects.count()
-        inactive_files = File.objects.filter(status='inactive').count()
-        pending_activation_files = File.objects.filter(status='pending_activation').count()
-        active_files = File.objects.filter(status='active').count()
-        in_transit_files = File.objects.filter(status='in_transit').count()
-        closed_files = File.objects.filter(status='closed').count()
-        archived_files = File.objects.filter(status='archived').count()
+        inactive_files = File.objects.filter(status="inactive").count()
+        pending_activation_files = File.objects.filter(
+            status="pending_activation"
+        ).count()
+        active_files = File.objects.filter(status="active").count()
+        in_transit_files = File.objects.filter(status="in_transit").count()
+        closed_files = File.objects.filter(status="closed").count()
+        archived_files = File.objects.filter(status="archived").count()
 
         # Document Statistics
         total_documents = Document.objects.count()
 
         # Recent Audit Log Entries
-        recent_failed_logins = AuditLogEntry.objects.filter(action='LOGIN_FAILED').order_by('-timestamp')[:5]
-        recent_locked_accounts = AuditLogEntry.objects.filter(action='ACCOUNT_LOCKED').order_by('-timestamp')[:5]
-        recent_unlocked_accounts = AuditLogEntry.objects.filter(action='ACCOUNT_UNLOCKED').order_by('-timestamp')[:5]
+        recent_failed_logins = AuditLogEntry.objects.filter(
+            action="LOGIN_FAILED"
+        ).order_by("-timestamp")[:5]
+        recent_locked_accounts = AuditLogEntry.objects.filter(
+            action="ACCOUNT_LOCKED"
+        ).order_by("-timestamp")[:5]
+        recent_unlocked_accounts = AuditLogEntry.objects.filter(
+            action="ACCOUNT_UNLOCKED"
+        ).order_by("-timestamp")[:5]
 
         # Asset Breakdown for UI
         file_status_breakdown = [
-            {'label': 'Inactive', 'count': inactive_files, 'color': 'slate'},
-            {'label': 'Pending Activation', 'count': pending_activation_files, 'color': 'amber'},
-            {'label': 'Active', 'count': active_files, 'color': 'green'},
-            {'label': 'In Transit', 'count': in_transit_files, 'color': 'blue'},
-            {'label': 'Closed', 'count': closed_files, 'color': 'orange'},
-            {'label': 'Archived', 'count': archived_files, 'color': 'purple'},
+            {"label": "Inactive", "count": inactive_files, "color": "slate"},
+            {
+                "label": "Pending Activation",
+                "count": pending_activation_files,
+                "color": "amber",
+            },
+            {"label": "Active", "count": active_files, "color": "green"},
+            {"label": "In Transit", "count": in_transit_files, "color": "blue"},
+            {"label": "Closed", "count": closed_files, "color": "orange"},
+            {"label": "Archived", "count": archived_files, "color": "purple"},
         ]
         for item in file_status_breakdown:
-            item['percentage'] = (item['count'] / total_files * 100) if total_files > 0 else 0
+            item["percentage"] = (
+                (item["count"] / total_files * 100) if total_files > 0 else 0
+            )
 
-        context['stats'] = {
-            'users': {
-                'total': total_users,
-                'active': active_users,
-                'inactive': inactive_users,
-                'locked': locked_users,
-                'must_change_password': must_change_password_users,
+        context["stats"] = {
+            "users": {
+                "total": total_users,
+                "active": active_users,
+                "inactive": inactive_users,
+                "locked": locked_users,
+                "must_change_password": must_change_password_users,
             },
-            'org': {
-                'departments': total_departments,
-                'units': total_units,
+            "org": {
+                "departments": total_departments,
+                "units": total_units,
             },
-            'files': {
-                'total': total_files,
-                'breakdown': file_status_breakdown,
+            "files": {
+                "total": total_files,
+                "breakdown": file_status_breakdown,
             },
-            'documents': {
-                'total': total_documents,
+            "documents": {
+                "total": total_documents,
             },
-            'recent_failed_logins': recent_failed_logins,
-            'recent_locked_accounts': recent_locked_accounts,
-            'recent_unlocked_accounts': recent_unlocked_accounts,
+            "recent_failed_logins": recent_failed_logins,
+            "recent_locked_accounts": recent_locked_accounts,
+            "recent_unlocked_accounts": recent_unlocked_accounts,
         }
         return context
 
-
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect('user_management:login')
-        messages.error(self.request, 'You do not have permission to access the admin health dashboard.')
-        return redirect('home')
+            return redirect("user_management:login")
+        messages.error(
+            self.request,
+            "You do not have permission to access the admin health dashboard.",
+        )
+        return redirect("home")
+
+
 class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    template_name = 'user_management/user_batch_upload.html'
+    template_name = "user_management/user_batch_upload.html"
 
     def test_func(self):
         return self.request.user.is_superuser
@@ -461,68 +569,94 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         from django.db import transaction
         from django.utils.crypto import get_random_string
 
-        csv_file = request.FILES.get('csv_file')
+        csv_file = request.FILES.get("csv_file")
         if not csv_file:
-            messages.error(request, 'Please select a CSV file to upload.')
+            messages.error(request, "Please select a CSV file to upload.")
             return self.get(request, *args, **kwargs)
 
-        if not csv_file.name.endswith('.csv'):
-            messages.error(request, 'The uploaded file is not a CSV.')
+        if not csv_file.name.endswith(".csv"):
+            messages.error(request, "The uploaded file is not a CSV.")
             return self.get(request, *args, **kwargs)
 
         try:
-            decoded_file = csv_file.read().decode('utf-8')
+            decoded_file = csv_file.read().decode("utf-8")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
         except Exception as e:
-            messages.error(request, f'Failed to read CSV: {str(e)}')
+            messages.error(request, f"Failed to read CSV: {str(e)}")
             return self.get(request, *args, **kwargs)
 
-        results = {
-            'success': [],
-            'errors': []
-        }
+        results = {"success": [], "errors": []}
 
-        required_cols = ['username', 'email', 'first_name', 'last_name', 'department_code', 'unit_name', 'designation_name', 'staff_type']
-        
+        required_cols = [
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "department_code",
+            "unit_name",
+            "designation_name",
+            "staff_type",
+        ]
+
         # Check columns
-        if not reader.fieldnames or not all(col in reader.fieldnames for col in required_cols):
-            missing = [c for c in required_cols if not reader.fieldnames or c not in reader.fieldnames]
-            messages.error(request, f'CSV is missing required columns: {", ".join(missing)}')
+        if not reader.fieldnames or not all(
+            col in reader.fieldnames for col in required_cols
+        ):
+            missing = [
+                c
+                for c in required_cols
+                if not reader.fieldnames or c not in reader.fieldnames
+            ]
+            messages.error(
+                request, f"CSV is missing required columns: {', '.join(missing)}"
+            )
             return self.get(request, *args, **kwargs)
 
         for row_idx, row in enumerate(reader, start=2):
             try:
                 with transaction.atomic():
                     # 1. Create User
-                    username = row['username'].strip()
-                    email = row['email'].strip()
+                    username = row["username"].strip()
+                    email = row["email"].strip()
                     temp_password = get_random_string(length=12)
-                    
+
                     if CustomUser.objects.filter(username=username).exists():
                         raise ValueError(f'Username "{username}" already exists.')
 
                     user = CustomUser.objects.create_user(
                         username=username,
                         email=email,
-                        first_name=row['first_name'].strip(),
-                        last_name=row['last_name'].strip(),
+                        first_name=row["first_name"].strip(),
+                        last_name=row["last_name"].strip(),
                         password=temp_password,
-                        must_change_password=True
+                        must_change_password=True,
                     )
 
                     # 2. Resolve Org Units
-                    dept = Department.objects.filter(code=row['department_code'].strip()).first()
+                    dept = Department.objects.filter(
+                        code=row["department_code"].strip()
+                    ).first()
                     if not dept:
-                        raise ValueError(f'Department code "{row["department_code"]}" not found.')
+                        raise ValueError(
+                            f'Department code "{row["department_code"]}" not found.'
+                        )
 
-                    unit = Unit.objects.filter(name=row['unit_name'].strip(), department=dept).first()
+                    unit = Unit.objects.filter(
+                        name=row["unit_name"].strip(), department=dept
+                    ).first()
                     if not unit:
-                        raise ValueError(f'Unit "{row["unit_name"]}" not found in Dept "{dept.name}".')
+                        raise ValueError(
+                            f'Unit "{row["unit_name"]}" not found in Dept "{dept.name}".'
+                        )
 
-                    designation = Designation.objects.filter(name=row['designation_name'].strip()).first()
+                    designation = Designation.objects.filter(
+                        name=row["designation_name"].strip()
+                    ).first()
                     if not designation:
-                        raise ValueError(f'Designation "{row["designation_name"]}" not found.')
+                        raise ValueError(
+                            f'Designation "{row["designation_name"]}" not found.'
+                        )
 
                     # 3. Create Staff
                     Staff.objects.create(
@@ -530,22 +664,27 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                         department=dept,
                         unit=unit,
                         designation=designation,
-                        staff_type=row['staff_type'].strip().lower()
+                        staff_type=row["staff_type"].strip().lower(),
                     )
 
-                    results['success'].append(f'User "{username}" created.')
-                    log_action(request.user, 'USER_CREATED_BATCH', request=request, details={'username': username, 'batch': True})
+                    results["success"].append(f'User "{username}" created.')
+                    log_action(
+                        request.user,
+                        "USER_CREATED_BATCH",
+                        request=request,
+                        details={"username": username, "batch": True},
+                    )
 
                     # 4. Send Welcome Email
                     try:
-                        subject = 'Welcome to PIMS - Account Provisioned'
+                        subject = "Welcome to PIMS - Account Provisioned"
                         message = (
-                            f'Hello {user.first_name or user.username},\n\n'
-                            f'Your account has been provisioned on the Personnel Information Management System (PIMS).\n\n'
-                            f'Username: {username}\n'
-                            f'Temporary Password: {temp_password}\n\n'
-                            f'Please log in at {request.build_absolute_uri("/")} and change your password immediately.\n\n'
-                            f'Regards,\nPIMS Administration'
+                            f"Hello {user.first_name or user.username},\n\n"
+                            f"Your account has been provisioned on the Personnel Information Management System (PIMS).\n\n"
+                            f"Username: {username}\n"
+                            f"Temporary Password: {temp_password}\n\n"
+                            f"Please log in at {request.build_absolute_uri('/')} and change your password immediately.\n\n"
+                            f"Regards,\nPIMS Administration"
                         )
                         send_mail(
                             subject,
@@ -555,13 +694,16 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                             fail_silently=False,
                         )
                     except Exception as mail_err:
-                        logger.error(f'Failed to send welcome email to {email}: {mail_err}')
-                        results['success'][-1] += ' (Email notification failed)'
+                        logger.error(
+                            f"Failed to send welcome email to {email}: {mail_err}"
+                        )
+                        results["success"][-1] += " (Email notification failed)"
 
             except Exception as e:
-                results['errors'].append(f'Row {row_idx}: {str(e)}')
+                results["errors"].append(f"Row {row_idx}: {str(e)}")
 
-        return render(request, self.template_name, {'results': results})
+        return render(request, self.template_name, {"results": results})
+
 
 class DownloadSampleUserCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
@@ -571,14 +713,78 @@ class DownloadSampleUserCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
         import csv
         from django.http import HttpResponse
 
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="pims_user_upload_sample.csv"'
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            'attachment; filename="pims_user_upload_sample.csv"'
+        )
 
         writer = csv.writer(response)
-        writer.writerow(['username', 'email', 'first_name', 'last_name', 'department_code', 'unit_name', 'designation_name', 'staff_type'])
-        
+        writer.writerow(
+            [
+                "username",
+                "email",
+                "first_name",
+                "last_name",
+                "department_code",
+                "unit_name",
+                "designation_name",
+                "staff_type",
+            ]
+        )
+
         # Add sample row
-        writer.writerow(['jdoe', 'jdoe@example.com', 'John', 'Doe', 'HR', 'Payroll', 'Manager', 'permanent'])
-        writer.writerow(['asmith', 'asmith@example.com', 'Alice', 'Smith', 'IT', 'Networking', 'Officer', 'contract'])
+        writer.writerow(
+            [
+                "jdoe",
+                "jdoe@example.com",
+                "John",
+                "Doe",
+                "HR",
+                "Payroll",
+                "Manager",
+                "permanent",
+            ]
+        )
+        writer.writerow(
+            [
+                "asmith",
+                "asmith@example.com",
+                "Alice",
+                "Smith",
+                "IT",
+                "Networking",
+                "Officer",
+                "contract",
+            ]
+        )
 
         return response
+
+class UserProfileView(LoginRequiredMixin, TemplateView):
+    template_name = "user_management/profile.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        staff = get_object_or_404(Staff, user=self.request.user)
+        context['staff'] = staff
+        context['active_signature'] = staff.get_active_signature()
+        context['signature_form'] = SignatureUploadForm()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        staff = get_object_or_404(Staff, user=request.user)
+        form = SignatureUploadForm(request.POST, request.FILES)
+        
+        if form.is_valid():
+            signature = form.save(commit=False)
+            signature.staff = staff
+            signature.is_active = True # Will deactivate others in save()
+            signature.save()
+            
+            log_action(request.user, "SIGNATURE_UPLOADED", request=request)
+            messages.success(request, "Your signature has been uploaded and is pending verification.")
+            return redirect('user_management:profile')
+        
+        context = self.get_context_data()
+        context['signature_form'] = form
+        return render(request, self.template_name, context)
