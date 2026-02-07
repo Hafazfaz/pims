@@ -1,0 +1,35 @@
+{% for doc in documents %}
+<tr class="hover:bg-slate-50/50 transition-colors">
+    <td class="px-8 py-5">
+        <div class="flex items-center gap-3">
+            <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            <span class="font-bold text-slate-700 text-sm">{% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}</span>
+        </div>
+    </td>
+    <td class="px-8 py-5">
+        <span class="text-[10px] font-bold text-slate-500 uppercase">{% if doc.minute_content %}Internal Minute{% else %}Attachment{% endif %}</span>
+    </td>
+    <td class="px-8 py-5">
+        <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
+    </td>
+    <td class="px-8 py-5 text-right">
+        {% if doc.attachment %}
+        <a href="{{ doc.attachment.url }}" target="_blank" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
+        {% else %}
+        <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
+        {% endif %}
+    </td>
+</tr>
+{% if forloop.last and page_obj.has_next %}
+<tr id="load-more-row-{{ file_id }}">
+    <td colspan="4" class="px-8 py-4 text-center">
+        <button class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-nigeria-green transition-colors"
+                hx-get="{% url 'document_management:file_documents_paginate' pk=file_id %}?page={{ page_obj.next_page_number }}&q={{ selected_search_query }}"
+                hx-target="#load-more-row-{{ file_id }}"
+                hx-swap="outerHTML">
+            Load More Documents...
+        </button>
+    </td>
+</tr>
+{% endif %}
+{% endfor %}

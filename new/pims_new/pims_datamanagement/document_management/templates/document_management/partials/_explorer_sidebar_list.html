@@ -1,0 +1,40 @@
+{% for file in files %}
+<div class="border-b border-slate-50 last:border-0">
+    <button hx-get="{% url 'document_management:record_explorer' %}?file_pk={{ file.pk }}"
+            hx-target="#file-detail-content"
+            hx-indicator="#detail-indicator"
+            hx-push-url="true"
+            class="w-full px-5 py-4 text-left hover:bg-slate-50 transition-colors group relative">
+        <div class="flex flex-col">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-black {% if file.status == 'active' %}text-nigeria-green{% else %}text-amber-500{% endif %} tracking-widest uppercase">{{ file.file_number }}</span>
+                <span class="text-[9px] font-bold text-slate-300 uppercase">{{ file.get_file_type_display }}</span>
+            </div>
+            <h4 class="text-sm font-bold text-slate-900 truncate group-hover:text-nigeria-dark transition-colors">{{ file.title }}</h4>
+            <div class="flex items-center gap-2 mt-2">
+                {% if file.owner %}
+                <span class="text-[10px] text-slate-400 font-medium truncate italic max-w-[150px]">{{ file.owner.user.get_full_name }}</span>
+                {% endif %}
+                <span class="text-[8px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-sm font-black uppercase">{{ file.created_at|date:"M d, Y" }}</span>
+            </div>
+        </div>
+        <!-- Active Indicator Bar -->
+        <div class="absolute left-0 top-0 bottom-0 w-1 bg-nigeria-green opacity-0 group-[.active]:opacity-100 transition-opacity"></div>
+    </button>
+</div>
+{% empty %}
+<div class="p-12 text-center">
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest italic">No matching folders found.</p>
+</div>
+{% endfor %}
+
+{% if is_paginated and page_obj.has_next %}
+<div id="load-more-sidebar" class="p-4 border-t border-slate-50 bg-slate-50/30">
+    <button hx-get="{% url 'document_management:record_explorer' %}?page={{ page_obj.next_page_number }}&q={{ selected_search_query }}"
+            hx-target="#load-more-sidebar"
+            hx-swap="outerHTML"
+            class="w-full py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-nigeria-green hover:border-nigeria-green transition-all shadow-sm">
+        Load More Folders...
+    </button>
+</div>
+{% endif %}

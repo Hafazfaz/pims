@@ -1,0 +1,123 @@
+{% if selected_file %}
+<div class="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 h-full flex flex-col">
+    <!-- Detail Header -->
+    <div class="flex items-start justify-between mb-8 flex-shrink-0">
+        <div class="flex gap-5">
+            <div class="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg border-4 border-white">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <div class="flex items-center gap-3 mb-1">
+                    <span class="text-xs font-black bg-nigeria-green/10 text-nigeria-green px-2.5 py-1 rounded-full tracking-widest uppercase border border-nigeria-green/20">{{ selected_file.file_number }}</span>
+                    <span class="text-[10px] font-black text-slate-400 border border-slate-200 px-2.5 py-1 rounded-full uppercase tracking-widest">{{ selected_file.get_atatus_display }}</span>
+                </div>
+                <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase">{{ selected_file.title }}</h2>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-xs text-slate-400 font-bold uppercase tracking-widest">{{ selected_file.get_file_type_display }} Record</span>
+                    <span class="text-slate-300">•</span>
+                    <span class="text-xs text-slate-400 font-bold uppercase tracking-widest">Created {{ selected_file.created_at|date:"M d, Y" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'document_management:file_detail' pk=selected_file.pk %}" 
+               class="inline-flex items-center px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-all shadow-md active:scale-95 gap-2">
+                <i class="fas fa-external-link-alt"></i>
+                Full Chronicle
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Info Cards -->
+    <div class="grid grid-cols-3 gap-6 mb-10 flex-shrink-0">
+        <div class="bg-slate-50/50 border border-slate-200 p-5 rounded-2xl">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Subject / Owner</p>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                   <p class="text-sm font-bold text-slate-900">{% if selected_file.owner %}{{ selected_file.owner.user.get_full_name }}{% else %}N/A{% endif %}</p>
+                   <p class="text-[10px] text-slate-500 font-medium italic uppercase tracking-wider">{% if selected_file.owner.designation %}{{ selected_file.owner.designation.name }}{% endif %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-slate-50/50 border border-slate-200 p-5 rounded-2xl">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Primary Custodian</p>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white rounded-full border border-slate-200 flex items-center justify-center text-blue-400">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <div>
+                   <p class="text-sm font-bold text-slate-900">{% if selected_file.current_location %}{{ selected_file.current_location.user.get_full_name }}{% else %}Registry Archive{% endif %}</p>
+                   <p class="text-[10px] text-slate-500 font-medium italic uppercase tracking-wider">{{ selected_file.department.name }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-slate-50/50 border border-slate-200 p-5 rounded-2xl">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Archive Status</p>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white rounded-full border border-slate-200 flex items-center justify-center text-amber-400">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                   <p class="text-sm font-bold text-slate-900 uppercase">{{ selected_file.get_status_display }}</p>
+                   <p class="text-[10px] text-slate-500 font-medium italic uppercase tracking-wider">{{ selected_file.created_at|timesince }} in system</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents Section -->
+    <div class="flex-grow flex flex-col min-h-0">
+        <div class="flex items-center justify-between mb-4 flex-shrink-0">
+            <h3 class="text-sm font-black text-slate-900 uppercase tracking-[0.2em]">Latest Documents</h3>
+            <span class="text-[10px] font-bold text-slate-400 uppercase">{{ documents.count }} of {{ selected_file.documents.count }} items</span>
+        </div>
+        
+        <div class="flex-grow overflow-y-auto bg-slate-50/30 rounded-2xl border border-slate-100 mb-4 p-4">
+            <div class="space-y-3">
+                {% for doc in documents %}
+                <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-nigeria-green/30 transition-all">
+                    <div class="flex items-center gap-4">
+                        <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-nigeria-green transition-colors">
+                            {% if doc.minute_content %}
+                            <i class="fas fa-sticky-note text-xs"></i>
+                            {% else %}
+                            <i class="fas fa-file-pdf text-xs"></i>
+                            {% endif %}
+                        </div>
+                        <div class="text-left">
+                            <p class="text-xs font-bold text-slate-900 group-hover:text-nigeria-green transition-colors">{% if doc.title %}{{ doc.title }}{% else %}Official Entry{% endif %}</p>
+                            <p class="text-[9px] text-slate-400 font-medium italic group-hover:text-nigeria-green transition-colors">Uploaded by {{ doc.uploaded_by.get_full_name }} • {{ doc.uploaded_at|date:"M d, Y" }}</p>
+                        </div>
+                    </div>
+                    {% if doc.attachment %}
+                    <a href="{{ doc.attachment.url }}" target="_blank" class="text-slate-400 hover:text-nigeria-green p-2 transition-colors">
+                        <i class="fas fa-download text-sm"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="p-12 text-center">
+                    <p class="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No documents indexed in this folder.</p>
+                </div>
+                {% endfor %}
+
+                {% if has_more_documents %}
+                <div class="text-center pt-2">
+                    <a href="{% url 'document_management:file_detail' pk=selected_file.pk %}?tab=chronicle" 
+                       class="text-[9px] font-black uppercase text-slate-400 tracking-widest hover:text-nigeria-green transition-colors">
+                        View All {{ selected_file.documents.count }} Documents in Chronicle...
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- Placeholder (already in main file) -->
+{% endif %}
