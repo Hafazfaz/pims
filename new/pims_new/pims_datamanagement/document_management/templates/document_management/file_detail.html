@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
 
-{% block title %}File Trace: {{ file.file_number }} | PIMS{% endblock %}
+{% block title %}Folder Trace: {{ file.file_number }} | PIMS{% endblock %}
 
 {% block content %}
 <div class="space-y-8" x-data="{ 
@@ -9,19 +9,64 @@
     parentId: '',
     replyingTo: '',
     previewUrl: '',
-    previewTitle: ''
+    previewTitle: '',
+    showAccessRequestModal: false,
+    showShareModal: false,
+    shareDocId: '',
+    shareDocTitle: '',
+    searchQuery: '',
+    recipientId: '',
+    recipientName: ''
 }" 
-@reply-to-minute.window="
-    parentId = $event.detail.id;
-    replyingTo = $event.detail.username;
-    activeTab = 'add';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+@recipient-selected.window="
+    recipientId = $event.detail.id;
+    recipientName = $event.detail.username;
+    searchQuery = '';
 "
 @open-preview.window="
     previewUrl = $event.detail.url;
     previewTitle = $event.detail.title;
 ">
     <!-- File Header Card -->
+    {% if is_limited_view %}
+    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3 animate-pulse">
+        <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <div>
+            <h3 class="text-sm font-bold text-amber-800 uppercase tracking-wider">Limited Access View</h3>
+            <p class="text-xs text-amber-700">You are viewing a restricted version of this file. Only documents specifically shared with you are visible.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if file.active_dispatch_document and file.current_location == user.staff %}
+    <div class="mb-6 p-6 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-start gap-4 shadow-sm">
+        <div class="p-3 bg-indigo-600 rounded-xl text-white shadow-md">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
+        </div>
+        <div class="flex-1">
+            <h3 class="text-sm font-black text-indigo-900 uppercase tracking-widest mb-1">Action Required</h3>
+            <p class="text-xs text-indigo-700 font-medium mb-3">
+                This file was dispatched to you for action on document: 
+                <span class="font-bold">"{{ file.active_dispatch_document.title|default:'Minute Entry' }}"</span>
+            </p>
+            <div class="flex gap-2">
+                <a href="{% url 'document_management:document_add' file_pk=file.pk %}?parent_id={{ file.active_dispatch_document.pk }}" 
+                    class="px-4 py-2 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
+                    Reply Now
+                </a>
+                <button @click="activeTab = 'chronicle'; $nextTick(() => { document.getElementById('doc-{{ file.active_dispatch_document.pk }}').scrollIntoView({behavior: 'smooth'}) })"
+                    class="px-4 py-2 bg-white border border-indigo-200 text-indigo-600 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-indigo-50 transition-all">
+                    Locate Entry
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="p-8 lg:p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div class="space-y-2">
@@ -46,7 +91,7 @@
                     {{ file.get_status_display }}
                 </span>
 
-                {% if file.current_location == user.staff and file.status == 'active' %}
+                {% if file.status == 'active' and user.staff.is_registry or user.is_superuser %}
                 <a href="{% url 'document_management:file_edit' pk=file.pk %}"
                     class="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-black transition-colors shadow-sm"
                     title="Edit Metadata">
@@ -70,17 +115,23 @@
                     <button @click="activeTab = 'details'"
                         :class="activeTab === 'details' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
                         class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">Details</button>
-                    <button @click="activeTab = 'history'"
-                        :class="activeTab === 'history' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
-                        class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all flex items-center">
-                        History
-                        {% if documents %}<span class="ml-2 bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{{ documents.count }}</span>{% endif %}
-                    </button>
-                    {% if file.status == 'active' and file.current_location == user.staff %}
-                    <button @click="activeTab = 'add'"
-                        :class="activeTab === 'add' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
-                        class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">Add Minute</button>
-                    {% endif %}
+                    <button @click="activeTab = 'chronicle'"
+                        :class="activeTab === 'chronicle' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
+                        class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">Chronicle</button>
+                    <div class="ml-auto flex items-center gap-2">
+                        {% if can_add_minute %}
+                        <a href="{% url 'document_management:document_add' file_pk=file.pk %}"
+                            class="px-6 py-3 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all shadow-md flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+                            Add Minute/Document
+                        </a>
+                        {% endif %}
+                        {% if user.staff.is_registry %}
+                        <button @click="activeTab = 'settings'"
+                            :class="activeTab === 'settings' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
+                            class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">Settings</button>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <!-- Content Panels -->
@@ -94,23 +145,37 @@
                                 Department</p>
                             <p class="text-sm font-semibold text-slate-900">{{ file.department.name|default:"General Section" }}</p>
                         </div>
+                        {% if file.file_type == 'personal' %}
                         <div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">File Owner
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Folder Owner (Staff)
                             </p>
                             <p class="text-sm font-semibold text-slate-900">
-                                {% if file.owner %}
-                                    {{ file.owner.get_full_name|default:file.owner.user.username }}
-                                {% else %}
-                                    <span class="text-slate-400 italic">No Owner</span>
-                                {% endif %}
+                                {{ file.owner_display }}
                             </p>
                         </div>
+                        {% elif file.external_party %}
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">External Party
+                            </p>
+                            <p class="text-sm font-semibold text-slate-900 italic">
+                                {{ file.external_party }}
+                            </p>
+                        </div>
+                        {% else %}
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Assigned Department
+                            </p>
+                            <p class="text-sm font-semibold text-slate-900">
+                                {{ file.department.name|default:"General Section" }}
+                            </p>
+                        </div>
+                        {% endif %}
                         <div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current
                                 Custodian</p>
                             <p class="text-sm font-bold text-nigeria-green">
                                 {% if file.current_location %}
-                                    {{ file.current_location.get_full_name|default:file.current_location.user.username }}
+                                    {{ file.current_location.user.get_full_name|default:file.current_location.user.username }}
                                 {% else %}
                                     <span class="text-slate-400 italic text-xs">Unknown Location</span>
                                 {% endif %}
@@ -125,72 +190,193 @@
                     </div>
                 </div>
 
-                <div x-show="activeTab === 'history'" class="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                    {% if documents %}
-                    {% for doc in documents %}
-                        {% include 'document_management/_minute_node.html' %}
-                    {% endfor %}
-                    {% else %}
-                    <div class="bg-white border-2 border-dashed border-slate-200 rounded-xl p-16 text-center">
-                        <p class="text-sm font-semibold text-slate-400 italic">No entry in the minute tree.</p>
+
+                <!-- Unified Folder Chronicle -->
+                <div x-show="activeTab === 'chronicle'" class="space-y-6">
+                    <div class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm relative">
+                        <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-3">
+                            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Record Chronicle</h3>
+                            {% if has_approved_access %}
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest
+                                    {% if access_type == 'read_write' %}bg-red-100 text-red-600{% else %}bg-blue-100 text-blue-600{% endif %}">
+                                    {% if access_type == 'read_write' %}Read & Write{% else %}Read-Only{% endif %} Access
+                                </span>
+                                {% if active_access_request.expires_at %}
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Expires: {{ active_access_request.expires_at|date:"M d, H:i" }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="flow-root">
+                            <ul role="list" class="-mb-8">
+                                {% for entry in chronicle %}
+                                <li {% if entry.type == 'document' %}id="doc-{{ entry.item.pk }}"{% endif %}>
+                                    <div class="relative pb-8">
+                                        {% if not forloop.last %}
+                                        <span class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-100" aria-hidden="true"></span>
+                                        {% endif %}
+                                        <div class="relative flex space-x-3">
+                                            <div>
+                                                {% if entry.type == 'document' %}
+                                                    <span class="h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white bg-indigo-500 shadow-sm">
+                                                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                                        </svg>
+                                                    </span>
+                                                {% else %}
+                                                    <span class="h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white
+                                                        {% if entry.item.action == 'FILE_CREATED' %}bg-green-500
+                                                        {% elif entry.item.action == 'FILE_ACTIVATED' %}bg-blue-500
+                                                        {% elif entry.item.action == 'FILE_SENT' %}bg-amber-500
+                                                        {% else %}bg-slate-400{% endif %}">
+                                                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            {% if entry.item.action == 'FILE_CREATED' %}<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                                            {% else %}<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>{% endif %}
+                                                        </svg>
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                                <div class="flex-1">
+                                                    {% if entry.type == 'document' %}
+                                                        <div class="text-sm text-slate-900">
+                                                            <a href="{% url 'document_management:document_detail' pk=entry.item.pk %}" class="font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
+                                                                {% if entry.item.title %}{{ entry.item.title }}{% else %}Minute / Signal{% endif %}
+                                                            </a>
+                                                            <span class="ml-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider
+                                                                {% if entry.item.status == 'approved' %}bg-green-100 text-green-700
+                                                                {% elif entry.item.status == 'cancelled' %}bg-red-100 text-red-700 line-through decoration-red-700
+                                                                {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                                                {{ entry.item.get_status_display }}
+                                                            </span>
+                                                            {% if entry.item.minute_content %}
+                                                            <div class="mt-2 prose prose-sm max-w-none text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-100 relative">
+                                                                {{ entry.item.minute_content|safe }}
+                                                                
+                                                                {% if entry.item.has_signature and entry.item.signature_record %}
+                                                                <div class="mt-6 pt-6 border-t border-slate-200/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                                    <div class="flex items-center gap-3">
+                                                                        <div class="relative group">
+                                                                            <!-- Protective overlay -->
+                                                                            <div class="absolute inset-0 z-10 cursor-default bg-transparent" @contextmenu.prevent></div>
+                                                                            <img src="{{ entry.item.signature_record.image.url }}" alt="Signature" 
+                                                                                class="h-12 w-auto grayscale pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                                                                        </div>
+                                                                        <div>
+                                                                            <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">{{ entry.item.uploaded_by.get_full_name }}</p>
+                                                                            <p class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{{ entry.item.uploaded_by.staff.designation.name }}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="flex items-center gap-1.5 px-3 py-1 bg-nigeria-light/30 border border-nigeria-green/20 rounded-full">
+                                                                        <svg class="w-3 h-3 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20">
+                                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                                        </svg>
+                                                                        <span class="text-[8px] font-black text-nigeria-green uppercase tracking-widest">Digitally Verified</span>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                            {% endif %}
+                                                            {% if entry.item.attachment %}
+                                                            <div class="mt-3 flex items-center gap-2">
+                                                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                                                <a href="{{ entry.item.attachment.url }}" target="_blank" class="text-xs font-bold text-indigo-600 hover:underline">Download Attachment</a>
+                                                            </div>
+                                                            {% endif %}
+
+                                                            <div class="mt-3 flex items-center gap-4">
+                                                                {% if not is_limited_view %}
+                                                                <button type="button" 
+                                                                    @click="showShareModal = true; shareDocId = '{{ entry.item.pk }}'; shareDocTitle = '{{ entry.item.title|escapejs|default:'Minute' }}'"
+                                                                    class="text-[9px] font-bold text-slate-400 hover:text-blue-600 uppercase tracking-widest flex items-center gap-1 transition-colors">
+                                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                                                                    Share
+                                                                </button>
+
+                                                                {% if can_add_minute %}
+                                                                <a href="{% url 'document_management:document_add' file_pk=file.pk %}?parent_id={{ entry.item.pk }}"
+                                                                    class="text-[9px] font-bold text-slate-400 hover:text-nigeria-green uppercase tracking-widest flex items-center gap-1 transition-colors">
+                                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l5 5m-5-5l5-5"></path></svg>
+                                                                    Reply
+                                                                </a>
+                                                                {% endif %}
+                                                                {% endif %}
+
+                                                            {% if can_delete_documents %}
+                                                            <div class="mt-3">
+                                                                <form action="{% url 'document_management:document_delete' pk=entry.item.pk %}" method="post" onsubmit="return confirm('Are you sure you want to delete this document? This action will be logged.');">
+                                                                    {% csrf_token %}
+                                                                    <button type="submit" class="text-[9px] font-bold text-red-500 hover:text-red-700 uppercase tracking-widest flex items-center gap-1">
+                                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                                        Delete
+                                                                    </button>
+                                                                </form>
+                                                                
+                                                                <!-- Status Update Form -->
+                                                                <form method="post" class="flex items-center gap-1">
+                                                                    {% csrf_token %}
+                                                                    <input type="hidden" name="action" value="update_document_status">
+                                                                    <input type="hidden" name="document_id" value="{{ entry.item.pk }}">
+                                                                    <select name="status" onchange="this.form.submit()" class="text-[9px] font-bold uppercase tracking-wider bg-slate-50 border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                                                        <option value="pending" {% if entry.item.status == 'pending' %}selected{% endif %}>Pending</option>
+                                                                        <option value="approved" {% if entry.item.status == 'approved' %}selected{% endif %}>Approved</option>
+                                                                        <option value="cancelled" {% if entry.item.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                                                                    </select>
+                                                                </form>
+                                                            </div>
+                                                            {% endif %}
+                                                        </div>
+                                                    {% else %}
+                                                        <p class="text-sm text-slate-600 font-medium">{{ entry.item.get_action_display }} <span class="font-bold text-slate-900">{{ entry.item.details.target|default:"" }}</span></p>
+                                                        {% if entry.item.details.notes %}<p class="text-xs text-slate-400 mt-1 italic">"{{ entry.item.details.notes }}"</p>{% endif %}
+                                                    {% endif %}
+                                                </div>
+                                                <div class="whitespace-nowrap text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                    <time datetime="{{ entry.timestamp|date:'c' }}">{{ entry.timestamp|timesince }} ago</time>
+                                                    <div class="text-[9px] mt-0.5">{% if entry.type == 'document' %}{{ entry.item.uploaded_by.username }}{% else %}{{ entry.item.user.username }}{% endif %}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                {% empty %}
+                                <li class="p-8 text-center text-slate-400 italic text-sm">No recorded chronicle for this folder.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
-                    {% endif %}
                 </div>
 
-                {% if file.status == 'active' %}
-                <div x-show="activeTab === 'add'" 
-                     class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm"
-                >
-                    <h3 class="text-sm font-bold text-slate-900 mb-8 uppercase tracking-wider border-b border-slate-100 pb-3 text-center">
-                        Add New Minute
+                {% if user.staff.is_registry %}
+                <div x-show="activeTab === 'settings'" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-8">
+                    <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 uppercase tracking-wider">
+                        File Management (Registry Only)
                     </h3>
                     
-                    <form method="post" enctype="multipart/form-data" class="space-y-6 max-w-2xl mx-auto">
-                        {% csrf_token %}
-                        
-                        <!-- Threading Info -->
-                        <div x-show="parentId" x-cloak class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
-                            <div class="flex items-center space-x-2">
-                                <span class="text-[9px] font-black text-white bg-nigeria-green px-1.5 py-0.5 rounded uppercase">Reply</span>
-                                <span class="text-xs font-bold text-slate-600">Replying to <span class="text-nigeria-green" x-text="replyingTo"></span></span>
-                            </div>
-                            <button type="button" @click="parentId = ''; replyingTo = ''" class="text-slate-400 hover:text-red-500 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
+                    <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Update File Status</label>
+                        <form action="{% url 'document_management:file_detail' pk=file.pk %}" method="post" class="flex items-center gap-4">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_status">
+                            <select name="status" class="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-nigeria-green outline-none font-medium">
+                                {% for val, label in status_choices %}
+                                <option value="{{ val }}" {% if file.status == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="px-6 py-3 bg-nigeria-green text-white text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors shadow-sm">
+                                Update
                             </button>
-                        </div>
-                        
-                        <input type="hidden" name="parent" :value="parentId">
-
-                        {% for field in document_form %}
-                        <div class="space-y-1">
-                            {% if field.name != 'parent' %}
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                            {% if field.name == 'minute_content' %}
-                            <div id="quill-editor" class="bg-white h-64"></div>
-                            {{ field|add_class:"hidden"|attr:"id:quill-input" }}
-                            {% else %}
-                            {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-nigeria-green outline-none" }}
-                            {% endif %}
-                            {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold">{{ error }}</p>
-                            {% endfor %}
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                        <button type="submit"
-                            class="w-full py-4 bg-nigeria-green hover:bg-nigeria-dark text-white font-bold rounded-xl shadow-md transition-all uppercase tracking-widest text-xs">Validate
-                            & Commit Entry</button>
-                    </form>
-                </div>
-                {% else %}
-                <div x-show="activeTab === 'add'" class="bg-amber-50 border-2 border-dashed border-amber-200 rounded-xl p-16 text-center">
-                    <p class="text-sm font-semibold text-amber-600 italic">This file is currently {{ file.get_status_display }}. Minutes can only be added to active files.</p>
+                        </form>
+                        <p class="text-[9px] text-slate-400 mt-4 leading-relaxed italic">Changing the status may affect who can view or edit this file. Use with caution.</p>
+                    </div>
                 </div>
                 {% endif %}
             </div>
         </div>
 
+        {% if not user.staff.is_registry %}
         <!-- Sidebar Section -->
         <div class="space-y-8">
             <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 sticky top-24">
@@ -198,126 +384,33 @@
                     class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8 text-center border-b border-slate-50 pb-2">
                     Administrative Controls</h3>
                 <div id="file-actions-messages" class="mb-4"></div>
-                {% if perms.document_management.send_file %}
-                <div class="p-6 bg-slate-50 rounded-xl border border-slate-200 space-y-6"
-                    x-data="{ 
-                        recipientId: '', 
-                        recipientName: '', 
-                        showResults: false,
-                        searchQuery: '',
-                        showDispatchModal: false
-                    }"
-                    @recipient-selected.window="
-                        recipientId = $event.detail.id;
-                        recipientName = $event.detail.username;
-                        showDispatchModal = false;
-                        searchQuery = '';
-                    "
-                >
-                    <div class="flex items-center justify-between">
-                         <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-nigeria-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                            </svg>Send File
-                        </h4>
-                        <button type="button" @click="showDispatchModal = true; $nextTick(() => $refs.searchInput.focus())"
-                            class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase rounded-lg shadow-sm transition-colors">
-                            Find Recipient
-                        </button>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <!-- Selected Recipient Display -->
-                        <div x-show="recipientId" x-cloak>
-                            <div class="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
-                                <div>
-                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Selected Recipient</p>
-                                    <p x-text="recipientName" class="text-xs font-bold text-nigeria-green"></p>
-                                </div>
-                                <button type="button" @click="recipientId = ''; recipientName = ''" class="text-slate-400 hover:text-red-500">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
 
-                        <form method="post" hx-post="{% url 'document_management:file_detail' pk=file.pk %}"
-                            hx-target="#file-actions-messages" class="space-y-4" id="send-file-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="recipient" :value="recipientId">
-                            <button type="submit" :disabled="!recipientId"
-                                class="w-full bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black text-white py-3.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
-                                Dispatch File
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Dispatch Modal -->
-                    <div x-show="showDispatchModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-                        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                            <div x-show="showDispatchModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showDispatchModal = false"></div>
-
-                            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                            <div x-show="showDispatchModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4" id="modal-title">Select Recipient</h3>
-                                    
-                                    <div class="relative">
-                                        <input type="text" 
-                                            x-ref="searchInput"
-                                            name="q"
-                                            x-model="searchQuery"
-                                            placeholder="Search HOD or Unit Manager..."
-                                            hx-get="{% url 'document_management:recipient_search' %}"
-                                            hx-trigger="keyup changed delay:500ms"
-                                            hx-target="#search-results"
-                                            class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-nigeria-green outline-none font-medium"
-                                        >
-                                        <!-- Search Results -->
-                                        <div id="search-results" class="mt-2"></div>
-                                    </div>
-                                    
-                                    <div class="mt-6 flex justify-end">
-                                        <button type="button" @click="showDispatchModal = false" class="bg-white py-2 px-4 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-nigeria-green">
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                {% if can_send_file %}
+                <div class="p-4 bg-blue-50 rounded-xl border border-blue-200 text-center">
+                    <p class="text-xs text-slate-600 mb-2">📄 <strong>To dispatch this file</strong>, click on a document in the chronicle and use the dispatch button from the document view.</p>
                 </div>
                 {% endif %}
 
-                <!-- NEW: Temporary Access Request Section -->
-                {% if not has_approved_access and file.owner != user.staff and file.current_location != user.staff %}
-                <div class="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                        </svg>Original File Access
-                    </h4>
+                {% if not is_registry and not has_approved_access %}
+                <div class="p-6 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center">
+                    <svg class="w-10 h-10 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Identity Locked</p>
+                    <p class="text-[10px] text-slate-500 font-medium italic mb-4">You have not been granted official access to interact with this folder's administrative functions.</p>
                     
-                    {% if pending_access_request %}
-                    <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg">
-                        <p class="text-[10px] font-bold text-amber-700 uppercase tracking-tight">Request Pending</p>
-                        <p class="text-[9px] text-amber-600 mt-1">Registry will review your request soon.</p>
-                    </div>
+                    {% if not pending_access_request %}
+                    <button @click="showAccessRequestModal = true" class="text-[9px] font-black bg-nigeria-green text-white px-3 py-1.5 rounded uppercase tracking-widest active:scale-95 transition-all">
+                        Request Access
+                    </button>
                     {% else %}
-                    <p class="text-[10px] text-slate-500 leading-relaxed font-medium">To view unwatermarked original attachments, you must request temporary access from the Registry.</p>
-                    
-                    <form method="post" class="space-y-3">
-                        {% csrf_token %}
-                        {{ access_request_form.reason|add_class:"w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-nigeria-green outline-none font-medium h-20" }}
-                        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all shadow-sm">
-                            Request Original Access
-                        </button>
-                    </form>
+                    <span class="text-[9px] font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded uppercase tracking-widest border border-amber-100">
+                        Access Pending
+                    </span>
                     {% endif %}
                 </div>
-                {% elif has_approved_access %}
+                {% endif %}
+                {% if has_approved_access %}
                 <div class="mt-8 p-4 bg-green-50 border border-green-100 rounded-xl flex items-center gap-3">
                     <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,18 +425,22 @@
                 {% endif %}
 
                 <div class="space-y-3 pt-8">
-                    {% if file.status == 'active' and perms.document_management.close_file or file.status == 'active' and file.owner == user.staff and file.current_location == user.staff %}<form
-                        action="{% url 'document_management:file_close' pk=file.pk %}" method="post">
-                        {% csrf_token %}
-                        <button type="submit"
-                            class="w-full py-4 bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">Close
-                            File</button></form>{% endif %}
+                    {% if file.status == 'active' %}
+                        {% if user.staff.is_registry or user.is_superuser %}
+                        <form action="{% url 'document_management:file_close' pk=file.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit"
+                                class="w-full py-4 bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                                Close File
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
                     {% if file.status == 'closed' and perms.document_management.archive_file %}<form
                         action="{% url 'document_management:file_archive' pk=file.pk %}" method="post">
                         {% csrf_token %}
                         <button type="submit"
-                            class="w-full py-4 bg-slate-900 text-white hover:bg-black rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md">Archive
-                            To Archive</button></form>{% endif %}
+                            class="w-full py-4 bg-slate-900 text-white hover:bg-black rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md">Archive</button></form>{% endif %}
                     
                     {% if file.current_location == user.staff and file.owner != user.staff and file.status == 'active' %}
                     <form action="{% url 'document_management:file_detail' pk=file.pk %}" method="post">
@@ -357,7 +454,8 @@
                 </div>
             </div>
         </div>
-    </div> <!-- Closing Grid -->
+        {% endif %}
+    </div>
 
     <!-- Document Preview Modal -->
     <div x-show="previewUrl" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -387,33 +485,136 @@
             </div>
         </div>
     </div>
+
+    <!-- Access Request Modal -->
+    <div x-show="showAccessRequestModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <!-- ... existing modal content ... -->
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showAccessRequestModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showAccessRequestModal = false"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div x-show="showAccessRequestModal" class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+
+
+                <div class="bg-white px-8 pt-8 pb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-slate-900 tracking-tight uppercase tracking-wider italic" id="modal-title">Request Folder Access</h3>
+                        <button @click="showAccessRequestModal = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                            <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <p class="text-xs text-amber-800 font-medium">To interact with this folder, you must submit a justification for the Registry to review and approve.</p>
+                        </div>
+
+                        <form method="post" class="space-y-6">
+                            {% csrf_token %}
+                            <div class="space-y-4">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-widest">Requested Access Type</label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <label class="relative flex flex-col p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-blue-200 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                        <input type="radio" name="access_type" value="read_only" class="hidden" checked>
+                                        <span class="text-xs font-bold text-slate-900">Read-Only</span>
+                                        <span class="text-[10px] text-slate-500 mt-1 leading-tight">View folders and documents without editing permissions.</span>
+                                    </label>
+                                    <label class="relative flex flex-col p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-red-200 transition-all has-[:checked]:border-red-500 has-[:checked]:bg-red-50">
+                                        <input type="radio" name="access_type" value="read_write" class="hidden">
+                                        <span class="text-xs font-bold text-slate-900">Read & Write</span>
+                                        <span class="text-[10px] text-slate-500 mt-1 leading-tight">Full administrative access to add or remove minutes/files.</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-widest">Reason for Access</label>
+                                {{ access_request_form.reason|add_class:"w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-nigeria-green outline-none font-medium h-32 resize-none shadow-inner" }}
+                                <p class="text-[10px] text-slate-400 italic">Please state clearly why you need to access this particular personnel or policy folder.</p>
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-nigeria-green hover:bg-nigeria-dark text-white py-4 rounded-xl text-sm font-bold uppercase tracking-widest transition-all shadow-lg active:scale-[0.98]">
+                                Submit Request
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Share Document Modal -->
+    <div x-show="showShareModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showShareModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showShareModal = false"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div x-show="showShareModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-8 pt-8 pb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-slate-900 tracking-tight uppercase tracking-wider italic" id="modal-title">Share Document</h3>
+                        <button @click="showShareModal = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <p class="text-sm text-slate-600 mb-6">
+                        Sharing <span class="font-bold">"<span x-text="shareDocTitle"></span>"</span>. The recipient will be able to view this single document without accessing the entire file.
+                    </p>
+
+                    <form :action="'/documents/document/' + shareDocId + '/share/'" method="post" class="space-y-6">
+                        {% csrf_token %}
+                        <div class="relative">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-2">Recipient</label>
+                            
+                            <!-- Search Input -->
+                            <input type="text" 
+                                name="q"
+                                x-model="searchQuery"
+                                placeholder="Search staff..."
+                                hx-get="{% url 'document_management:recipient_search' %}"
+                                hx-trigger="keyup changed delay:500ms"
+                                hx-target="#share-search-results"
+                                class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-nigeria-green outline-none font-medium"
+                                autocomplete="off"
+                            >
+                            
+                            <!-- Hidden ID Input -->
+                            <input type="hidden" name="recipient_id" x-model="recipientId" required>
+
+                            <!-- Selected Badge -->
+                            <div x-show="recipientId" x-cloak class="mt-2 flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
+                                <div>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Selected Recipient</p>
+                                    <p x-text="recipientName" class="text-xs font-bold text-nigeria-green"></p>
+                                </div>
+                                <button type="button" @click="recipientId = ''; recipientName = ''; searchQuery = ''" class="text-slate-400 hover:text-red-500">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <!-- Search Results -->
+                            <div id="share-search-results" class="mt-2 max-h-40 overflow-y-auto"></div>
+                        </div>
+                        
+                        <button type="submit" :disabled="!recipientId" class="w-full bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 text-white py-4 rounded-xl text-sm font-bold uppercase tracking-widest transition-all shadow-lg active:scale-[0.98]">
+                            Share Document
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 </div>
 {% endblock %}
 
-{% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>{% endblock %}
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        var quill = new Quill('#quill-editor', {
-            theme: 'snow',
-            placeholder: 'Type administrative minute here...',
-            modules: {
-                toolbar: [
-                    ['bold', 'italic', 'underline'],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    ['link', 'clean']
-                ]
-            }
-        });
-
-        // Sync Quill content to hidden input
-        var form = document.querySelector('form[enctype="multipart/form-data"]');
-        var input = document.getElementById('quill-input');
-
-        form.onsubmit = function () {
-            input.value = quill.root.innerHTML;
-        };
+        // Quill logic removed in favor of Summernote
     });
 
     function selectRecipient(id, username) {
@@ -433,4 +634,5 @@
         document.getElementById('send-button').disabled = true;
     }
 </script>
+
 {% endblock %}
