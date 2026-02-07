@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual Environment
+.venv/
+env/
+venv/
+
+# Database
+db.sqlite3
+*.bak
+
+# Django specific
+*.log
+*.pot
+media/
+static/ # This might need to be reconsidered if static files are generated
+
+# Jupyter / IPython
+.ipynb_checkpoints
+
+# Celery
+celerybeat.pid
+celeryd.pid
+
+# Env variables
+.env
+
+# Tests
+.pytest_cache
