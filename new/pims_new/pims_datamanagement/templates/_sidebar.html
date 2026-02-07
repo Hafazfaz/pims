@@ -39,20 +39,22 @@
                     </a>
 
                     {% if not user.is_superuser %}
-                    <!-- My Files - for ALL staff -->
-                    <a href="{% url 'document_management:my_files' %}"
-                        class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'my_files' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                            </path>
-                        </svg>
-                        <span class="text-sm font-bold uppercase tracking-wider">My Files</span>
-                    </a>
+                        {% if not user.staff.is_registry %}
+                            <!-- My Files - for ALL staff -->
+                            <a href="{% url 'document_management:my_files' %}"
+                                class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'my_files' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                    </path>
+                                </svg>
+                                <span class="text-sm font-bold uppercase tracking-wider">My Files</span>
+                            </a>
+                        {% endif %}
 
-                    <!-- Record Explorer - for registry/HOD/unit managers only -->
-                    {% if user.staff.is_registry or user.staff.is_hod or user.staff.is_unit_manager %}
-                    <a href="{% url 'document_management:record_explorer' %}"
+                        <!-- Record Explorer - for registry/HOD/unit managers only -->
+                        {% if user.staff.is_registry or user.staff.is_hod or user.staff.is_unit_manager %}
+                        <a href="{% url 'document_management:record_explorer' %}"
                         class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'record_explorer' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
