@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Messages | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green uppercase tracking-widest">Incoming Records (Inbox)</h2>
+            <p class="text-sm text-slate-500 font-medium italic">Pending file dispatches requiring your attention.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Search Bar -->
+            <form method="GET" class="relative group min-w-[350px]">
+                <input type="text" name="q" value="{{ selected_search_query }}"
+                    placeholder="Search by Folder ID or Title..."
+                    class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-sm">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Incoming Files (Inbox) -->
+    <section class="space-y-4">
+        {% if inbox_files %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr
+                            class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-800">
+                            <th class="px-8 py-5">Folder Details</th>
+                            <th class="px-8 py-5 text-center">Status</th>
+                            <th class="px-8 py-5">Owner / Origin</th>
+                            <th class="px-8 py-5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium">
+                        {% for file in inbox_files %}
+                        <tr class="hover:bg-amber-50/20 transition-colors">
+                            <td class="px-8 py-7">
+                                <div class="font-bold text-nigeria-green text-base">{{ file.file_number }}</div>
+                                <div class="font-semibold text-slate-900 mt-1 truncate max-w-sm">{{ file.title }}</div>
+                                <div class="text-[10px] text-slate-400 font-bold uppercase mt-1">{{ file.get_file_type_display }}</div>
+                            </td>
+                            <td class="px-8 py-7 text-center">
+                                <span
+                                    class="text-[9px] font-bold px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 uppercase tracking-tighter italic">
+                                    {{ file.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-8 py-7">
+                                <div class="text-xs font-bold text-slate-900">
+                                    {% if file.owner %}
+                                        {{ file.owner_display }}
+                                    {% else %}
+                                        <span class="text-slate-400 italic">No Owner</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-[10px] text-slate-400 font-semibold uppercase mt-1 italic">Recieved: {{ file.created_at|date:"M d @ P" }}</div>
+                            </td>
+                            <td class="px-8 py-7 text-right">
+                                <a href="{% url 'document_management:file_detail' pk=file.pk %}"
+                                    class="inline-flex items-center px-6 py-2.5 bg-slate-900 text-white hover:bg-black rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                                    Open Folder
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% include 'document_management/partials/_pagination.html' with page_obj=inbox_files page_param='page' %}
+        </div>
+        {% else %}
+        <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-24 text-center">
+            <svg class="w-16 h-16 text-slate-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">Your incoming queue is currently empty.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
