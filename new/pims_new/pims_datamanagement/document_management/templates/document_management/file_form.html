@@ -4,7 +4,10 @@
 {% block title %}Initialize Record | PIMS{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto py-8 lg:py-12">
+<div class="max-w-3xl mx-auto py-8 lg:py-12" x-data="{ 
+    fileType: 'personal',
+    policyType: 'internal'
+}">
     <!-- Form Card -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <!-- Card Header -->
@@ -34,13 +37,60 @@
                 <div class="grid grid-cols-1 gap-6">
                     {% for field in form %}
                     {% if field.name != 'attachments' %}
-                    <div class="space-y-1.5">
-                        <label for="{{ field.id_for_label }}"
-                            class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                        {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all placeholder:text-slate-300 font-medium" }}
-                        {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
-                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
-                    </div>
+                        {% if field.name == 'owner' %}
+                             {# Personal: Required #}
+                             <div class="space-y-1.5" x-show="fileType === 'personal'" x-transition>
+                                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
+                                
+                                <div class="flex gap-2">
+                                    <div class="hidden">
+                                        {{ field }}
+                                    </div>
+                                    <input type="text" id="owner_display" class="block w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 font-medium cursor-not-allowed" readonly value="{{ request.user.staff }}">
+                                    {% if request.user.staff.is_registry or request.user.staff.is_hod or request.user.staff.is_unit_manager %}
+                                    <button type="button" 
+                                            class="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                            onclick="openStaffSearch()">
+                                        Assign to Staff
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
+                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                            </div>
+                        {% elif field.name == 'policy_type' %}
+                            <div class="space-y-1.5 p-4 bg-slate-50 rounded-xl border border-slate-100" x-show="fileType === 'policy'" x-transition>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
+                                <div class="flex items-center space-x-8 mt-2">
+                                    {% for radio in field %}
+                                    <label class="inline-flex items-center cursor-pointer">
+                                        {{ radio.tag }}
+                                        <span class="ml-2 text-sm font-bold text-slate-700">{{ radio.choice_label }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% elif field.name == 'department' %}
+                            <div class="space-y-1.5" x-show="fileType === 'policy' && policyType === 'internal'" x-transition>
+                                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
+                                {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
+                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                            </div>
+                        {% elif field.name == 'external_party' %}
+                            <div class="space-y-1.5" x-show="fileType === 'policy' && policyType === 'external'" x-transition>
+                                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
+                                {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
+                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="space-y-1.5">
+                                <label for="{{ field.id_for_label }}"
+                                    class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
+                                {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all placeholder:text-slate-300 font-medium" }}
+                                {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
+                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                            </div>
+                        {% endif %}
                     {% endif %}
                     {% endfor %}
 
@@ -68,7 +118,7 @@
                 </div>
 
                 <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-100">
-                    <a href="{% url 'document_management:registry_dashboard' %}"
+                    <a href="{% url 'document_management:registry_hub' %}"
                         class="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50">Cancel</a>
                     <button type="submit"
                         class="px-8 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-all">
@@ -79,4 +129,85 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_modals %}
+{% if request.user.staff.is_registry or request.user.staff.is_hod or request.user.staff.is_unit_manager %}
+<!-- Staff Search Modal -->
+<div id="staffSearchModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 class="text-lg font-bold text-slate-800">Assign File Owner</h3>
+            <button type="button" onclick="closeStaffSearch()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        
+        <div class="p-6">
+            <div class="mb-4 relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <input type="search" 
+                       class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green sm:text-sm"
+                       placeholder="Search staff by name or department..."
+                       name="q"
+                       hx-get="{% url 'document_management:staff_search' %}"
+                       hx-trigger="keyup changed delay:300ms, search"
+                       hx-target="#staff-search-results"
+                       autofocus>
+            </div>
+            
+            <div id="staff-search-results" class="max-h-60 overflow-y-auto border border-slate-100 rounded-lg">
+                <div class="p-4 text-center text-sm text-slate-500">
+                    Type to search for staff...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openStaffSearch() {
+        document.getElementById('staffSearchModal').classList.remove('hidden');
+        document.querySelector('#staffSearchModal input[type="search"]').focus();
+    }
+
+    function closeStaffSearch() {
+        document.getElementById('staffSearchModal').classList.add('hidden');
+    }
+
+    function selectStaff(id, name) {
+        // Update hidden select
+        const select = document.querySelector('select[name="owner"]');
+        if (select) {
+            select.value = id;
+            // Trigger change event if needed
+            select.dispatchEvent(new Event('change'));
+        }
+        
+        // Update display input
+        const display = document.getElementById('owner_display');
+        if (display) {
+            display.value = name;
+        }
+
+        closeStaffSearch();
+    }
+    
+    // Close on escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape") {
+            closeStaffSearch();
+        }
+    });
+
+    // Close on click outside
+    document.getElementById('staffSearchModal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeStaffSearch();
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}
