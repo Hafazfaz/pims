@@ -49,7 +49,7 @@ class Staff(models.Model):
     staff_type = models.CharField(max_length=20, choices=STAFF_TYPE_CHOICES, default='permanent')
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    signature = models.ImageField(upload_to='signatures/', blank=True, null=True)
+    signature = models.ImageField(upload_to='signatures/', blank=True, null=True) # Legacy signature field
 
     def __str__(self):
         try:
@@ -57,11 +57,13 @@ class Staff(models.Model):
         except AttributeError:
             return self.user.username
 
+    def get_active_signature(self):
+        return self.signatures.filter(is_active=True).first()
     @property
     def is_registry(self):
         if self.designation and "registry" in self.designation.name.lower():
             return True
-        return False
+        return self.user.groups.filter(name__iexact="Registry").exists()
 
     @property
     def is_hod(self):
@@ -72,3 +74,27 @@ class Staff(models.Model):
     @property
     def is_unit_manager(self):
         return hasattr(self, 'headed_unit') and self.headed_unit is not None
+
+    @property
+    def is_executive(self):
+        return self.user.groups.filter(name__iexact="Executives").exists()
+class StaffSignature(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='signatures')
+    image = models.ImageField(upload_to='signatures/verified/')
+    is_active = models.BooleanField(default=True)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Signature for {self.staff} ({'Verified' if self.is_verified else 'Pending'})"
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            # Deactivate all other signatures for this staff if this one is active
+            StaffSignature.objects.filter(staff=self.staff).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
