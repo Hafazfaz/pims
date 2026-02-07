@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Record Explorer | PIMS{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-120px)] flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 flex-shrink-0">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Record Explorer</h2>
+            <p class="text-sm text-slate-500 font-medium italic">Master-Detail Management Interface</p>
+        </div>
+        <div class="flex gap-3">
+            <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-widest border border-slate-200">
+                {% if user.staff.is_registry %}REGISTRY ACCESS{% elif user.staff.is_hod %}HOD ACCESS{% else %}UNIT MANAGER ACCESS{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="flex-grow flex gap-4 overflow-hidden">
+        <!-- Sidebar: File List -->
+        <div class="w-80 md:w-96 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
+            <!-- Search Side Header -->
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                <div class="relative group">
+                    <input type="text" name="q" value="{{ selected_search_query }}"
+                        placeholder="Search Folders..."
+                        hx-get="{% url 'document_management:record_explorer' %}"
+                        hx-trigger="keyup changed delay:300ms, q"
+                        hx-target="#file-sidebar-list"
+                        hx-indicator="#sidebar-indicator"
+                        class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List -->
+            <div id="file-sidebar-list" class="flex-grow overflow-y-auto">
+                {% include 'document_management/partials/_explorer_sidebar_list.html' %}
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="sidebar-indicator" class="htmx-indicator p-4 border-t border-slate-50 flex justify-center">
+                <svg class="animate-spin h-5 w-5 text-nigeria-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Detail Area Request Wrapper -->
+        <div class="flex-grow relative rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white">
+            <!-- HTMX Indicator for Detail Loading -->
+            <div id="detail-indicator" class="htmx-indicator absolute inset-0 bg-white/80 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-none">
+                <div class="flex flex-col items-center">
+                    <svg class="animate-spin h-10 w-10 text-nigeria-green mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest animate-pulse">Retrieving Folder Data...</span>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div id="file-detail-content" class="h-full overflow-y-auto p-8 flex flex-col">
+                <!-- Initial Empty State -->
+                <div class="h-full flex flex-col items-center justify-center text-center">
+                    <div class="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mb-6">
+                        <svg class="w-12 h-12 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 group-hover:text-nigeria-green transition-colors">Select a Record to Explore</h3>
+                    <p class="text-sm text-slate-400 max-w-xs mt-2 font-medium italic">Click on any folder in the sidebar to view its full chronicle, documents, and management options.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Custom scrollbar for sidebar */
+    #file-sidebar-list::-webkit-scrollbar {
+        width: 4px;
+    }
+    #file-sidebar-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    #file-sidebar-list::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+    }
+    #file-sidebar-list::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+</style>
+{% endblock %}
