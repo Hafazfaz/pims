@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registry Analytics | PIMS{% endblock %}
+
+{% block content %}
+<div class="space-y-10">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight font-display uppercase">Registry Analytics</h2>
+            <p class="text-sm text-slate-500 font-bold tracking-wide mt-1">High-level operational overview</p>
+        </div>
+    </div>
+
+    <!-- Core Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <!-- Total Files -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600">
+                        <i class="fas fa-folder-tree text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">Total Volume</span>
+                </div>
+                <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ total_files_count }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Active Record Containers</p>
+            </div>
+        </div>
+
+        <!-- Files Out -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                        <i class="fas fa-shipping-fast text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-blue-400 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-wider">Circulation</span>
+                </div>
+                <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ outgoing_files_count }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Files Currently Out</p>
+            </div>
+        </div>
+
+        <!-- Pending Actions -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+                        <i class="fas fa-clock text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-amber-500 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider">Backlog</span>
+                </div>
+                <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ pending_activation_count }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Requests Pending</p>
+            </div>
+        </div>
+
+        <!-- Critical Alerts -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 animate-pulse">
+                        <i class="fas fa-exclamation-triangle text-xl"></i>
+                    </div>
+                    <span class="text-xs font-black text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase tracking-wider">Critical</span>
+                </div>
+                <h3 class="text-5xl font-black {% if outgoing_overdue_count > 0 %}text-red-600{% else %}text-slate-900{% endif %} tracking-tight mb-1">{{ outgoing_overdue_count }}</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Overdue Returns</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Metrics Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Daily Velocity -->
+        <div class="bg-slate-900 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden col-span-1 md:col-span-2">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full -mr-20 -mt-20 opacity-50"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="p-3 bg-slate-800 rounded-xl">
+                        <i class="fas fa-tachometer-alt text-2xl text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black uppercase tracking-widest">Today's Velocity</h3>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Real-time system throughput</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-8">
+                    <div>
+                        <p class="text-4xl font-black text-emerald-400">{{ actions_today }}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total Actions</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl font-black text-white">{{ files_created_today }}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">New Files</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl font-black text-white">{{ docs_added_today }}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Docs Added</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coverage Stats -->
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+                <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest mb-1">Registry Coverage</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Staff without personal files</p>
+            </div>
+            
+            <div class="my-8 flex items-center justify-center relative">
+                <svg class="w-32 h-32 transform -rotate-90">
+                    <circle cx="64" cy="64" r="56" stroke="currentColor" stroke-width="12" fill="transparent" class="text-slate-100" />
+                    <circle cx="64" cy="64" r="56" stroke="currentColor" stroke-width="12" fill="transparent" stroke-dasharray="351.86" stroke-dashoffset="{{ staff_without_files_count|add:0|divisibleby:total_staff_count|stringformat:'f' }}" class="text-blue-500" />
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center flex-col">
+                    <span class="text-3xl font-black text-slate-900">{{ staff_without_files_count }}</span>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">Missing</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+                <span>Total Staff: {{ total_staff_count }}</span>
+                <a href="{% url 'document_management:staff_without_files' %}" class="text-blue-600 hover:text-blue-800">View List <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
