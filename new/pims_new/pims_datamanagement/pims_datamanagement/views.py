@@ -1,7 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import  redirect
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
-import datetime # Import for month calculation
 from django.utils import timezone
 from document_management.models import File, Document
 from organization.models import Staff # Import the Staff model
@@ -10,9 +9,21 @@ class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
 
     def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated and request.user.is_superuser:
-            from django.shortcuts import redirect
-            return redirect('user_management:admin_dashboard_health')
+        if request.user.is_authenticated:
+            if request.user.is_superuser:
+                return redirect('user_management:admin_dashboard_health')
+            
+            try:
+                staff = request.user.staff
+                # Route registry users to registry dashboard
+                if staff.is_registry:
+                    return redirect('document_management:registry')
+                # Route HODs and unit managers to executive dashboard
+                elif staff.is_hod or staff.is_unit_manager:
+                    return redirect('document_management:executive_dashboard')
+            except Staff.DoesNotExist:
+                pass
+                
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
