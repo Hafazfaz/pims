@@ -1,194 +1,51 @@
 {% extends 'base.html' %}
 
-{% block title %}My Files | PIMS{% endblock %}
+{% block title %}{% if user.staff.is_registry %}Folder Distribution{% else %}My Records{% endif %} | PIMS{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <!-- Header Section -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            {% if user.staff.is_registry %}
-                <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green">File Distribution</h2>
-                <p class="text-sm text-slate-500 font-medium">Manage and distribute files across the organization.</p>
-            {% else %}
-                <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green">My Records</h2>
-                <p class="text-sm text-slate-500 font-medium">Access and manage files under your ownership or custody.</p>
-            {% endif %}
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-4 opacity-[0.03]">
+            <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
         </div>
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        
+        <div class="relative">
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em] text-gov-green mb-1">{% if user.staff.is_registry %}Folder Distribution{% else %}My Records{% endif %}</h2>
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest italic pr-2 border-r border-slate-200">Personnel Identity</span>
+                <span class="text-xl font-black text-nigeria-green tracking-tighter">{{ staff_file_number }}</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 relative">
             <!-- Search Bar -->
-            <form method="GET" class="relative group min-w-[300px]">
+            <form method="GET" class="relative group min-w-[300px]" hx-boost="true">
                 <input type="text" name="q" value="{{ selected_search_query }}"
-                    placeholder="Search by File ID or Title..."
-                    class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-sm">
+                    placeholder="Search your records..."
+                    hx-get="{% url 'document_management:my_files' %}"
+                    hx-trigger="keyup changed delay:10ms, q"
+                    hx-target="#my-files-list"
+                    hx-indicator="#search-indicator"
+                    hx-push-url="true"
+                    class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-inner">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </div>
+                <!-- Search Indicator -->
+                <div id="search-indicator" class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <svg class="animate-spin h-5 w-5 text-nigeria-green" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
             </form>
-            
-            {% if perms.document_management.create_file %}
-            <a href="{% url 'document_management:file_create' %}"
-                class="inline-flex items-center px-6 py-2.5 bg-gov-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-colors whitespace-nowrap">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Create New File
-            </a>
-            {% endif %}
         </div>
     </div>
 
-    <!-- Incoming Files (Inbox) -->
-    <section class="space-y-4">
-        <div class="flex items-center space-x-2">
-            <div class="w-1.5 h-6 bg-amber-500 rounded-full"></div>
-            <h3 class="text-lg font-bold text-slate-900">Incoming Files</h3>
-            {% if inbox_files %}<span
-                class="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded animate-pulse border border-amber-200 uppercase tracking-wider">Attention
-                Required</span>{% endif %}
-        </div>
-
-        {% if inbox_files %}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead>
-                        <tr
-                            class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-800">
-                            <th class="px-8 py-5">File Number</th>
-                            <th class="px-8 py-5 text-center">Status</th>
-                            <th class="px-8 py-5">Sent By</th>
-                            <th class="px-8 py-5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 font-medium">
-                        {% for file in inbox_files %}
-                        <tr class="hover:bg-amber-50/20 transition-colors">
-                            <td class="px-8 py-7">
-                                <div class="font-bold text-nigeria-green text-base">{{ file.file_number }}</div>
-                                <div class="font-semibold text-slate-900 mt-1 truncate max-w-sm">{{ file.title }}</div>
-                                <div class="text-[10px] text-slate-400 font-bold uppercase mt-1">{{ file.get_file_type_display }}</div>
-                            </td>
-                            <td class="px-8 py-7 text-center">
-                                <span
-                                    class="text-[9px] font-bold px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 uppercase tracking-tighter italic">
-                                    {{ file.get_status_display }}
-                                </span>
-                            </td>
-                            <td class="px-8 py-7">
-                                <div class="text-xs font-bold text-slate-900">
-                                    {% if file.owner %}
-                                        {{ file.owner.get_full_name|default:file.owner.user.username }}
-                                    {% else %}
-                                        <span class="text-slate-400 italic">No Owner</span>
-                                    {% endif %}
-                                </div>
-                                <div class="text-[10px] text-slate-400 font-semibold uppercase mt-1">Recieved: {{ file.created_at|date:"M d @ P" }}</div>
-                            </td>
-                            <td class="px-8 py-7 text-right">
-                                <a href="{% url 'document_management:file_detail' pk=file.pk %}"
-                                    class="inline-flex items-center px-4 py-2 border border-slate-900 text-slate-900 hover:bg-black hover:text-white rounded-lg text-xs font-bold transition-all shadow-sm">
-                                    Open File
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% include 'document_management/partials/_pagination.html' with page_obj=inbox_files page_param='page_inbox' %}
-        </div>
-        {% else %}
-        <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl py-16 text-center">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest italic">No pending file dispatches in
-                your queue.</p>
-        </div>
-        {% endif %}
-    </section>
-
-    <!-- Owned Files Section -->
-    <section class="space-y-4 pt-8">
-        <div class="flex items-center space-x-2">
-            <div class="w-1.5 h-6 bg-gov-green rounded-full"></div>
-            <h3 class="text-lg font-bold text-slate-900">My Files</h3>
-        </div>
-
-        {% if owned_files %}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead>
-                        <tr
-                            class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
-                            <th class="px-8 py-4">File Details</th>
-                            <th class="px-8 py-4 text-center">Status</th>
-                            <th class="px-8 py-4">Current Custody</th>
-                            <th class="px-8 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 font-medium">
-                        {% for file in owned_files %}
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="px-8 py-8">
-                                <div class="font-bold text-nigeria-green">{{ file.file_number }}</div>
-                                <div class="font-bold text-slate-900 mt-1">{{ file.title|truncatechars:100 }}</div>
-                                <div class="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{{ file.get_file_type_display }}</div>
-                            </td>
-                            <td class="px-8 py-8 text-center">
-                                <span class="text-[9px] font-bold px-3 py-1 rounded-full border shadow-sm uppercase tracking-wider
-                                    {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
-                                    {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border-amber-200
-                                    {% elif file.status == 'closed' %}bg-slate-100 text-slate-700 border-slate-200
-                                    {% elif file.status == 'archived' %}bg-slate-900 text-white border-slate-800
-                                    {% else %}bg-green-50 text-green-700 border-green-200{% endif %}">
-                                    {{ file.get_status_display }}
-                                </span>
-                            </td>
-                            <td class="px-8 py-8">
-                                <div class="text-[11px] font-bold text-slate-900 uppercase">
-                                    <span class="text-slate-400 font-medium tracking-[0.1em] mr-1 italic">Active:</span>
-                                    {% if file.current_location %}
-                                        {{ file.current_location.get_full_name|default:file.current_location.user.username }}
-                                    {% else %}
-                                        Unknown
-                                    {% endif %}
-                                </div>
-                                <div class="text-[9px] text-slate-400 font-medium uppercase mt-1 italic">Registrated: {{ file.created_at|date:"M d, Y" }}</div>
-                            </td>
-                            <td class="px-8 py-8 text-right">
-                                <div class="flex items-center justify-end">
-                                    {% if file.status == 'inactive' %}
-                                    <form action="{% url 'document_management:file_request_activation' pk=file.pk %}"
-                                        method="post">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                            class="text-[10px] font-bold bg-gov-green text-white px-4 py-2 rounded-lg hover:bg-nigeria-dark transition-all shadow-sm shadow-green-900/10 active:scale-95">
-                                            Request Activation
-                                        </button>
-                                    </form>
-                                    {% else %}
-                                    <a href="{% url 'document_management:file_detail' pk=file.pk %}"
-                                        class="inline-flex items-center px-4 py-2 border border-slate-300 rounded text-[10px] font-bold text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-sm transition-all">
-                                        Open File
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% include 'document_management/partials/_pagination.html' with page_obj=page_obj page_param='page' %}
-        </div>
-        {% else %}
-        <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl py-16 text-center">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] font-medium italic">No personnel
-                records registered under your administrative identity.</p>
-        </div>
-        {% endif %}
-    </section>
+    <!-- Personnel Folders & Documents -->
+    {% include 'document_management/partials/_my_files_list.html' %}
 </div>
 {% endblock %}
