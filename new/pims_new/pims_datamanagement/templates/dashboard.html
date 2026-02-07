@@ -113,7 +113,7 @@
         </div>
 
         <!-- System Notices / Quick Actions -->
-         {% if not user.is_superuser %}
+         {% if user.staff.is_registry %}
         <div class="space-y-6">
             <div class="bg-slate-900 rounded-2xl p-8 shadow-xl relative overflow-hidden group">
                 <div
@@ -130,7 +130,7 @@
                             </path>
                         </svg>
                     </a>
-                    <a href="{% url 'document_management:registry_dashboard' %}"
+                    <a href="{% url 'document_management:registry_hub' %}"
                         class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group/btn">
                         <span class="text-sm font-bold text-white uppercase tracking-tight">Registry Operations Hub</span>
                         <svg class="w-5 h-5 text-nigeria-green group-hover/btn:translate-x-1 transition-transform"
