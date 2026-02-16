@@ -57,6 +57,10 @@ class RegistryHubView(HTMXLoginRequiredMixin, PermissionRequiredMixin, ListView)
         
         if not staff_user.is_registry:
             raise PermissionDenied("Only registry users can access the registry hub.")
+        
+        # Super Admins are excluded from normal user views per user request
+        if self.request.user.is_superuser and not staff_user.is_registry:
+            raise PermissionDenied("Super Admins should use the Admin Dashboard for full control.")
 
         # Registry users see all files
         queryset = File.objects.all()
@@ -322,7 +326,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or self.request.user.is_superuser)
+        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -331,7 +335,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
         
-        if not (staff_user.is_hod or staff_user.is_unit_manager or self.request.user.is_superuser):
+        if not (staff_user.is_hod or staff_user.is_unit_manager):
             raise PermissionDenied("Only executives, HODs, and unit managers can access this dashboard.")
 
         today = timezone.now().date()
@@ -462,7 +466,7 @@ class HODDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or self.request.user.is_superuser)
+        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager)
 
     def get_queryset(self):
         staff_user = self.get_staff_user()
@@ -858,9 +862,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
     def has_permission(self):
         user = self.request.user
-        # Admins/Superusers always have access
-        if user.is_superuser or user.is_staff:
-            return True
+        
+        # Super Admins / is_staff bypass removed per user request for strict role separation.
+        # They will only have access if they also have a Staff role (Registry, Owner, etc.) below.
 
         # Get the file object that is being accessed
         try:
@@ -926,8 +930,8 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
     def can_view_original(self, file, user):
         """Helper to determine if user can view original (unwatermarked) files."""
-        if user.is_superuser:
-            return True
+        # Superuser bypass removed per user request
+        # Only Staff roles identified below have access
         
         try:
             staff = Staff.objects.get(user=user)
@@ -1343,8 +1347,13 @@ class FileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     def test_func(self):
         user = self.request.user
-        # Registry users can NOT edit files - only view, create, delete
-        return user.is_superuser
+        # Super Admins are excluded from normal user views to prevent clutter/confusion
+        # ONLY registry staff can edit here if needed (actually earlier logic said only superuser, let's re-align)
+        # Re-aligning with user's new request: Super Admin shouldn't be here.
+        try:
+            return user.staff.is_registry
+        except AttributeError:
+            return False
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -1440,7 +1449,7 @@ class DirectorAdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListVi
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or self.request.user.is_superuser)
+        return staff_user and staff_user.is_hod
 
     def get_staff_user(self):
         user = self.request.user
@@ -1690,9 +1699,9 @@ class FileDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
         user = self.request.user
         try:
-            return user.staff.is_registry or user.is_superuser
+            return user.staff.is_registry
         except AttributeError:
-            return user.is_superuser
+            return False
 
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
@@ -1730,9 +1739,8 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         file_obj = document.file
         user = self.request.user
 
-        # Admins/Superusers always have access
-        if user.is_superuser or user.is_staff:
-            return True
+        # Superuser/is_staff bypass removed per user request for strict role separation
+        pass
 
         # Try to get the Staff object for the current user
         staff_user = None
@@ -1950,7 +1958,8 @@ class DocumentShareView(LoginRequiredMixin, View):
             Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
         ).exists()
 
-        if not (user.is_superuser or is_registry or is_owner or is_custodian or has_access):
+        # Superuser bypass removed per user request
+        if not (is_registry or is_owner or is_custodian or has_access):
              messages.error(request, "You do not have permission to share this document.")
              return redirect(file.get_absolute_url())
 
