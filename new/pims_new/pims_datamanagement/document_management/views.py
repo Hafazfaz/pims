@@ -1002,15 +1002,17 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         is_custodian = hasattr(self.request.user, 'staff') and self.object.current_location == self.request.user.staff
         is_owner = hasattr(self.request.user, 'staff') and self.object.owner == self.request.user.staff
         
-        context["can_add_minute"] = is_registry or is_custodian or (
+        # Registry users can view but NOT add/edit documents
+        context["can_add_minute"] = (not is_registry) and (
+            is_custodian or (
             has_approved_access and 
             access_type == 'read_write' and 
             self.object.status == 'active'
-        )
+        ))
 
-        context["can_delete_documents"] = is_registry or (
-            has_approved_access and access_type == 'read_write'
-        )
+        context["can_delete_documents"] = (not is_registry) and (
+                has_approved_access and access_type == 'read_write'
+            )
 
         context["pending_access_request"] = FileAccessRequest.objects.filter(
             file=self.object, requested_by=self.request.user, status="pending"
@@ -1341,11 +1343,8 @@ class FileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     def test_func(self):
         user = self.request.user
-        
-        try:
-            return user.staff.is_registry or user.is_superuser
-        except AttributeError:
-            return False
+        # Registry users can NOT edit files - only view, create, delete
+        return user.is_superuser
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -1646,12 +1645,7 @@ class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
         file_obj = document.file
         user = self.request.user
 
-        # Registry can always delete
-        try:
-            if user.staff.is_registry:
-                return True
-        except AttributeError:
-            pass
+        # Registry can NOT delete documents (they can only view, create, and delete FILES)
 
         # Check for active read-write access
         active_access = FileAccessRequest.objects.filter(
@@ -1664,26 +1658,61 @@ class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
         if active_access and active_access.is_active:
             return True
 
+        # Allow the document uploader to delete their own documents
+        if document.uploaded_by == user:
+            return True
+
         return False
 
     def post(self, request, pk):
         document = get_object_or_404(Document, pk=pk)
         file_obj = document.file
-
-        # Log the deletion
+        
         log_action(
-            request.user,
-            "DOCUMENT_DELETED",
-            request=request,
-            obj=document,
-            details={"file": file_obj.file_number, "title": document.title or "Untitled"}
+            request.user, 
+            "DOCUMENT_DELETED", 
+            request=request, 
+            obj=file_obj,
+            details={'document_title': document.title, 'document_id': document.pk}
         )
-
+        
         # Delete the document
         document.delete()
-
+        
         messages.success(request, "Document deleted successfully.")
-        return redirect('document_management:file_detail', pk=file_obj.pk)
+        return redirect(file_obj.get_absolute_url())
+
+class FileDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Delete a file (folder) container.
+    Only Registry or Superusers can delete files.
+    """
+    def test_func(self):
+        user = self.request.user
+        try:
+            return user.staff.is_registry or user.is_superuser
+        except AttributeError:
+            return user.is_superuser
+
+    def post(self, request, pk):
+        file_obj = get_object_or_404(File, pk=pk)
+        
+        log_action(
+            request.user, 
+            "FILE_DELETED", 
+            request=request, 
+            obj=file_obj,
+            details={'file_number': file_obj.file_number, 'title': file_obj.title}
+        )
+        
+        file_title = file_obj.title
+        file_number = file_obj.file_number
+        
+        # Delete the file
+        file_obj.delete()
+        
+        messages.success(request, f"File {file_title} ({file_number}) has been permanently deleted.")
+        return redirect('document_management:registry_hub')
 
 
 class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):

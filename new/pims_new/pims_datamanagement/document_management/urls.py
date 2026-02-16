@@ -18,6 +18,7 @@ urlpatterns = [
     path('file/<int:pk>/archive/', views.FileArchiveView.as_view(), name='file_archive'),
     path('file/<int:pk>/', views.FileDetailView.as_view(), name='file_detail'),
     path('file/<int:pk>/edit/', views.FileUpdateView.as_view(), name='file_edit'),
+    path('file/<int:pk>/delete/', views.FileDeleteView.as_view(), name='file_delete'),
     path('file/<int:file_pk>/add-document/', views.DocumentCreateView.as_view(), name='document_add'),
     path('document/upload/', views.DocumentUploadView.as_view(), name='document_upload'),
     path('admin/dashboard/', views.DirectorAdminDashboardView.as_view(), name='admin_dashboard'),

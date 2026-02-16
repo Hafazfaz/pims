@@ -91,7 +91,7 @@
                     {{ file.get_status_display }}
                 </span>
 
-                {% if file.status == 'active' and user.staff.is_registry or user.is_superuser %}
+                {% if file.status == 'active' and user.is_superuser %}
                 <a href="{% url 'document_management:file_edit' pk=file.pk %}"
                     class="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-black transition-colors shadow-sm"
                     title="Edit Metadata">

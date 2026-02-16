@@ -61,9 +61,10 @@ class FileForm(forms.ModelForm):
             try:
                 creator_staff = self.user.staff
                 
-                # Default logic for owner filtering remains same for now, 
-                # but we will enforce 1:1 in clean()
-                if creator_staff.is_hod:
+                # Registry users can assign files to ANY staff member
+                if creator_staff.is_registry:
+                    self.fields["owner"].queryset = Staff.objects.all().order_by("user__username")
+                elif creator_staff.is_hod:
                     # HOD can create files for anyone in their department EXCEPT themselves
                     self.fields["owner"].queryset = Staff.objects.filter(
                         department=creator_staff.headed_department
@@ -82,22 +83,14 @@ class FileForm(forms.ModelForm):
                 # Set initial value (current user for staff, or blank for registry/hod if they need to choose)
                 if not creator_staff.is_registry and not creator_staff.is_hod and not creator_staff.is_unit_manager:
                     self.fields["owner"].initial = creator_staff
+                
+                # Ensure it's not required by browser if it's hidden (Django validation will still run)
+                self.fields["owner"].required = False
             except Staff.DoesNotExist:
                 # If user is not staff, they can only create for themselves
                 self.fields["owner"].queryset = Staff.objects.filter(
                     user=self.user
                 )
-
-            # Registry User Exception: Can assign to anyone (but initially show empty or self)
-            # We will rely on the clean method to validate the final selection
-            # and the frontend to search.
-                if creator_staff.is_registry:
-                     # For registry, we allow all staff in the queryset
-                     self.fields["owner"].queryset = Staff.objects.all()
-                
-                # Ensure it's not required by browser if it's hidden (Django validation will still run)
-                # Actually, HiddenInput doesn't render 'required' in modern Django, but safety first.
-                self.fields["owner"].required = False 
 
         else:
             # For unauthenticated users, no owner choices (shouldn't happen with LoginRequiredMixin)
