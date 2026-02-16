@@ -1,100 +1,194 @@
 <div id="my-files-list" class="space-y-6">
-    {% for folder in owned_folders %}
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden group hover:border-nigeria-green/30 transition-all">
-        <!-- Folder Header -->
-        <div class="bg-slate-50 px-8 py-5 border-b border-slate-200 flex justify-between items-center group-hover:bg-slate-100/50 transition-colors">
-            <div class="flex items-center gap-4">
-                <div class="p-3 bg-white rounded-lg border border-slate-200 text-nigeria-green shadow-sm">
-                    <svg class="w-6 h-6 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-[10px] font-black bg-slate-900 text-white px-2 py-0.5 rounded tracking-widest">{{ folder.file_number }}</span>
-                        <h4 class="text-base font-bold text-slate-900 leading-tight">{{ folder.title }}</h4>
-                    </div>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{{ folder.get_file_type_display }} Record • {{ folder.created_at|date:"M d, Y" }}</p>
-                </div>
-            </div>
-            <a href="{% url 'document_management:file_detail' pk=folder.pk %}?tab=chronicle" 
-               class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                View History
-            </a>
+  {% for folder in owned_folders %}
+  <div
+    class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden group hover:border-nigeria-green/30 transition-all"
+  >
+    <!-- Folder Header -->
+    <div
+      class="bg-slate-50 px-8 py-5 border-b border-slate-200 flex justify-between items-center group-hover:bg-slate-100/50 transition-colors"
+    >
+      <div class="flex items-center gap-4">
+        <div
+          class="p-3 bg-white rounded-lg border border-slate-200 text-nigeria-green shadow-sm"
+        >
+          <svg
+            class="w-6 h-6 font-bold"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            ></path>
+          </svg>
         </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span
+              class="text-[10px] font-black bg-slate-900 text-white px-2 py-0.5 rounded tracking-widest"
+              >{{ folder.file_number }}</span
+            >
+            <h4 class="text-base font-bold text-slate-900 leading-tight">
+              {{ folder.title }}
+            </h4>
+          </div>
+          <p
+            class="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider"
+          >
+            {{ folder.get_file_type_display }} Record • {{
+            folder.created_at|date:"M d, Y" }}
+          </p>
+        </div>
+      </div>
+      <a
+        href="{% url 'document_management:file_detail' pk=folder.pk %}?tab=chronicle"
+        class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95"
+      >
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
+        </svg>
+        View History
+      </a>
+    </div>
 
-        <!-- Documents under this Folder -->
-        <div class="p-0">
-            <table class="w-full text-left text-sm">
-                <thead>
-                    <tr class="bg-white text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                        <th class="px-8 py-4">Document Title / Label</th>
-                        <th class="px-8 py-4">Type</th>
-                        <th class="px-8 py-4">Date Uploaded</th>
-                        <th class="px-8 py-4 text-right">Access</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                    {% for doc in folder.documents.all|slice:":5" %}
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-8 py-5">
-                            <div class="flex items-center gap-3">
-                                <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                <span class="font-bold text-slate-700 text-sm">{% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}</span>
-                            </div>
-                        </td>
-                        <td class="px-8 py-5">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">{% if doc.minute_content %}Internal Minute{% else %}Attachment{% endif %}</span>
-                        </td>
-                        <td class="px-8 py-5">
-                            <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
-                        </td>
-                        <td class="px-8 py-5 text-right">
-                            {% if doc.attachment %}
-                            <a href="{{ doc.attachment.url }}" target="_blank" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
-                            {% else %}
-                            <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="px-8 py-10 text-center text-slate-300 italic text-xs font-medium">No official documents indexed in this folder.</td>
-                    </tr>
-                    {% endfor %}
-                    
-                    {% if folder.documents.count > 5 %}
-                    <tr id="load-more-row-{{ folder.pk }}">
-                        <td colspan="4" class="px-8 py-4 text-center">
-                            <button class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-nigeria-green transition-colors"
-                                    hx-get="{% url 'document_management:file_documents_paginate' pk=folder.pk %}?page=2&q={{ selected_search_query }}"
-                                    hx-target="#load-more-row-{{ folder.pk }}"
-                                    hx-swap="outerHTML">
-                                Load More Documents...
-                            </button>
-                        </td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
+    <!-- Documents under this Folder -->
+    <div class="p-0">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr
+            class="bg-white text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100"
+          >
+            <th class="px-8 py-4">Document Title / Label</th>
+            <th class="px-8 py-4">Type</th>
+            <th class="px-8 py-4">Date Uploaded</th>
+            <th class="px-8 py-4 text-right">Access</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for doc in folder.documents.all|slice:":5" %}
+          <tr class="hover:bg-slate-50/50 transition-colors">
+            <td class="px-8 py-5">
+              <div class="flex items-center gap-3">
+                <svg
+                  class="w-4 h-4 text-slate-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  ></path>
+                </svg>
+                <span class="font-bold text-slate-700 text-sm"
+                  >{% if doc.title %}{{ doc.title }}{% else %}Official
+                  Document{% endif %}</span
+                >
+              </div>
+            </td>
+            <td class="px-8 py-5">
+              <span class="text-[10px] font-bold text-slate-500 uppercase"
+                >{% if doc.minute_content %}Internal Minute{% else
+                %}Attachment{% endif %}</span
+              >
+            </td>
+            <td class="px-8 py-5">
+              <span class="text-xs text-slate-400 font-medium"
+                >{{ doc.uploaded_at|date:"M d, Y" }}</span
+              >
+            </td>
+            <td class="px-8 py-5 text-right">
+              {% if doc.attachment %}
+              <a
+                href="{{ doc.attachment.url }}"
+                target="_blank"
+                class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest"
+                >Download</a
+              >
+              {% else %}
+              <span
+                class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic"
+                >Digital Entry</span
+              >
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td
+              colspan="4"
+              class="px-8 py-10 text-center text-slate-300 italic text-xs font-medium"
+            >
+              No official documents indexed in this folder.
+            </td>
+          </tr>
+          {% endfor %} {% if folder.documents.count > 5 %}
+          <tr id="load-more-row-{{ folder.pk }}">
+            <td colspan="4" class="px-8 py-4 text-center">
+              <button
+                class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-nigeria-green transition-colors"
+                hx-get="{% url 'document_management:file_documents_paginate' pk=folder.pk %}?page=2&q={{ selected_search_query }}"
+                hx-target="#load-more-row-{{ folder.pk }}"
+                hx-swap="outerHTML"
+              >
+                Load More Documents...
+              </button>
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
-    {% empty %}
-    <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl py-32 text-center">
-        <div class="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-            <svg class="w-10 h-10 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1h1a2 2 0 012 2v10a2 2 0 01-2 2H5z"></path>
-            </svg>
-        </div>
-        <h5 class="text-sm font-black text-slate-400 uppercase tracking-[0.3em] italic mb-2">Registry Archive Empty</h5>
-        <p class="text-xs text-slate-400 font-medium italic">No personal records have been generated or assigned to your identity yet.</p>
+  </div>
+  {% empty %}
+  <div
+    class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl py-32 text-center"
+  >
+    <div
+      class="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100"
+    >
+      <svg
+        class="w-10 h-10 text-slate-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.5"
+          d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1h1a2 2 0 012 2v10a2 2 0 01-2 2H5z"
+        ></path>
+      </svg>
     </div>
-    {% endfor %}
-
-    {% if is_paginated %}
-    <div class="mt-8" hx-boost="true">
-        {% include 'document_management/partials/_pagination.html' with page_obj=page_obj page_param='page' %}
-    </div>
-    {% endif %}
+    <h5
+      class="text-sm font-black text-slate-400 uppercase tracking-[0.3em] italic mb-2"
+    >
+      Registry Archive Empty
+    </h5>
+    <p class="text-xs text-slate-400 font-medium italic">
+      No personal records have been generated or assigned to your identity yet.
+    </p>
+  </div>
+  {% endfor %} {% if is_paginated %}
+  <div class="mt-8" hx-boost="true">
+    {% include 'document_management/partials/_pagination.html' with
+    page_obj=page_obj page_param='page' %}
+  </div>
+  {% endif %}
 </div>
