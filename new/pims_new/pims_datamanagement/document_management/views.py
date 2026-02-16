@@ -1101,33 +1101,20 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         # Handle Document Status Update action
         if request.POST.get("action") == "update_document_status":
-            is_registry = False
-            try:
-                is_registry = request.user.staff.is_registry
-            except AttributeError:
-                pass
-
-            # Check for approved RW access
-            from .models import FileAccessRequest
-            has_rw_access = FileAccessRequest.objects.filter(
-                file=self.object,
-                requested_by=request.user,
-                status='approved',
-                access_type='read_write'
-            ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
-
-            # Registry or staff with RW access or can_delete_documents logic (which usually implies RW)
-            # We can also check if they are the uploader? Usually uploaders can't change status once approved, but let's stick to RW/Registry.
-            if not (is_registry or has_rw_access):
-                 messages.error(request, "You do not have permission to update document status.")
-                 return redirect(self.object.get_absolute_url())
-
             doc_id = request.POST.get("document_id")
             new_status = request.POST.get("status")
-            
+
             if doc_id and new_status:
                 from django.shortcuts import get_object_or_404
+                # Fetch document first to check ownership
                 doc = get_object_or_404(self.object.documents, pk=doc_id)
+                
+                # Strict check: Only the uploader can change status
+                if doc.uploaded_by != request.user:
+                    messages.error(request, "Only the document creator can update its status.")
+                    return redirect(self.object.get_absolute_url())
+
+                # Proceed with update
                 old_status = doc.status
                 doc.status = new_status
                 doc.save()
@@ -1974,27 +1961,44 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
     def dispatch(self, request, *args, **kwargs):
         self.file_obj = get_object_or_404(File, pk=self.kwargs.get('file_pk'))
         
-        # Check if user has access to this file
-        is_registry = False
-        try:
-            is_registry = request.user.staff.is_registry
-        except AttributeError:
-            pass
-            
         staff_user = getattr(request.user, 'staff', None)
-        is_owner = self.file_obj.owner == staff_user
-        is_custodian = self.file_obj.current_location == staff_user
         
-        # Check for approved access requests
+        # Check for approved access requests first (Override)
         has_approved_access = FileAccessRequest.objects.filter(
             file=self.file_obj,
             requested_by=request.user,
-            status='approved'
+            status='approved',
+            access_type='read_write' # Must be RW to add documents
         ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+
+        if has_approved_access:
+             if self.file_obj.status != 'active':
+                messages.error(request, "Documents can only be added to active files.")
+                return redirect(self.file_obj.get_absolute_url())
+             return super().dispatch(request, *args, **kwargs)
+
+        # Strict Role-Based Access Control
+        has_permission = False
         
-        # Must be Registry, Owner, Custodian, or have approved access
-        if not (is_registry or is_owner or is_custodian or has_approved_access):
-            messages.error(request, "You do not have permission to add documents to this file.")
+        if self.file_obj.file_type == 'personal':
+            # Personal Files: ONLY the Owner can add documents
+            if self.file_obj.owner == staff_user:
+                has_permission = True
+        
+        elif self.file_obj.file_type == 'policy':
+             # Policy/Public Files: ONLY the Department HOD can add documents
+             if staff_user and staff_user.is_hod and self.file_obj.department == staff_user.department:
+                 has_permission = True
+        
+        else:
+             # Fallback for other types (e.g. if added later): Default to Owner or HOD logic
+             if self.file_obj.owner == staff_user:
+                 has_permission = True
+             if staff_user and staff_user.is_hod and self.file_obj.department == staff_user.department:
+                 has_permission = True
+
+        if not has_permission:
+            messages.error(request, "You do not have permission to add documents to this file. Restricted to File Owner/HOD.")
             return redirect(self.file_obj.get_absolute_url())
             
         if self.file_obj.status != 'active':

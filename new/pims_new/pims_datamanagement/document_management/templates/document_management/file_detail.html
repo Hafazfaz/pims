@@ -314,6 +314,7 @@
                                                                     </button>
                                                                 </form>
                                                                 
+                                                            {% if entry.item.uploaded_by == request.user %}
                                                                 <!-- Status Update Form -->
                                                                 <form method="post" class="flex items-center gap-1">
                                                                     {% csrf_token %}
@@ -325,6 +326,7 @@
                                                                         <option value="cancelled" {% if entry.item.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
                                                                     </select>
                                                                 </form>
+                                                            {% endif %}
                                                             </div>
                                                             {% endif %}
                                                         </div>
