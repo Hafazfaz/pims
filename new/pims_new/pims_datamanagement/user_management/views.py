@@ -763,6 +763,11 @@ class DownloadSampleUserCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
 class UserProfileView(LoginRequiredMixin, TemplateView):
     template_name = "user_management/profile.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            return redirect('home')
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         staff = get_object_or_404(Staff, user=self.request.user)
