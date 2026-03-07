@@ -1,5 +1,4 @@
 from datetime import timedelta
-from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, resolve, reverse
 from django.utils import timezone # Import timezone

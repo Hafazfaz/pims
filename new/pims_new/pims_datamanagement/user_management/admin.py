@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils import timezone
 from .models import CustomUser
 from organization.models import Staff # Import Staff from organization app
 

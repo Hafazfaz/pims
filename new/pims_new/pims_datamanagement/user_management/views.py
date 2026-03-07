@@ -1,11 +1,8 @@
-import base64
 import io
-import random
 import logging  # Import logging
 from django.conf import settings  # Add this import
 from django.utils import timezone  # Add this import
 
-import qrcode
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.sessions.models import (
@@ -22,6 +19,11 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import ListView, TemplateView  # Added TemplateView
 from django.db.models import Q
+from django.contrib.auth.mixins import (
+    PermissionRequiredMixin,
+    LoginRequiredMixin,
+    UserPassesTestMixin,
+)
 
 from .models import CustomUser, PasswordHistory  # Import PasswordHistory
 from audit_log.utils import log_action  # Import audit logging utility
@@ -46,7 +48,6 @@ from organization.models import (
     Unit,
     Designation,
     Staff,
-    StaffSignature,
 )  # Added Designation for filtering
 from .forms import SignatureUploadForm
 
@@ -64,7 +65,7 @@ class CustomLoginView(LoginView):
     def form_invalid(self, form):
         # Check if a lockout message was set in the session by the authentication backend
         lockout_message = self.request.session.pop("lockout_message", None)
-        locked_username = self.request.session.pop("locked_username", None)
+        self.request.session.pop("locked_username", None)
 
         if lockout_message:
             messages.error(self.request, lockout_message)
@@ -113,7 +114,7 @@ class CustomLoginView(LoginView):
             send_otp_email(user, otp)
             set_otp_in_session(self.request, user.id, otp)
             messages.info(
-                self.request, f"A 6-digit OTP has been sent to your email address."
+                self.request, "A 6-digit OTP has been sent to your email address."
             )
             return redirect("user_management:otp_email_verify")
 
@@ -201,7 +202,7 @@ class EmailOTPVerifyView(View):
 
         # Success
         try:
-            user = CustomUser.objects.get(id=user_id)
+            CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
             messages.error(request, "User not found. Please log in again.")
             clear_otp_session(request)
@@ -212,11 +213,7 @@ class EmailOTPVerifyView(View):
         return redirect(reverse_lazy("home"))
 
 
-from django.contrib.auth.mixins import (
-    PermissionRequiredMixin,
-    LoginRequiredMixin,
-    UserPassesTestMixin,
-)
+
 
 
 class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -321,7 +318,7 @@ class UserUnlockView(LoginRequiredMixin, PermissionRequiredMixin, View):
         # In-app notification for unlocked user
         create_notification(
             user=user_to_unlock,
-            message=f"Your account has been unlocked by an administrator.",
+            message="Your account has been unlocked by an administrator.",
             obj=user_to_unlock,
         )
         # Notify admins
@@ -363,7 +360,7 @@ class UserSuspendView(LoginRequiredMixin, PermissionRequiredMixin, View):
         # In-app notification for suspended user
         create_notification(
             user=user_to_suspend,
-            message=f"Your account has been suspended by an administrator. Please contact support.",
+            message="Your account has been suspended by an administrator. Please contact support.",
             obj=user_to_suspend,
         )
         # Notify admins
@@ -564,7 +561,6 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
     def post(self, request, *args, **kwargs):
         import csv
-        import io
         from organization.models import Department, Unit, Designation, Staff
         from django.db import transaction
         from django.utils.crypto import get_random_string

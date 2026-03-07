@@ -5,4 +5,4 @@ class UserManagementConfig(AppConfig):
     name = 'user_management'
 
     def ready(self):
-        import user_management.signals # Import signals
+        import user_management.signals  # noqa: F401

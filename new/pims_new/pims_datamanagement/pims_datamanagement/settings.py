@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.contrib.messages import constants as messages
 
 load_dotenv(".env")
 
@@ -227,8 +228,6 @@ DOCUMENT_WATERMARK_TEXT = "PIMS Confidential - Do Not Copy"
 
 # Password Expiry Settings
 PASSWORD_EXPIRY_WARNING_DAYS = 7  # Warn users 7 days before password expires
-
-from django.contrib.messages import constants as messages
 
 MESSAGE_TAGS = {
     messages.DEBUG: "alert-secondary",

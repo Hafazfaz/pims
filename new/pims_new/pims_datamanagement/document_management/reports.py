@@ -1,6 +1,4 @@
-from django.db.models import Count, Avg, F
 from django.utils import timezone
-from datetime import timedelta
 from .models import File
 from organization.models import Department
 from audit_log.models import AuditLogEntry
@@ -44,20 +42,12 @@ def get_department_performance_report(days=30):
     """
     Generates performance metrics per department over the last N days.
     """
-    start_date = timezone.now() - timedelta(days=days)
-    
     report_data = []
     departments = Department.objects.all()
     
     for dept in departments:
         # Files owned by this department (or staff in it)
         dept_files = File.objects.filter(department=dept)
-        
-        # Files processed (e.g., closed) in the last N days
-        closed_count = dept_files.filter(
-            status='closed', 
-            # Assuming we can track when it was closed via audit log or checking modified date if we added one (File doesn't have updated_at, relying on AuditLog for precise timing would be complex for aggregate, simply filtering by status for now or using created_at for "throughput" proxy)
-        ).count()
         
         # Total active files
         active_count = dept_files.filter(status='active').count()
@@ -71,7 +61,6 @@ def get_department_performance_report(days=30):
             'total_files_owned': dept_files.count(),
             'active_files': active_count,
             'files_currently_pending': files_currently_with_dept,
-            # 'avg_processing_time': calculate_avg_processing_time(dept, start_date) # Placeholder for advanced logic
         })
         
     return report_data

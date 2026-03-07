@@ -1,6 +1,5 @@
 from .models import Notification
 from django.contrib.contenttypes.models import ContentType
-from django.conf import settings
 from user_management.models import CustomUser
 
 def create_notification(user, message, obj=None, link=None, recipient_list=None):

@@ -1,5 +1,6 @@
 from django import forms
-from organization.models import Department, Staff, Unit
+from django.db.models import Q
+from organization.models import Staff
 from user_management.models import CustomUser
 
 
@@ -203,7 +204,6 @@ class DocumentForm(forms.ModelForm):
         return cleaned_data
 
 
-from django.db.models import Q
 
 class SendFileForm(forms.Form):
     recipient = forms.ModelChoiceField(
@@ -295,7 +295,7 @@ class DocumentUploadForm(forms.ModelForm):
                 else:
                     # Users can upload documents to files they own or are currently at their location
                     self.fields['file'].queryset = File.objects.filter(
-                        models.Q(owner=staff_user) | models.Q(current_location=staff_user)
+                        Q(owner=staff_user) | Q(current_location=staff_user)
                     ).order_by('title')
             except Staff.DoesNotExist:
                 # If not a staff user, no files to select (shouldn't happen with LoginRequiredMixin)

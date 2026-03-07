@@ -13,7 +13,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         # Determine the expiry threshold
-        warning_threshold = timezone.now() + timedelta(days=settings.PASSWORD_EXPIRY_WARNING_DAYS)
         password_expiry_days = getattr(settings, 'PASSWORD_EXPIRY_DAYS', 90) # Default to 90 if not set in middleware
 
         users_to_warn = CustomUser.objects.filter(
