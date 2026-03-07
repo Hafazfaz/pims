@@ -93,8 +93,7 @@
             <h3 class="text-lg font-bold text-slate-900 mb-2">System Signals</h3>
             <p class="text-sm text-slate-500 mb-6 font-medium leading-relaxed">
                 {% if unread_notifications_count > 0 %}
-                You have <span class="font-bold text-amber-600 underline underline-offset-4 decoration-amber-200">{{
-                    unread_notifications_count }} unread</span> alerts in your stream.
+                You have <span class="font-bold text-amber-600 underline underline-offset-4 decoration-amber-200">{{ unread_notifications_count }} unread</span> alerts in your stream.
                 {% else %}
                 No new system alerts or file movement notifications at this time.
                 {% endif %}
@@ -121,8 +120,7 @@
             <div class="flex items-center space-x-10 text-right">
                 <div>
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
-                    <p class="text-sm font-bold text-slate-900">{{ user.staff.department.name|default:"General Section"
-                        }}</p>
+                    <p class="text-sm font-bold text-slate-900">{{ user.staff.department.name|default:"General Section" }}</p>
                 </div>
                 <div>
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Authority</p>

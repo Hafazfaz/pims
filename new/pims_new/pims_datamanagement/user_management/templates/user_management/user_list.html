@@ -132,8 +132,7 @@
                             <div class="inline-flex flex-col items-center">
                                 <span
                                     class="text-[9px] font-bold bg-red-50 text-red-600 px-2.5 py-1 rounded border border-red-100 uppercase tracking-tighter shadow-sm">Suspended</span>
-                                <span class="text-[8px] text-red-400 font-bold mt-1 uppercase">Locked until {{
-                                    user.lockout_until|date:"H:i" }}</span>
+                                <span class="text-[8px] text-red-400 font-bold mt-1 uppercase">Locked until {{ user.lockout_until|date:"H:i" }}</span>
                             </div>
                             {% else %}
                             <span

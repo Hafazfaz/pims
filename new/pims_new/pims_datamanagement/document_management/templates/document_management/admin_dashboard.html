@@ -85,14 +85,11 @@
                             <tr class="hover:bg-slate-50 transition-colors">
                                 <td class="px-8 py-6">
                                     <div class="font-bold text-nigeria-green font-mono">{{ file.file_number }}</div>
-                                    <div class="text-[9px] font-bold text-slate-400 uppercase mt-1">{{
-                                        file.get_status_display }}</div>
+                                    <div class="text-[9px] font-bold text-slate-400 uppercase mt-1">{{ file.get_status_display }}</div>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <div class="font-semibold text-slate-900 tracking-tight">{{
-                                        file.title|truncatechars:100 }}</div>
-                                    <div class="text-[9px] text-slate-400 font-medium uppercase mt-1">Registrated: {{
-                                        file.created_at|date:"M d, Y" }}</div>
+                                    <div class="font-semibold text-slate-900 tracking-tight">{{ file.title|truncatechars:100 }}</div>
+                                    <div class="text-[9px] text-slate-400 font-medium uppercase mt-1">Registrated: {{ file.created_at|date:"M d, Y" }}</div>
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <a href="{% url 'document_management:file_detail' file.pk %}"
@@ -121,8 +118,7 @@
                     {% for flow in dept_flows %}
                     <div class="space-y-2">
                         <div class="flex justify-between items-center px-1">
-                            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">{{ flow.name
-                                }}</span>
+                            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">{{ flow.name }}</span>
                             <span class="text-[10px] font-bold text-nigeria-green uppercase">{{ flow.count }}
                                 Assets</span>
                         </div>
@@ -184,8 +180,7 @@
                         class="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100 hover:bg-white transition-colors">
                         <div class="flex flex-col">
                             <span class="text-[10px] font-bold text-slate-900">{{ file.file_number }}</span>
-                            <span class="text-[8px] text-slate-500 font-medium uppercase truncate w-32">{{ file.title
-                                }}</span>
+                            <span class="text-[8px] text-slate-500 font-medium uppercase truncate w-32">{{ file.title }}</span>
                         </div>
                         <form action="{% url 'document_management:file_archive' file.pk %}" method="post">
                             {% csrf_token %}

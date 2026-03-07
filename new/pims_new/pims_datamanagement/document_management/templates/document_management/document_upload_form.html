@@ -21,8 +21,7 @@
                 <div class="space-y-6">
                     {% for field in form %}
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label
-                            }}</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
 
                         {% if field.name == 'attachment' %}
                         <div
@@ -35,21 +34,17 @@
                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
                                 <div class="flex text-sm text-slate-600">
-                                    {{ field|add_class:"relative cursor-pointer bg-white rounded-md font-medium
-                                    text-nigeria-green hover:text-nigeria-dark outline-none" }}
+                                    {{ field|add_class:"relative cursor-pointer bg-white rounded-md font-medium text-nigeria-green hover:text-nigeria-dark outline-none" }}
                                 </div>
                                 <p class="text-xs text-slate-500">PDF, DOCX, or JPEG up to 10MB</p>
                             </div>
                         </div>
                         {% else %}
-                        {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg
-                        text-sm font-medium focus:ring-1 focus:ring-nigeria-green outline-none" }}
+                        {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-nigeria-green outline-none" }}
                         {% endif %}
 
-                        {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{
-                            field.help_text }}</p>{% endif %}
-                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase italic">{{
-                            error }}</p>{% endfor %}
+                        {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
+                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase italic">{{ error }}</p>{% endfor %}
                     </div>
                     {% endfor %}
                 </div>

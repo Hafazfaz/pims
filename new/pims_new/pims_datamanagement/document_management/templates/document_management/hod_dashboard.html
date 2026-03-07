@@ -111,8 +111,7 @@
         <div class="bg-slate-50 px-8 py-5 border-b border-slate-200 flex justify-between items-center">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">Department Files</h3>
             <span
-                class="text-[10px] font-bold text-nigeria-green bg-green-50 px-2.5 py-1 rounded-full border border-green-100 uppercase tracking-widest">{{
-                files|length }} Entries Found</span>
+                class="text-[10px] font-bold text-nigeria-green bg-green-50 px-2.5 py-1 rounded-full border border-green-100 uppercase tracking-widest">{{ files|length }} Entries Found</span>
         </div>
         {% if files %}
         <div class="overflow-x-auto">
@@ -131,8 +130,7 @@
                     <tr class="hover:bg-slate-50 transition-colors group">
                         <td class="px-8 py-7">
                             <div class="font-bold text-nigeria-green text-sm">{{ file.file_number }}</div>
-                            <div class="text-[13px] font-semibold text-slate-900 mt-1 max-w-xs lg:max-w-md truncate">{{
-                                file.title }}</div>
+                            <div class="text-[13px] font-semibold text-slate-900 mt-1 max-w-xs lg:max-w-md truncate">{{ file.title }}</div>
                             <div class="text-[10px] text-slate-500 uppercase mt-1">{{ file.get_file_type_display }}
                             </div>
                         </td>
@@ -147,12 +145,10 @@
                         </td>
                         <td class="px-8 py-7">
                             <div class="text-xs font-bold text-slate-900">
-                                <span class="text-slate-400 font-medium">Lead:</span> {{
-                                file.owner.get_full_name|default:file.owner.user.username }}
+                                <span class="text-slate-400 font-medium">Lead:</span> {{ file.owner.get_full_name|default:file.owner.user.username }}
                             </div>
                             <div class="text-[10px] text-slate-500 mt-1 uppercase">
-                                <span class="text-slate-400">Current:</span> {{
-                                file.current_location.get_full_name|default:file.current_location.user.username }}
+                                <span class="text-slate-400">Current:</span> {{ file.current_location.get_full_name|default:file.current_location.user.username }}
                             </div>
                         </td>
                         <td class="px-8 py-7 text-right">

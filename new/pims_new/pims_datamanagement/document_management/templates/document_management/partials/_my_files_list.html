@@ -38,8 +38,7 @@
           <p
             class="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider"
           >
-            {{ folder.get_file_type_display }} Record • {{
-            folder.created_at|date:"M d, Y" }}
+            {{ folder.get_file_type_display }} Record • {{ folder.created_at|date:"M d, Y" }}
           </p>
         </div>
       </div>
@@ -103,8 +102,7 @@
             </td>
             <td class="px-8 py-5">
               <span class="text-[10px] font-bold text-slate-500 uppercase"
-                >{% if doc.minute_content %}Internal Minute{% else
-                %}Attachment{% endif %}</span
+                >{% if doc.minute_content %}Internal Minute{% else %}Attachment{% endif %}</span
               >
             </td>
             <td class="px-8 py-5">
@@ -187,8 +185,7 @@
   </div>
   {% endfor %} {% if is_paginated %}
   <div class="mt-8" hx-boost="true">
-    {% include 'document_management/partials/_pagination.html' with
-    page_obj=page_obj page_param='page' %}
+    {% include 'document_management/partials/_pagination.html' with page_obj=page_obj page_param='page' %}
   </div>
   {% endif %}
 </div>

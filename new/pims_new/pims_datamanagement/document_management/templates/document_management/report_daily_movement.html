@@ -8,8 +8,7 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Daily File Movement</h2>
-            <p class="text-sm text-slate-500 font-medium italic">Temporal Activity Report • {{ report.date|date:"F d, Y"
-                }}</p>
+            <p class="text-sm text-slate-500 font-medium italic">Temporal Activity Report • {{ report.date|date:"F d, Y" }}</p>
         </div>
         <div class="flex items-center space-x-3">
             <a href="?export=csv"
@@ -70,8 +69,7 @@
         <div class="px-8 py-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">Record Creation Ledger</h3>
             <span
-                class="px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-lg border border-blue-100 uppercase tracking-widest">{{
-                report.created_files.count }} entries</span>
+                class="px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-lg border border-blue-100 uppercase tracking-widest">{{ report.created_files.count }} entries</span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
@@ -93,14 +91,11 @@
                         </td>
                         <td class="px-8 py-6">
                             <span
-                                class="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded">{{
-                                file.get_file_type_display }}</span>
+                                class="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded">{{ file.get_file_type_display }}</span>
                         </td>
                         <td class="px-8 py-6">
-                            <div class="text-xs font-bold text-slate-900">{{
-                                file.owner.get_full_name|default:file.owner.user.username }}</div>
-                            <div class="text-[10px] text-slate-400 mt-1 uppercase italic tracking-wider">{{
-                                file.department.name|default:"General Section" }}</div>
+                            <div class="text-xs font-bold text-slate-900">{{ file.owner.get_full_name|default:file.owner.user.username }}</div>
+                            <div class="text-[10px] text-slate-400 mt-1 uppercase italic tracking-wider">{{ file.department.name|default:"General Section" }}</div>
                         </td>
                         <td class="px-8 py-6 text-right">
                             <span

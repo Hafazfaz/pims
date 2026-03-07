@@ -29,8 +29,7 @@
         <div class="px-8 py-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">Departmental Efficiency Matrix</h3>
             <span
-                class="px-3 py-1 bg-green-50 text-nigeria-green text-[10px] font-bold rounded-lg border border-green-100 uppercase tracking-widest italic">{{
-                report_data|length }} Units Tracked</span>
+                class="px-3 py-1 bg-green-50 text-nigeria-green text-[10px] font-bold rounded-lg border border-green-100 uppercase tracking-widest italic">{{ report_data|length }} Units Tracked</span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
@@ -47,8 +46,7 @@
                     {% for dept in report_data %}
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="px-8 py-6">
-                            <div class="text-sm font-bold text-slate-900 uppercase tracking-tight mb-1">{{
-                                dept.department }}</div>
+                            <div class="text-sm font-bold text-slate-900 uppercase tracking-tight mb-1">{{ dept.department }}</div>
                             <div
                                 class="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic flex items-center">
                                 <span class="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 shadow-sm"></span> Verified
