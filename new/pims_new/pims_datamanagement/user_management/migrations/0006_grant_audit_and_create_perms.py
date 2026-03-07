@@ -3,7 +3,6 @@ from django.db import migrations
 def assign_permissions(apps, schema_editor):
     Group = apps.get_model('auth', 'Group')
     Permission = apps.get_model('auth', 'Permission')
-    ContentType = apps.get_model('contenttypes', 'ContentType')
 
     # Get the relevant permissions
     try:
@@ -20,7 +19,6 @@ def assign_permissions(apps, schema_editor):
 
     groups_to_get_audit = ['Registry', 'HOD/HOU']
     groups_to_get_create = ['Staff']
-    groups_to_remove_view = ['Staff']
 
     for group_name in groups_to_get_audit:
         try:

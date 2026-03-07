@@ -3,7 +3,6 @@ from django.db import migrations
 def assign_admin_permissions(apps, schema_editor):
     Group = apps.get_model('auth', 'Group')
     Permission = apps.get_model('auth', 'Permission')
-    ContentType = apps.get_model('contenttypes', 'ContentType')
 
     admin_group = Group.objects.get(name='Administrator')
 

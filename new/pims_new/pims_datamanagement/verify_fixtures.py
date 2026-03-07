@@ -5,12 +5,11 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pims_datamanagement.settings")
 django.setup()
 
-from django.contrib.auth.models import Group
-from document_management.models import Document, File, FileAccessRequest
-from organization.models import Department, Designation, Staff, Unit
-from user_management.models import CustomUser
-from audit_log.models import AuditLogEntry
-from notifications.models import Notification
+from document_management.models import Document, File, FileAccessRequest  # noqa: E402
+from organization.models import Department, Designation, Staff, Unit  # noqa: E402
+from user_management.models import CustomUser  # noqa: E402
+from audit_log.models import AuditLogEntry  # noqa: E402
+from notifications.models import Notification  # noqa: E402
 
 def verify_fixtures():
     print("--- Verifying Fixtures ---")

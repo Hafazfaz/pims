@@ -8,14 +8,14 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pims_datamanagement.settings")
 django.setup()
 
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
-from django.utils import timezone
-from document_management.models import Document, File, FileAccessRequest
-from organization.models import Department, Designation, Staff, StaffSignature, Unit
-from user_management.models import CustomUser
-from audit_log.models import AuditLogEntry
-from notifications.models import Notification
+from django.contrib.auth.models import Group, Permission  # noqa: E402
+from django.contrib.contenttypes.models import ContentType  # noqa: E402
+from django.utils import timezone  # noqa: E402
+from document_management.models import Document, File, FileAccessRequest  # noqa: E402
+from organization.models import Department, Designation, Staff, StaffSignature, Unit  # noqa: E402
+from user_management.models import CustomUser  # noqa: E402
+from audit_log.models import AuditLogEntry  # noqa: E402
+from notifications.models import Notification  # noqa: E402
 
 # --- Helpers ---
 
