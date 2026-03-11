@@ -777,7 +777,19 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
         form = SignatureUploadForm(request.POST, request.FILES)
         
         if form.is_valid():
+            import base64
+            import uuid
+            from django.core.files.base import ContentFile
+
             signature = form.save(commit=False)
+            
+            sig_data = form.cleaned_data.get('signature_data')
+            if sig_data and ',' in sig_data:
+                format, imgstr = sig_data.split(';base64,')
+                ext = format.split('/')[-1]
+                data = ContentFile(base64.b64decode(imgstr), name=f"{staff.user.username}_sig_{uuid.uuid4().hex[:8]}.{ext}")
+                signature.image = data
+
             signature.staff = staff
             signature.is_active = True # Will deactivate others in save()
             signature.save()
@@ -789,3 +801,79 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
         context = self.get_context_data()
         context['signature_form'] = form
         return render(request, self.template_name, context)
+
+from .forms import UserCreateForm
+from django.views.generic import CreateView
+class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = CustomUser
+    form_class = UserCreateForm
+    template_name = "user_management/user_create.html"
+    success_url = reverse_lazy("user_management:user_list")
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def form_valid(self, form):
+        from django.db import transaction
+        from django.utils.crypto import get_random_string
+        from organization.models import Staff
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        with transaction.atomic():
+            user = form.save(commit=False)
+            temp_password = get_random_string(length=12)
+            user.set_password(temp_password)
+            user.must_change_password = True
+            user.save()
+
+            department = form.cleaned_data['department']
+            unit = form.cleaned_data['unit']
+            designation = form.cleaned_data['designation']
+            staff_type = form.cleaned_data['staff_type']
+
+            Staff.objects.create(
+                user=user,
+                department=department,
+                unit=unit,
+                designation=designation,
+                staff_type=staff_type,
+            )
+
+            log_action(
+                self.request.user,
+                "USER_CREATED",
+                request=self.request,
+                details={"username": user.username},
+            )
+
+            try:
+                subject = "Welcome to PIMS - Account Provisioned"
+                message = (
+                    f"Hello {user.first_name or user.username},\n\n"
+                    f"Your account has been provisioned on the Personnel Information Management System (PIMS).\n\n"
+                    f"Username: {user.username}\n"
+                    f"Temporary Password: {temp_password}\n\n"
+                    f"Please log in at {self.request.build_absolute_uri('/')} and change your password immediately.\n\n"
+                    f"Regards,\nPIMS Administration"
+                )
+                from django.core.mail import send_mail
+                from django.conf import settings
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception as mail_err:
+                logger.error(f"Failed to send welcome email to {user.email}: {mail_err}")
+                messages.warning(self.request, f"User created but failed to send welcome email.")
+            else:
+                messages.success(self.request, f"User {user.username} created successfully and welcome email sent.")
+
+        return HttpResponseRedirect(self.success_url)
+
+    def handle_no_permission(self):
+        messages.error(self.request, "Only Superusers can perform this action.")
+        return redirect("user_management:user_list")
