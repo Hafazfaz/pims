@@ -247,7 +247,8 @@ class Document(models.Model):
         ('approved', 'Approved'),
         ('cancelled', 'Cancelled'),
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='approved')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status_reason = models.TextField(blank=True, null=True, help_text="Reason for approval or rejection")
     
     # Granular Access Control
     shared_with = models.ManyToManyField(

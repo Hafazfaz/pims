@@ -145,6 +145,14 @@ class FileForm(forms.ModelForm):
 
 
 class DocumentForm(forms.ModelForm):
+    send_to = forms.ModelChoiceField(
+        queryset=Staff.objects.all(),
+        required=False,
+        label="Send To (Route File)",
+        help_text="Optionally route this file to another staff member for review or approval.",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
     class Meta:
         model = Document
         fields = ["title", "minute_content", "attachment", "parent"]

@@ -341,18 +341,6 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         form.instance.file = self.file_obj
         form.instance.uploaded_by = self.request.user
         
-        if form.cleaned_data.get('include_signature'):
-            try:
-                staff = self.request.user.staff
-                active_sig = staff.get_active_signature()
-                if active_sig:
-                    form.instance.has_signature = True
-                    form.instance.signature_record = active_sig
-                else:
-                    messages.warning(self.request, "You checked 'Attach Digital Signature' but have no signature uploaded in your profile.")
-            except Staff.DoesNotExist:
-                pass
-        
         if self.file_obj.active_dispatch_document:
             is_custodian = hasattr(self.request.user, 'staff') and self.file_obj.current_location == self.request.user.staff
             if is_custodian:
@@ -360,15 +348,47 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                     self.file_obj.clear_dispatch()
 
         response = super().form_valid(form)
+        document = self.object
+        
+        if form.cleaned_data.get('include_signature'):
+            try:
+                staff = self.request.user.staff
+                active_sig = staff.get_active_signature()
+                if active_sig:
+                    from ..models import DocumentSignature
+                    DocumentSignature.objects.create(
+                        document=document,
+                        signatory=self.request.user,
+                        signature_record=active_sig
+                    )
+                else:
+                    messages.warning(self.request, "You checked 'Attach Digital Signature' but have no signature uploaded in your profile.")
+            except Exception:
+                pass
+                
+        send_to_staff = form.cleaned_data.get('send_to')
+        if send_to_staff:
+            self.file_obj.current_location = send_to_staff
+            self.file_obj.save()
+            
+            log_action(
+                self.request.user,
+                "FILE_SENT",
+                request=self.request,
+                obj=self.file_obj,
+                details={"to": send_to_staff.user.get_full_name()}
+            )
+            messages.success(self.request, f"Document added and routed to {send_to_staff.user.get_full_name()} for review.")
+        else:
+            messages.success(self.request, "Document/Minute added successfully.")
         
         log_action(
             self.request.user,
             "DOCUMENT_ADDED",
             request=self.request,
-            obj=self.object,
+            obj=document,
             details={"file_id": self.file_obj.pk},
         )
-        messages.success(self.request, "Document/Minute added successfully.")
         return response
 
     def get_success_url(self):

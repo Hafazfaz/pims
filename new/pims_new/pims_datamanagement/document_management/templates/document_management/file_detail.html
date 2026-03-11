@@ -10,6 +10,7 @@
     replyingTo: '',
     previewUrl: '',
     previewTitle: '',
+    showPreviewModal: false,
     showAccessRequestModal: false,
     showShareModal: false,
     shareDocId: '',
@@ -26,6 +27,7 @@
 @open-preview.window="
     previewUrl = $event.detail.url;
     previewTitle = $event.detail.title;
+    showPreviewModal = true;
 ">
     <!-- File Header Card -->
     {% if is_limited_view %}
@@ -250,31 +252,39 @@
                                                                 {% else %}bg-amber-100 text-amber-700{% endif %}">
                                                                 {{ entry.item.get_status_display }}
                                                             </span>
+                                                            {% if entry.item.status_reason %}
+                                                            <p class="text-[10px] text-slate-500 mt-1 italic w-full">Reason: {{ entry.item.status_reason }}</p>
+                                                            {% endif %}
                                                             {% if entry.item.minute_content %}
                                                             <div class="mt-2 prose prose-sm max-w-none text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-100 relative">
                                                                 {{ entry.item.minute_content|safe }}
                                                                 
-                                                                {% if entry.item.has_signature and entry.item.signature_record %}
-                                                                <div class="mt-6 pt-6 border-t border-slate-200/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-                                                                    <div class="flex items-center gap-3">
-                                                                        <div class="relative group">
-                                                                            <!-- Protective overlay -->
-                                                                            <div class="absolute inset-0 z-10 cursor-default bg-transparent" @contextmenu.prevent></div>
-                                                                            <img src="{{ entry.item.signature_record.image.url }}" alt="Signature" 
-                                                                                class="h-12 w-auto grayscale pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                                                                {% if entry.item.signatures.exists %}
+                                                                <div class="mt-6 pt-6 border-t border-slate-200/50 flex flex-col gap-4">
+                                                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Signatories</h4>
+                                                                    {% for sig in entry.item.signatures.all %}
+                                                                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 p-3 rounded border border-slate-100">
+                                                                        <div class="flex items-center gap-3">
+                                                                            <div class="relative group bg-white rounded p-1 border border-slate-200 shadow-sm">
+                                                                                <div class="absolute inset-0 z-10 cursor-default bg-transparent" @contextmenu.prevent></div>
+                                                                                <img src="{{ sig.signature_record.image.url }}" alt="Signature" 
+                                                                                    class="h-10 w-auto grayscale pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                                                                            </div>
+                                                                            <div>
+                                                                                <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">{{ sig.signatory.get_full_name }}</p>
+                                                                                <p class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{{ sig.signatory.staff.designation.name }}</p>
+                                                                                <p class="text-[7px] font-medium text-slate-400 mt-0.5">{{ sig.signed_at|date:"M d, Y H:i" }}</p>
+                                                                            </div>
                                                                         </div>
-                                                                        <div>
-                                                                            <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">{{ entry.item.uploaded_by.get_full_name }}</p>
-                                                                            <p class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{{ entry.item.uploaded_by.staff.designation.name }}</p>
+                                                                        
+                                                                        <div class="flex items-center gap-1.5 px-3 py-1 bg-nigeria-light/30 border border-nigeria-green/20 rounded-full">
+                                                                            <svg class="w-3 h-3 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20">
+                                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                                            </svg>
+                                                                            <span class="text-[8px] font-black text-nigeria-green uppercase tracking-widest">Digitally Verified</span>
                                                                         </div>
                                                                     </div>
-                                                                    
-                                                                    <div class="flex items-center gap-1.5 px-3 py-1 bg-nigeria-light/30 border border-nigeria-green/20 rounded-full">
-                                                                        <svg class="w-3 h-3 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20">
-                                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                                                        </svg>
-                                                                        <span class="text-[8px] font-black text-nigeria-green uppercase tracking-widest">Digitally Verified</span>
-                                                                    </div>
+                                                                    {% endfor %}
                                                                 </div>
                                                                 {% endif %}
                                                             </div>
@@ -282,7 +292,9 @@
                                                             {% if entry.item.attachment %}
                                                             <div class="mt-3 flex items-center gap-2">
                                                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
-                                                                <a href="{{ entry.item.attachment.url }}" target="_blank" class="text-xs font-bold text-indigo-600 hover:underline">Download Attachment</a>
+                                                                <button type="button" @click="$dispatch('open-preview', { url: '{{ entry.item.attachment.url }}#toolbar=0', title: '{{ entry.item.title|escapejs|default:\'Attachment\' }}' })" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 hover:underline">
+                                                                    View Document
+                                                                </button>
                                                             </div>
                                                             {% endif %}
 
@@ -314,17 +326,38 @@
                                                                     </button>
                                                                 </form>
                                                                 
-                                                            {% if entry.item.uploaded_by == request.user %}
+                                                            {% if is_custodian or entry.item.uploaded_by == request.user %}
                                                                 <!-- Status Update Form -->
-                                                                <form method="post" class="flex items-center gap-1">
+                                                                <form method="post" x-data="{ selectedStatus: '{{ entry.item.status }}' }" class="flex flex-col gap-2 mt-2 p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
                                                                     {% csrf_token %}
                                                                     <input type="hidden" name="action" value="update_document_status">
                                                                     <input type="hidden" name="document_id" value="{{ entry.item.pk }}">
-                                                                    <select name="status" onchange="this.form.submit()" class="text-[9px] font-bold uppercase tracking-wider bg-slate-50 border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none">
-                                                                        <option value="pending" {% if entry.item.status == 'pending' %}selected{% endif %}>Pending</option>
-                                                                        <option value="approved" {% if entry.item.status == 'approved' %}selected{% endif %}>Approved</option>
-                                                                        <option value="cancelled" {% if entry.item.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
-                                                                    </select>
+                                                                    
+                                                                    <div class="flex items-center gap-2">
+                                                                        <select name="status" x-model="selectedStatus" class="flex-1 text-[9px] font-bold uppercase tracking-wider bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                                                            <option value="pending">Pending</option>
+                                                                            <option value="approved">Approved</option>
+                                                                            <option value="cancelled">Cancelled</option>
+                                                                        </select>
+                                                                        <button type="submit" class="text-[9px] px-3 py-1.5 bg-indigo-600 text-white font-bold uppercase tracking-widest rounded hover:bg-indigo-700 transition">Save</button>
+                                                                    </div>
+                                                                    
+                                                                    <div x-show="selectedStatus !== 'pending'" x-transition class="mt-1">
+                                                                        <input type="text" name="status_reason" :required="selectedStatus === 'cancelled'" placeholder="Reason for decision (Required if Cancelled)" class="w-full text-xs px-2 py-1.5 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none transition-colors">
+                                                                    </div>
+                                                                </form>
+                                                            {% endif %}
+                                                            
+                                                            {% if user.staff and user.staff.get_active_signature %}
+                                                                <!-- Sign Document Form -->
+                                                                <form method="post" class="mt-3">
+                                                                    {% csrf_token %}
+                                                                    <input type="hidden" name="action" value="sign_document">
+                                                                    <input type="hidden" name="document_id" value="{{ entry.item.pk }}">
+                                                                    <button type="submit" class="text-[9px] font-bold text-nigeria-green hover:text-nigeria-dark uppercase tracking-widest flex items-center gap-1 transition-colors">
+                                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                                        Attach Signature
+                                                                    </button>
                                                                 </form>
                                                             {% endif %}
                                                             </div>
@@ -609,10 +642,47 @@
             </div>
         </div>
     </div>
+        </div>
+    </div>
+    
+    <!-- Document Preview Modal -->
+    <div x-show="showPreviewModal" style="display: none;" class="fixed inset-0 z-[60] overflow-y-auto" aria-labelledby="preview-modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showPreviewModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 transition-opacity bg-slate-900/90 backdrop-blur-sm" aria-hidden="true" @click="showPreviewModal = false"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div x-show="showPreviewModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block w-full max-w-5xl overflow-hidden text-left align-bottom transition-all transform bg-white shadow-2xl rounded-2xl sm:my-8 sm:align-middle">
+                <!-- Modal header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-sm font-black tracking-widest text-slate-900 uppercase" id="preview-modal-title" x-text="previewTitle"></h3>
+                    <button type="button" @click="showPreviewModal = false; previewUrl = ''" class="p-2 text-slate-400 transition-colors rounded-lg hover:bg-slate-200 hover:text-slate-900">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                
+                <!-- Modal body (iframe) -->
+                <div class="relative w-full bg-slate-100 h-[80vh]">
+                    <template x-if="previewUrl">
+                        <iframe :src="previewUrl" class="w-full h-full border-0" title="Document Preview" sandbox="allow-same-origin allow-scripts"></iframe>
+                    </template>
+                    <div x-show="!previewUrl" class="flex flex-col items-center justify-center h-full text-slate-400">
+                        <svg class="w-12 h-12 mb-4 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <p class="text-sm font-medium">Loading document...</p>
+                    </div>
+                </div>
+                <!-- Prevent downloading notice -->
+                <div class="px-6 py-2 bg-slate-800 text-center">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
+                        <svg class="w-3 h-3 text-nigeria-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg>
+                        Secure Preview Mode • Downloads Disabled
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {

@@ -582,6 +582,72 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.success(request, f"File sent to {recipient.user.get_full_name()}.")
                 return redirect("document_management:my_files")
 
+        elif action == "update_document_status":
+            doc_id = request.POST.get("document_id")
+            new_status = request.POST.get("status")
+            status_reason = request.POST.get("status_reason", "")
+            
+            from django.shortcuts import get_object_or_404
+            from document_management.models import Document
+            
+            document = get_object_or_404(Document, pk=doc_id, file=file_obj)
+            
+            # Check permissions
+            if document.uploaded_by != request.user and not getattr(request.user, 'is_superuser', False):
+                messages.error(request, "You do not have permission to update this document's status.")
+            elif new_status not in dict(Document.STATUS_CHOICES):
+                messages.error(request, "Invalid status selected.")
+            elif new_status == "cancelled" and not status_reason.strip():
+                messages.error(request, "A reason is required when cancelling a document.")
+            else:
+                document.status = new_status
+                document.status_reason = status_reason
+                document.save()
+                
+                log_action(
+                    request.user,
+                    "DOCUMENT_STATUS_UPDATED",
+                    request=request,
+                    obj=document,
+                    details={"new_status": new_status, "reason": status_reason}
+                )
+                messages.success(request, f"Document status updated to {new_status.title()}.")
+            
+            return redirect(file_obj.get_absolute_url())
+
+        elif action == "sign_document":
+            doc_id = request.POST.get("document_id")
+            from django.shortcuts import get_object_or_404
+            from document_management.models import Document, DocumentSignature
+            
+            document = get_object_or_404(Document, pk=doc_id, file=file_obj)
+            try:
+                staff = request.user.staff
+                active_sig = staff.get_active_signature()
+                if active_sig:
+                    if DocumentSignature.objects.filter(document=document, signatory=request.user).exists():
+                        messages.warning(request, "You have already signed this document.")
+                    else:
+                        DocumentSignature.objects.create(
+                            document=document,
+                            signatory=request.user,
+                            signature_record=active_sig
+                        )
+                        log_action(
+                            request.user,
+                            "DOCUMENT_SIGNED",
+                            request=request,
+                            obj=document,
+                            details={"signatory": request.user.get_full_name()}
+                        )
+                        messages.success(request, "Signature attached successfully.")
+                else:
+                    messages.warning(request, "You have no active signature uploaded in your profile.")
+            except Exception:
+                messages.error(request, "Only staff members can attach signatures.")
+            
+            return redirect(file_obj.get_absolute_url())
+
         return self.get(request, *args, **kwargs)
 
     def handle_no_permission(self):
