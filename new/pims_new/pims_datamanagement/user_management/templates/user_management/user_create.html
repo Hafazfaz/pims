@@ -1,219 +1,156 @@
-{% extends 'base.html' %} {% load widget_tweaks %} {% block title %}Add Single
-User | PIMS{% endblock %} {% block content %}
-<div class="max-w-3xl mx-auto space-y-8">
-  <!-- Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h2 class="text-2xl font-bold text-slate-900 tracking-tight">
-        Add Single User
-      </h2>
-      <p class="text-sm text-slate-500 font-medium whitespace-nowrap">
-        Provision a new user account into the system
-      </p>
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block title %}
+    Add Single
+    User | PIMS
+{% endblock %}
+{% block content %}
+    <div class="max-w-3xl mx-auto space-y-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Add Single User</h2>
+                <p class="text-sm text-slate-500 font-medium whitespace-nowrap">Provision a new user account into the system</p>
+            </div>
+            <a href="{% url 'user_management:user_list' %}"
+               class="text-[10px] font-bold text-slate-500 hover:text-nigeria-green uppercase tracking-widest flex items-center space-x-1 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                <span>Back to Directory</span>
+            </a>
+        </div>
+        <!-- Form Container -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-8">
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="p-4 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 mb-6">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Account Details -->
+                        <div class="space-y-4">
+                            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2">
+                                Account Details
+                            </h3>
+                            <div class="space-y-1.5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Username *</label>
+                                {{ form.username|add_class:"w-full bg-slate-50 border
+                                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                focus:border-nigeria-green transition-all" }}
+                                {% if
+                                    form.username.errors %}
+                                    <p class="text-[10px] text-red-500">{{ form.username.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address *</label>
+                                {{ form.email|add_class:"w-full bg-slate-50 border
+                                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                focus:border-nigeria-green transition-all" }}
+                                {% if
+                                    form.email.errors %}
+                                    <p class="text-[10px] text-red-500">{{ form.email.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1.5">
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">First Name *</label>
+                                    {{ form.first_name|add_class:"w-full bg-slate-50 border
+                                    border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                    outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                    focus:border-nigeria-green transition-all" }}
+                                    {% if
+                                        form.first_name.errors %}
+                                        <p class="text-[10px] text-red-500">{{ form.first_name.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Last Name *</label>
+                                    {{ form.last_name|add_class:"w-full bg-slate-50 border
+                                    border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                    outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                    focus:border-nigeria-green transition-all" }}
+                                    {% if
+                                        form.last_name.errors %}
+                                        <p class="text-[10px] text-red-500">{{ form.last_name.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Organization Assignment -->
+                        <div class="space-y-4">
+                            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2">
+                                Organization Placement
+                            </h3>
+                            <div class="space-y-1.5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Department *</label>
+                                {{ form.department|add_class:"w-full bg-slate-50 border
+                                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                focus:border-nigeria-green transition-all" }}
+                                {% if
+                                    form.department.errors %}
+                                    <p class="text-[10px] text-red-500">{{ form.department.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit</label>
+                                {{ form.unit|add_class:"w-full bg-slate-50 border border-slate-200
+                                rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none
+                                focus:ring-2 focus:ring-nigeria-green/20
+                                focus:border-nigeria-green transition-all" }}
+                                {% if
+                                    form.unit.errors %}
+                                    <p class="text-[10px] text-red-500">{{ form.unit.errors.0 }}</p>
+                                {% endif %}
+                                <p class="text-[9px] text-slate-400 font-bold">
+                                    Options will refresh after selecting a department (reload
+                                    required typically, or select any unit attached to the
+                                    department).
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1.5">
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation *</label>
+                                    {{ form.designation|add_class:"w-full bg-slate-50 border
+                                    border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                    outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                    focus:border-nigeria-green transition-all" }}
+                                    {% if
+                                        form.designation.errors %}
+                                        <p class="text-[10px] text-red-500">{{ form.designation.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Staff Type *</label>
+                                    {{ form.staff_type|add_class:"w-full bg-slate-50 border
+                                    border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
+                                    outline-none focus:ring-2 focus:ring-nigeria-green/20
+                                    focus:border-nigeria-green transition-all" }}
+                                    {% if
+                                        form.staff_type.errors %}
+                                        <p class="text-[10px] text-red-500">{{ form.staff_type.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-6 border-t border-slate-100 flex items-center justify-end space-x-4">
+                        <a href="{% url 'user_management:user_list' %}"
+                           class="px-6 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 uppercase tracking-widest transition-colors">Cancel</a>
+                        <button type="submit"
+                                class="bg-nigeria-green hover:bg-nigeria-dark text-white px-8 py-3 rounded-lg text-xs font-black uppercase tracking-widest shadow-lg transition-all hover:-translate-y-0.5">
+                            Provision User Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-    <a
-      href="{% url 'user_management:user_list' %}"
-      class="text-[10px] font-bold text-slate-500 hover:text-nigeria-green uppercase tracking-widest flex items-center space-x-1 transition-colors"
-    >
-      <svg
-        class="w-4 h-4"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M10 19l-7-7m0 0l7-7m-7 7h18"
-        ></path>
-      </svg>
-      <span>Back to Directory</span>
-    </a>
-  </div>
-
-  <!-- Form Container -->
-  <div
-    class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
-  >
-    <div class="p-8">
-      <form method="post" class="space-y-6">
-        {% csrf_token %} {% if form.non_field_errors %}
-        <div
-          class="p-4 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 mb-6"
-        >
-          {{ form.non_field_errors }}
-        </div>
-        {% endif %}
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Account Details -->
-          <div class="space-y-4">
-            <h3
-              class="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2"
-            >
-              Account Details
-            </h3>
-
-            <div class="space-y-1.5">
-              <label
-                class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                >Username *</label
-              >
-              {{ form.username|add_class:"w-full bg-slate-50 border
-              border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-              outline-none focus:ring-2 focus:ring-nigeria-green/20
-              focus:border-nigeria-green transition-all" }} {% if
-              form.username.errors %}
-              <p class="text-[10px] text-red-500">
-                {{ form.username.errors.0 }}
-              </p>
-              {% endif %}
-            </div>
-
-            <div class="space-y-1.5">
-              <label
-                class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                >Email Address *</label
-              >
-              {{ form.email|add_class:"w-full bg-slate-50 border
-              border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-              outline-none focus:ring-2 focus:ring-nigeria-green/20
-              focus:border-nigeria-green transition-all" }} {% if
-              form.email.errors %}
-              <p class="text-[10px] text-red-500">{{ form.email.errors.0 }}</p>
-              {% endif %}
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1.5">
-                <label
-                  class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                  >First Name *</label
-                >
-                {{ form.first_name|add_class:"w-full bg-slate-50 border
-                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-                outline-none focus:ring-2 focus:ring-nigeria-green/20
-                focus:border-nigeria-green transition-all" }} {% if
-                form.first_name.errors %}
-                <p class="text-[10px] text-red-500">
-                  {{ form.first_name.errors.0 }}
-                </p>
-                {% endif %}
-              </div>
-              <div class="space-y-1.5">
-                <label
-                  class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                  >Last Name *</label
-                >
-                {{ form.last_name|add_class:"w-full bg-slate-50 border
-                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-                outline-none focus:ring-2 focus:ring-nigeria-green/20
-                focus:border-nigeria-green transition-all" }} {% if
-                form.last_name.errors %}
-                <p class="text-[10px] text-red-500">
-                  {{ form.last_name.errors.0 }}
-                </p>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-
-          <!-- Organization Assignment -->
-          <div class="space-y-4">
-            <h3
-              class="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2"
-            >
-              Organization Placement
-            </h3>
-
-            <div class="space-y-1.5">
-              <label
-                class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                >Department *</label
-              >
-              {{ form.department|add_class:"w-full bg-slate-50 border
-              border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-              outline-none focus:ring-2 focus:ring-nigeria-green/20
-              focus:border-nigeria-green transition-all" }} {% if
-              form.department.errors %}
-              <p class="text-[10px] text-red-500">
-                {{ form.department.errors.0 }}
-              </p>
-              {% endif %}
-            </div>
-
-            <div class="space-y-1.5">
-              <label
-                class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                >Unit</label
-              >
-              {{ form.unit|add_class:"w-full bg-slate-50 border border-slate-200
-              rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none
-              focus:ring-2 focus:ring-nigeria-green/20
-              focus:border-nigeria-green transition-all" }} {% if
-              form.unit.errors %}
-              <p class="text-[10px] text-red-500">{{ form.unit.errors.0 }}</p>
-              {% endif %}
-              <p class="text-[9px] text-slate-400 font-bold">
-                Options will refresh after selecting a department (reload
-                required typically, or select any unit attached to the
-                department).
-              </p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1.5">
-                <label
-                  class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                  >Designation *</label
-                >
-                {{ form.designation|add_class:"w-full bg-slate-50 border
-                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-                outline-none focus:ring-2 focus:ring-nigeria-green/20
-                focus:border-nigeria-green transition-all" }} {% if
-                form.designation.errors %}
-                <p class="text-[10px] text-red-500">
-                  {{ form.designation.errors.0 }}
-                </p>
-                {% endif %}
-              </div>
-              <div class="space-y-1.5">
-                <label
-                  class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                  >Staff Type *</label
-                >
-                {{ form.staff_type|add_class:"w-full bg-slate-50 border
-                border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900
-                outline-none focus:ring-2 focus:ring-nigeria-green/20
-                focus:border-nigeria-green transition-all" }} {% if
-                form.staff_type.errors %}
-                <p class="text-[10px] text-red-500">
-                  {{ form.staff_type.errors.0 }}
-                </p>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          class="pt-6 border-t border-slate-100 flex items-center justify-end space-x-4"
-        >
-          <a
-            href="{% url 'user_management:user_list' %}"
-            class="px-6 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 uppercase tracking-widest transition-colors"
-            >Cancel</a
-          >
-          <button
-            type="submit"
-            class="bg-nigeria-green hover:bg-nigeria-dark text-white px-8 py-3 rounded-lg text-xs font-black uppercase tracking-widest shadow-lg transition-all hover:-translate-y-0.5"
-          >
-            Provision User Account
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 {% endblock %}
