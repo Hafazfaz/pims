@@ -1,173 +1,188 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
-
 {% block title %}Initialize Record | PIMS{% endblock %}
-
 {% block content %}
-<div class="max-w-3xl mx-auto py-8 lg:py-12" x-data="{ 
-    fileType: 'personal',
-    policyType: 'internal'
-}">
-    <!-- Form Card -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <!-- Card Header -->
-        <div class="bg-slate-50 border-b border-slate-200 px-8 py-6 flex items-center justify-between">
-            <div>
-                <h2 class="text-xl font-bold text-slate-900">Initialize New Record</h2>
-                <p class="text-xs text-slate-500 font-medium font-medium">Federal Government Registry Asset Entry</p>
+    <div class="max-w-3xl mx-auto py-8 lg:py-12"
+         x-data="{ fileType: 'personal', policyType: 'internal' }">
+        <!-- Form Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <!-- Card Header -->
+            <div class="bg-slate-50 border-b border-slate-200 px-8 py-6 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Initialize New Record</h2>
+                    <p class="text-xs text-slate-500 font-medium font-medium">Federal Government Registry Asset Entry</p>
+                </div>
+                <div class="w-10 h-10 bg-nigeria-light rounded-lg flex items-center justify-center text-nigeria-green">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </div>
             </div>
-            <div class="w-10 h-10 bg-nigeria-light rounded-lg flex items-center justify-center text-nigeria-green">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
+            <!-- Form Body -->
+            <div class="p-8 lg:p-10">
+                <form method="post" enctype="multipart/form-data" class="space-y-8">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-semibold mb-6">
+                            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="grid grid-cols-1 gap-6">
+                        {% for field in form %}
+                            {% if field.name != 'attachments' %}
+                                {% if field.name == 'owner' %}
+                                    {# Personal: Required #}
+                                    <div class="space-y-1.5" x-show="fileType === 'personal'" x-transition>
+                                        <label for="{{ field.id_for_label }}"
+                                               class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            {{ field.label }}
+                                        </label>
+                                        <div class="flex gap-2">
+                                            <div class="hidden">{{ field }}</div>
+                                            <input type="text"
+                                                   id="owner_display"
+                                                   class="block w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 font-medium cursor-not-allowed"
+                                                   readonly
+                                                   value="{{ request.user.staff }}">
+                                            {% if request.user.staff.is_registry or request.user.staff.is_hod or request.user.staff.is_unit_manager %}
+                                                <button type="button"
+                                                        class="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                                        onclick="openStaffSearch()">Assign to Staff</button>
+                                            {% endif %}
+                                        </div>
+                                        {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
+                                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                                    </div>
+                                {% elif field.name == 'policy_type' %}
+                                    <div class="space-y-1.5 p-4 bg-slate-50 rounded-xl border border-slate-100"
+                                         x-show="fileType === 'policy'"
+                                         x-transition>
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
+                                        <div class="flex items-center space-x-8 mt-2">
+                                            {% for radio in field %}
+                                                <label class="inline-flex items-center cursor-pointer">
+                                                    {{ radio.tag }}
+                                                    <span class="ml-2 text-sm font-bold text-slate-700">{{ radio.choice_label }}</span>
+                                                </label>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% elif field.name == 'department' %}
+                                    <div class="space-y-1.5"
+                                         x-show="fileType === 'policy' && policyType === 'internal'"
+                                         x-transition>
+                                        <label for="{{ field.id_for_label }}"
+                                               class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            {{ field.label }}
+                                        </label>
+                                        {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
+                                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                                    </div>
+                                {% elif field.name == 'external_party' %}
+                                    <div class="space-y-1.5"
+                                         x-show="fileType === 'policy' && policyType === 'external'"
+                                         x-transition>
+                                        <label for="{{ field.id_for_label }}"
+                                               class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            {{ field.label }}
+                                        </label>
+                                        {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
+                                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="space-y-1.5">
+                                        <label for="{{ field.id_for_label }}"
+                                               class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            {{ field.label }}
+                                        </label>
+                                        {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all placeholder:text-slate-300 font-medium" }}
+                                        {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
+                                        {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        <!-- File Upload Styling -->
+                        <div class="space-y-1.5">
+                            <label for="{{ form.attachments.id_for_label }}"
+                                   class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                {{ form.attachments.label }}
+                            </label>
+                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors group">
+                                <div class="space-y-1 text-center">
+                                    <svg class="mx-auto h-12 w-12 text-slate-400 group-hover:text-nigeria-green transition-colors"
+                                         stroke="currentColor"
+                                         fill="none"
+                                         viewBox="0 0 48 48"
+                                         aria-hidden="true">
+                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <div class="flex text-sm text-slate-600">
+                                        {{ form.attachments|add_class:"relative cursor-pointer bg-white rounded-md font-medium text-nigeria-green hover:text-nigeria-dark focus-within:outline-none" }}
+                                    </div>
+                                    <p class="text-xs text-slate-500">Append PDF, DOCX or JPEG signals</p>
+                                </div>
+                            </div>
+                            {% for error in form.attachments.errors %}<p class="text-[10px] text-red-600 font-bold">{{ error }}</p>{% endfor %}
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-100">
+                        <a href="{% url 'document_management:registry_hub' %}"
+                           class="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50">Cancel</a>
+                        <button type="submit"
+                                class="px-8 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-all">
+                            Create Record
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-
-        <!-- Form Body -->
-        <div class="p-8 lg:p-10">
-            <form method="post" enctype="multipart/form-data" class="space-y-8">
-                {% csrf_token %}
-
-                {% if form.non_field_errors %}
-                <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-semibold mb-6">
-                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
-                </div>
-                {% endif %}
-
-                <div class="grid grid-cols-1 gap-6">
-                    {% for field in form %}
-                    {% if field.name != 'attachments' %}
-                        {% if field.name == 'owner' %}
-                             {# Personal: Required #}
-                             <div class="space-y-1.5" x-show="fileType === 'personal'" x-transition>
-                                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                                
-                                <div class="flex gap-2">
-                                    <div class="hidden">
-                                        {{ field }}
-                                    </div>
-                                    <input type="text" id="owner_display" class="block w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 font-medium cursor-not-allowed" readonly value="{{ request.user.staff }}">
-                                    {% if request.user.staff.is_registry or request.user.staff.is_hod or request.user.staff.is_unit_manager %}
-                                    <button type="button" 
-                                            class="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors whitespace-nowrap"
-                                            onclick="openStaffSearch()">
-                                        Assign to Staff
-                                    </button>
-                                    {% endif %}
-                                </div>
-                                {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
-                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
-                            </div>
-                        {% elif field.name == 'policy_type' %}
-                            <div class="space-y-1.5 p-4 bg-slate-50 rounded-xl border border-slate-100" x-show="fileType === 'policy'" x-transition>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                                <div class="flex items-center space-x-8 mt-2">
-                                    {% for radio in field %}
-                                    <label class="inline-flex items-center cursor-pointer">
-                                        {{ radio.tag }}
-                                        <span class="ml-2 text-sm font-bold text-slate-700">{{ radio.choice_label }}</span>
-                                    </label>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% elif field.name == 'department' %}
-                            <div class="space-y-1.5" x-show="fileType === 'policy' && policyType === 'internal'" x-transition>
-                                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                                {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
-                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
-                            </div>
-                        {% elif field.name == 'external_party' %}
-                            <div class="space-y-1.5" x-show="fileType === 'policy' && policyType === 'external'" x-transition>
-                                <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                                {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
-                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="space-y-1.5">
-                                <label for="{{ field.id_for_label }}"
-                                    class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                                {{ field|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all placeholder:text-slate-300 font-medium" }}
-                                {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
-                                {% for error in field.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
-                            </div>
-                        {% endif %}
-                    {% endif %}
-                    {% endfor %}
-
-                    <!-- File Upload Styling -->
-                    <div class="space-y-1.5">
-                        <label for="{{ form.attachments.id_for_label }}"
-                            class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ form.attachments.label }}</label>
-                        <div
-                            class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors group">
-                            <div class="space-y-1 text-center">
-                                <svg class="mx-auto h-12 w-12 text-slate-400 group-hover:text-nigeria-green transition-colors"
-                                    stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                                    <path
-                                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                <div class="flex text-sm text-slate-600">
-                                    {{ form.attachments|add_class:"relative cursor-pointer bg-white rounded-md font-medium text-nigeria-green hover:text-nigeria-dark focus-within:outline-none" }}
-                                </div>
-                                <p class="text-xs text-slate-500">Append PDF, DOCX or JPEG signals</p>
-                            </div>
-                        </div>
-                        {% for error in form.attachments.errors %}<p class="text-[10px] text-red-600 font-bold">{{ error }}</p>{% endfor %}
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-100">
-                    <a href="{% url 'document_management:registry_hub' %}"
-                        class="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50">Cancel</a>
-                    <button type="submit"
-                        class="px-8 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-all">
-                        Create Record
+    </div>
+{% endblock %}
+{% block extra_modals %}
+    {% if request.user.staff.is_registry or request.user.staff.is_hod or request.user.staff.is_unit_manager %}
+        <!-- Staff Search Modal -->
+        <div id="staffSearchModal"
+             class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-lg font-bold text-slate-800">Assign File Owner</h3>
+                    <button type="button"
+                            onclick="closeStaffSearch()"
+                            class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
                     </button>
                 </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_modals %}
-{% if request.user.staff.is_registry or request.user.staff.is_hod or request.user.staff.is_unit_manager %}
-<!-- Staff Search Modal -->
-<div id="staffSearchModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
-        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h3 class="text-lg font-bold text-slate-800">Assign File Owner</h3>
-            <button type="button" onclick="closeStaffSearch()" class="text-slate-400 hover:text-slate-600 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-        
-        <div class="p-6">
-            <div class="mb-4 relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
-                <input type="search" 
-                       class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green sm:text-sm"
-                       placeholder="Search staff by name or department..."
-                       name="q"
-                       hx-get="{% url 'document_management:staff_search' %}"
-                       hx-trigger="keyup changed delay:300ms, search"
-                       hx-target="#staff-search-results"
-                       autofocus>
-            </div>
-            
-            <div id="staff-search-results" class="max-h-60 overflow-y-auto border border-slate-100 rounded-lg">
-                <div class="p-4 text-center text-sm text-slate-500">
-                    Type to search for staff...
+                <div class="p-6">
+                    <div class="mb-4 relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-slate-400"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z">
+                                </path>
+                            </svg>
+                        </div>
+                        <input type="search"
+                               class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green sm:text-sm"
+                               placeholder="Search staff by name or department..."
+                               name="q"
+                               hx-get="{% url 'document_management:staff_search' %}"
+                               hx-trigger="keyup changed delay:300ms, search"
+                               hx-target="#staff-search-results"
+                               autofocus>
+                    </div>
+                    <div id="staff-search-results"
+                         class="max-h-60 overflow-y-auto border border-slate-100 rounded-lg">
+                        <div class="p-4 text-center text-sm text-slate-500">Type to search for staff...</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<script>
+        <script>
     function openStaffSearch() {
         document.getElementById('staffSearchModal').classList.remove('hidden');
         document.querySelector('#staffSearchModal input[type="search"]').focus();
@@ -208,6 +223,6 @@
             closeStaffSearch();
         }
     });
-</script>
-{% endif %}
+        </script>
+    {% endif %}
 {% endblock %}

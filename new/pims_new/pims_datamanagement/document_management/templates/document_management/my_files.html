@@ -1,51 +1,71 @@
 {% extends 'base.html' %}
-
-{% block title %}{% if user.staff.is_registry %}Folder Distribution{% else %}My Records{% endif %} | PIMS{% endblock %}
-
+{% block title %}
+    {% if user.staff.is_registry %}
+        Folder Distribution
+    {% else %}
+        My Records
+    {% endif %}
+    | PIMS
+{% endblock %}
 {% block content %}
-<div class="space-y-8">
-    <!-- Header Section -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
-        <div class="absolute top-0 right-0 p-4 opacity-[0.03]">
-            <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
-        </div>
-        
-        <div class="relative">
-            <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em] text-gov-green mb-1">{% if user.staff.is_registry %}Folder Distribution{% else %}My Records{% endif %}</h2>
-            <div class="flex items-center gap-3">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest italic pr-2 border-r border-slate-200">Personnel Identity</span>
-                <span class="text-xl font-black text-nigeria-green tracking-tighter">{{ staff_file_number }}</span>
+    <div class="space-y-8">
+        <!-- Header Section -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-[0.03]">
+                <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                </svg>
+            </div>
+            <div class="relative">
+                <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em] text-gov-green mb-1">
+                    {% if user.staff.is_registry %}
+                        Folder Distribution
+                    {% else %}
+                        My Records
+                    {% endif %}
+                </h2>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest italic pr-2 border-r border-slate-200">Personnel Identity</span>
+                    <span class="text-xl font-black text-nigeria-green tracking-tighter">{{ staff_file_number }}</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 relative">
+                <!-- Search Bar -->
+                <form method="GET" class="relative group min-w-[300px]" hx-boost="true">
+                    <input type="text"
+                           name="q"
+                           value="{{ selected_search_query }}"
+                           placeholder="Search your records..."
+                           hx-get="{% url 'document_management:my_files' %}"
+                           hx-trigger="keyup changed delay:10ms, q"
+                           hx-target="#my-files-list"
+                           hx-indicator="#search-indicator"
+                           hx-push-url="true"
+                           class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-inner">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors"
+                             fill="none"
+                             stroke="currentColor"
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z">
+                            </path>
+                        </svg>
+                    </div>
+                    <!-- Search Indicator -->
+                    <div id="search-indicator"
+                         class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <svg class="animate-spin h-5 w-5 text-nigeria-green"
+                             fill="none"
+                             viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                            </path>
+                        </svg>
+                    </div>
+                </form>
             </div>
         </div>
-
-        <div class="flex items-center gap-4 relative">
-            <!-- Search Bar -->
-            <form method="GET" class="relative group min-w-[300px]" hx-boost="true">
-                <input type="text" name="q" value="{{ selected_search_query }}"
-                    placeholder="Search your records..."
-                    hx-get="{% url 'document_management:my_files' %}"
-                    hx-trigger="keyup changed delay:10ms, q"
-                    hx-target="#my-files-list"
-                    hx-indicator="#search-indicator"
-                    hx-push-url="true"
-                    class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-inner">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </div>
-                <!-- Search Indicator -->
-                <div id="search-indicator" class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
-                    <svg class="animate-spin h-5 w-5 text-nigeria-green" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </div>
-            </form>
-        </div>
+        <!-- Personnel Folders & Documents -->
+        {% include 'document_management/partials/_my_files_list.html' %}
     </div>
-
-    <!-- Personnel Folders & Documents -->
-    {% include 'document_management/partials/_my_files_list.html' %}
-</div>
 {% endblock %}
