@@ -39,3 +39,10 @@ from .search_views import (  # noqa: F401
     RecipientSearchView,
     StaffSearchView,
 )
+from .approval_views import (  # noqa: F401
+    MyApprovalChainsView,
+    ApprovalChainCreateView,
+    ApprovalChainStartView,
+    ApprovalStepActionView,
+    ApprovalChainDeleteView,
+)

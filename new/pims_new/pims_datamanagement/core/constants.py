@@ -19,6 +19,7 @@ STATUS_CHOICES = [
     ("pending_activation", "Pending Activation"),
     ("active", "Active"),
     ("in_transit", "In Transit"),
+    ("in_review", "In Review"),
     ("closed", "Closed"),
     ("archived", "Archived"),
 ]

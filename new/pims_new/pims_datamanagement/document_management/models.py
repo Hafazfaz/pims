@@ -337,6 +337,85 @@ class FileMovement(models.Model):
         return f"{self.file.file_number} — {self.action} at {self.moved_at:%Y-%m-%d %H:%M}"
 
 
+class ApprovalChain(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('active', 'Active'),
+        ('closed', 'Closed'),
+        ('rejected', 'Rejected'),
+    ]
+    file = models.OneToOneField(File, on_delete=models.CASCADE, related_name='approval_chain')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_chains')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    current_step = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"Chain for {self.file.file_number} [{self.status}]"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    def get_current_step(self):
+        return self.steps.filter(order=self.current_step).first()
+
+    def advance(self):
+        """Move to next step or close chain if all steps done."""
+        next_step = self.steps.filter(order__gt=self.current_step, status='pending').order_by('order').first()
+        if next_step:
+            self.current_step = next_step.order
+            self.save()
+            self.file.current_location = next_step.approver
+            self.file.save()
+        else:
+            self.status = 'closed'
+            self.save()
+            self.file.status = 'active'
+            self.file.current_location = None
+            self.file.save()
+
+    def reject_to_previous(self, from_order):
+        """Send back to previous approver, or to owner if step 1."""
+        prev_step = self.steps.filter(order__lt=from_order).order_by('-order').first()
+        if prev_step:
+            prev_step.status = 'pending'
+            prev_step.save()
+            self.current_step = prev_step.order
+            self.save()
+            self.file.current_location = prev_step.approver
+            self.file.save()
+        else:
+            # Back to owner
+            self.status = 'rejected'
+            self.save()
+            self.file.current_location = self.file.owner
+            self.file.status = 'active'
+            self.file.save()
+
+
+class ApprovalStep(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    chain = models.ForeignKey(ApprovalChain, on_delete=models.CASCADE, related_name='steps')
+    approver = models.ForeignKey('organization.Staff', on_delete=models.CASCADE, related_name='approval_steps')
+    order = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    note = models.TextField(blank=True)
+    signature = models.ForeignKey('organization.StaffSignature', on_delete=models.SET_NULL, null=True, blank=True)
+    actioned_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['order']
+        unique_together = [('chain', 'order')]
+
+    def __str__(self):
+        return f"Step {self.order} — {self.approver} [{self.status}]"
+
+
 class FileAccessRequest(models.Model):
     """
     Model for requesting temporary access to a file's original documents.
