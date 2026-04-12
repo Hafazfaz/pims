@@ -27,8 +27,9 @@ from .document_views import (  # noqa: F401
     DocumentDetailView,
     FileDocumentsView,
     DocumentShareView,
-    DocumentCreateView,
+    DocumentDownloadView,
 )
+DocumentCreateView = DocumentUploadView  # alias for url routing
 from .access_views import (  # noqa: F401
     FileAccessRequestListView,
     FileAccessRequestApproveView,
