@@ -569,6 +569,8 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["movements"] = file_obj.movements.select_related(
             'sent_by', 'from_location__user', 'sent_to__user'
         )[:20]
+        from core.constants import STATUS_CHOICES
+        context["status_choices"] = STATUS_CHOICES
         
         return context
 
