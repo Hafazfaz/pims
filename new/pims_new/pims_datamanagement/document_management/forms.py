@@ -221,6 +221,11 @@ class SendFileForm(forms.Form):
         label="Send to",
     )
     document_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    movement_attachment = forms.FileField(
+        required=False,
+        label="Covering Memo / Dispatch Note",
+        widget=forms.FileInput(attrs={"class": "form-control"}),
+    )
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)

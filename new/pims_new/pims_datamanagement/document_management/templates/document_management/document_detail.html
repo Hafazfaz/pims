@@ -195,10 +195,23 @@
                         </div>
                         <form method="post"
                               action="{% url 'document_management:file_detail' pk=document.file.pk %}"
+                              enctype="multipart/form-data"
                               class="mt-6">
                             {% csrf_token %}
+                            <input type="hidden" name="action" value="send_file">
                             <input type="hidden" name="recipient" :value="recipientId">
                             <input type="hidden" name="document_id" value="{{ document.pk }}">
+                            <div class="mb-4">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Note (optional)</label>
+                                <textarea name="movement_note" rows="2"
+                                          class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-nigeria-green outline-none"
+                                          placeholder="Add a dispatch note..."></textarea>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Covering Memo / Dispatch Note (optional)</label>
+                                <input type="file" name="movement_attachment"
+                                       class="w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:uppercase file:tracking-widest file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                            </div>
                             <div class="flex justify-end gap-3">
                                 <button type="button"
                                         @click="showDispatchModal = false"

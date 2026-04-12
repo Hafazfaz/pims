@@ -11,7 +11,7 @@ from django.db.models import Q, Prefetch
 from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from organization.models import Staff, Department
-from ..models import File, FileAccessRequest, Document
+from ..models import File, FileAccessRequest, FileMovement, Document
 from ..forms import FileForm, FileUpdateForm, SendFileForm, FileAccessRequestForm
 from .base import HTMXLoginRequiredMixin
 
@@ -25,7 +25,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager)
+        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_md)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -34,14 +34,17 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
         
-        if not (staff_user.is_hod or staff_user.is_unit_manager):
-            raise PermissionDenied("Only executives, HODs, and unit managers can access this dashboard.")
+        if not (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_md):
+            raise PermissionDenied("Only executives, HODs, unit managers, and MD can access this dashboard.")
 
         today = timezone.now().date()
         
         if self.request.user.is_superuser:
             scope_filter = Q()
             context['scope_title'] = 'Organization-Wide'
+        elif staff_user.is_md:
+            scope_filter = Q()
+            context['scope_title'] = 'Organization-Wide (MD)'
         elif staff_user.is_hod:
             scope_filter = Q(department=staff_user.department)
             context['scope_title'] = f'{staff_user.department.name} Department'
@@ -421,8 +424,8 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
         file_obj = get_object_or_404(File, pk=pk)
         staff_user = self.get_staff_user()
         
-        if file_obj.owner != staff_user:
-            messages.error(request, "Only the file owner can recall a file.")
+        if file_obj.owner != staff_user and not staff_user.is_registry:
+            messages.error(request, "Only the file owner or registry staff can recall a file.")
             return redirect(file_obj.get_absolute_url())
 
         if file_obj.current_location == staff_user:
@@ -430,9 +433,17 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         old_location = file_obj.current_location
-        file_obj.current_location = staff_user
+        # Registry recalls set location to None (back to registry); owners recall to themselves
+        file_obj.current_location = None if staff_user.is_registry else staff_user
         file_obj.save()
 
+        FileMovement.objects.create(
+            file=file_obj,
+            sent_by=request.user,
+            from_location=old_location,
+            sent_to=None if staff_user.is_registry else staff_user,
+            action='recalled',
+        )
         log_action(
             request.user, 
             "FILE_RECALLED", 
@@ -555,6 +566,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["pending_access_request"] = FileAccessRequest.objects.filter(
             file=file_obj, requested_by=user, status='pending'
         ).exists()
+        context["movements"] = file_obj.movements.select_related(
+            'sent_by', 'from_location__user', 'sent_to__user'
+        )[:20]
         
         return context
 
@@ -588,13 +602,24 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.error(request, "Only the current custodian or registry can send this file.")
                 return redirect(file_obj.get_absolute_url())
 
-            form = SendFileForm(request.POST)
+            form = SendFileForm(request.POST, request.FILES)
             if form.is_valid():
                 recipient = form.cleaned_data["recipient"]
+                old_location = file_obj.current_location
+                note = request.POST.get("movement_note", "")
                 file_obj.current_location = recipient
                 file_obj.status = 'active'
                 file_obj.save()
-                
+
+                FileMovement.objects.create(
+                    file=file_obj,
+                    sent_by=request.user,
+                    from_location=old_location,
+                    sent_to=recipient,
+                    note=note,
+                    attachment=form.cleaned_data.get("movement_attachment"),
+                    action='sent',
+                )
                 log_action(
                     request.user,
                     "FILE_SENT",
