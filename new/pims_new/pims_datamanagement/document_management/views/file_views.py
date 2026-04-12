@@ -546,6 +546,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["can_add_minutes"] = is_custodian or has_rw_access or is_registry
         context["can_send_file"] = is_custodian or is_registry
         context["is_custodian"] = is_custodian
+        context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
