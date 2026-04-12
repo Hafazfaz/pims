@@ -79,8 +79,7 @@
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     {% if doc.attachment %}
-                                        <a href="{{ doc.attachment.url }}"
-                                           target="_blank"
+                                        <a href="{% url 'document_management:document_download' doc.pk %}"
                                            class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
                                     {% else %}
                                         <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>

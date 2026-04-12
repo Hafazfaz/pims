@@ -119,8 +119,7 @@
                                 </div>
                             </div>
                             {% if doc.attachment %}
-                                <a href="{{ doc.attachment.url }}"
-                                   target="_blank"
+                                <a href="{% url 'document_management:document_download' doc.pk %}"
                                    class="text-slate-400 hover:text-nigeria-green p-2 transition-colors">
                                     <i class="fas fa-download text-sm"></i>
                                 </a>

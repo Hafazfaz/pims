@@ -112,7 +112,8 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         active_request = FileAccessRequest.objects.filter(
             file=file_obj,
             requested_by=user,
-            status='approved'
+            status='approved',
+            access_type='read_write'
         ).filter(
             Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
         ).exists()
@@ -228,7 +229,8 @@ class DocumentShareView(LoginRequiredMixin, View):
         has_access = FileAccessRequest.objects.filter(
             file=file, 
             requested_by=user, 
-            status="approved"
+            status="approved",
+            access_type='read_write'
         ).filter(
             Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
         ).exists()
@@ -264,7 +266,53 @@ class DocumentShareView(LoginRequiredMixin, View):
 
         return redirect(file.get_absolute_url())
 
-class DocumentCreateView(LoginRequiredMixin, CreateView):
+class DocumentDownloadView(LoginRequiredMixin, View):
+    """
+    Serves a document attachment only if the user has approved access to the file
+    (read_only or read_write), is the owner/custodian, registry, or the uploader.
+    """
+    def get(self, request, pk):
+        document = get_object_or_404(Document, pk=pk)
+        file_obj = document.file
+        user = request.user
+
+        # Check permission
+        allowed = False
+        staff = getattr(user, 'staff', None)
+
+        if user.is_superuser:
+            allowed = True
+        elif staff:
+            if staff.is_registry or staff == file_obj.owner or staff == file_obj.current_location:
+                allowed = True
+            elif staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department:
+                allowed = True
+        
+        if not allowed and document.uploaded_by == user:
+            allowed = True
+
+        if not allowed:
+            allowed = FileAccessRequest.objects.filter(
+                file=file_obj,
+                requested_by=user,
+                status='approved'
+            ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+
+        if not allowed:
+            allowed = document.shared_with.filter(pk=user.pk).exists()
+
+        if not allowed:
+            messages.error(request, "You do not have permission to download this document.")
+            return redirect(file_obj.get_absolute_url())
+
+        import mimetypes
+        from django.http import FileResponse
+        file_path = document.attachment.path
+        mime_type, _ = mimetypes.guess_type(file_path)
+        response = FileResponse(open(file_path, 'rb'), content_type=mime_type or 'application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{document.attachment.name.split("/")[-1]}"'
+        log_action(user, "DOCUMENT_DOWNLOADED", request=request, obj=document)
+        return response
     model = Document
     form_class = DocumentForm
     template_name = "document_management/document_create.html"
@@ -377,6 +425,12 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 request=self.request,
                 obj=self.file_obj,
                 details={"to": send_to_staff.user.get_full_name()}
+            )
+            create_notification(
+                user=send_to_staff.user,
+                message=f"{self.request.user.get_full_name()} sent you file {self.file_obj.file_number} — {self.file_obj.title}.",
+                obj=self.file_obj,
+                link=self.file_obj.get_absolute_url()
             )
             messages.success(self.request, f"Document added and routed to {send_to_staff.user.get_full_name()} for review.")
         else:

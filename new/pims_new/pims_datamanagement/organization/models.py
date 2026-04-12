@@ -77,11 +77,11 @@ class Staff(models.Model):
 
     @property
     def is_executive(self):
-        return self.user.groups.filter(name__iexact="Executives").exists()
+        return self.user.groups.filter(name__iexact="Executive").exists()
 
     @property
     def is_md(self):
-        return self.user.groups.filter(name__iexact="MD").exists()
+        return self.is_executive
 class StaffSignature(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='signatures')
     image = models.ImageField(upload_to='signatures/verified/')
