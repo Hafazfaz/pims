@@ -59,26 +59,7 @@ INSTALLED_APPS = [
 ]
 
 # Unfold Admin Configuration
-UNFOLD = {
-    "SITE_TITLE": "PIMS Administration",
-    "SITE_HEADER": "PIMS Records Matrix",
-    "SITE_SYMBOL": "speed",  # Symbol in the top left corner.
-    "COLORS": {
-        "primary": {
-            "50": "230 243 238",
-            "100": "204 231 221",
-            "200": "153 207 187",
-            "300": "102 183 153",
-            "400": "51 159 119",
-            "500": "0 135 81",  # Nigeria Green (#008751)
-            "600": "0 121 73",
-            "700": "0 94 57",
-            "800": "0 67 41",
-            "900": "0 41 24",
-            "950": "0 20 12",
-        },
-    },
-}
+from pims_datamanagement.unfold_config import UNFOLD  # noqa: F401
 
 # TAILWIND_APP_NAME = "theme"
 
