@@ -34,7 +34,7 @@ UNFOLD = {
     "ENVIRONMENT": "pims_datamanagement.unfold_config.environment_callback",
     "DASHBOARD_CALLBACK": "pims_datamanagement.unfold_config.dashboard_callback",
     "STYLES": [
-        "css/admin_custom.css",
+        lambda request: request.build_absolute_uri("/static/css/admin_custom.css"),
     ],
     "COLORS": {
         "font": {
