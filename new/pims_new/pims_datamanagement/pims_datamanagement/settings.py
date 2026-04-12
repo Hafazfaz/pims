@@ -26,12 +26,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq"
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "true").lower() in ["true", "1", "yes"]
 
-ALLOWED_HOSTS = ["pims.fmcabuja.gov.ng"]
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -245,7 +244,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = "DENY"
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
