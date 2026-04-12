@@ -30,14 +30,15 @@ UNFOLD = {
     "SITE_SYMBOL": "folder_open",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
+    "THEME": "light",
     "ENVIRONMENT": "pims_datamanagement.unfold_config.environment_callback",
     "DASHBOARD_CALLBACK": "pims_datamanagement.unfold_config.dashboard_callback",
     "COLORS": {
         "font": {
-            "subtle-light": "107 114 128",
-            "subtle-dark": "156 163 175",
-            "default-light": "17 24 39",
-            "default-dark": "243 244 246",
+            "subtle-light": "100 116 139",    # slate-500
+            "subtle-dark": "148 163 184",     # slate-400
+            "default-light": "15 23 42",      # slate-900
+            "default-dark": "226 232 240",    # slate-200
             "important-light": "0 0 0",
             "important-dark": "255 255 255",
         },
