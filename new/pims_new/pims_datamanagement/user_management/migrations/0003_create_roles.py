@@ -11,6 +11,7 @@ def create_roles(apps, schema_editor):
         "HOD/HOU": [],
         "Staff": [],
         "Executives": [],
+        "MD": [],
     }
 
     for role_name, permissions_list in roles_permissions.items():
@@ -28,7 +29,7 @@ def create_roles(apps, schema_editor):
 
 def remove_roles(apps, schema_editor):
     Group = apps.get_model('auth', 'Group')
-    for role_name in ["Administrator", "Registry", "HOD/HOU", "Staff", "Executives"]:
+    for role_name in ["Administrator", "Registry", "HOD/HOU", "Staff", "Executives", "MD"]:
         try:
             group = Group.objects.get(name=role_name)
             group.delete()

@@ -18,6 +18,9 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 # Route registry users to registry dashboard
                 if staff.is_registry:
                     return redirect('document_management:registry')
+                # Route MD to executive dashboard (org-wide scope)
+                elif staff.is_md:
+                    return redirect('document_management:executive_dashboard')
                 # Route HODs and unit managers to executive dashboard
                 elif staff.is_hod or staff.is_unit_manager:
                     return redirect('document_management:executive_dashboard')
