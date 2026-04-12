@@ -55,21 +55,6 @@ class File(models.Model):
         related_name="created_files",
     )
 
-    # Document-Centric Dispatch
-    active_dispatch_document = models.ForeignKey(
-        'Document',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="active_dispatches",
-        help_text="The specific document that triggered the current dispatch."
-    )
-
-    def clear_dispatch(self):
-        self.active_dispatch_document = None
-        self.save()
-
-
     class Meta:
         permissions = [
             ("create_file", "Can create a new file"),
@@ -154,33 +139,13 @@ class File(models.Model):
         super().save(*args, **kwargs)
 
     def get_custody_duration(self):
-        """
-        Calculate how many days the file has been at its current location.
-        Uses audit log entries to find the last FILE_SENT action.
-        """
+        """Days the file has been at its current location, based on FileMovement."""
         from django.utils import timezone
-        from audit_log.models import AuditLogEntry
-        from django.contrib.contenttypes.models import ContentType
-        
         if not self.current_location:
             return 0
-        
-        # Get the most recent FILE_SENT audit log entry for this file
-        file_ct = ContentType.objects.get_for_model(File)
-        last_movement = AuditLogEntry.objects.filter(
-            content_type=file_ct,
-            object_id=self.pk,
-            action='FILE_SENT'
-        ).order_by('-timestamp').first()
-        
-        if last_movement:
-            # Calculate days since last movement
-            duration = timezone.now() - last_movement.timestamp
-            return duration.days
-        else:
-            # If no FILE_SENT log exists, use file creation date
-            duration = timezone.now() - self.created_at
-            return duration.days
+        last_movement = self.movements.filter(action='sent').order_by('-moved_at').first()
+        ref = last_movement.moved_at if last_movement else self.created_at
+        return (timezone.now() - ref).days
     
     def is_overdue(self, threshold_days=2):
         """
@@ -191,21 +156,8 @@ class File(models.Model):
     
     @property
     def last_movement_date(self):
-        """
-        Get the timestamp of the last time this file was sent to someone.
-        Returns the creation date if file has never been moved.
-        """
-        from audit_log.models import AuditLogEntry
-        from django.contrib.contenttypes.models import ContentType
-        
-        file_ct = ContentType.objects.get_for_model(File)
-        last_movement = AuditLogEntry.objects.filter(
-            content_type=file_ct,
-            object_id=self.pk,
-            action='FILE_SENT'
-        ).order_by('-timestamp').first()
-        
-        return last_movement.timestamp if last_movement else self.created_at
+        last = self.movements.filter(action='sent').order_by('-moved_at').first()
+        return last.moved_at if last else self.created_at
 
 
 class Document(models.Model):
