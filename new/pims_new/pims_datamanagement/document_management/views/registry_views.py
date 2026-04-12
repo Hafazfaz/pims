@@ -11,25 +11,18 @@ from audit_log.utils import log_action
 from organization.models import Staff, Department, Unit
 from core.constants import FILE_TYPE_CHOICES
 from ..models import File, FileAccessRequest
-from .base import HTMXLoginRequiredMixin
+from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
 
-class RegistryHubView(HTMXLoginRequiredMixin, PermissionRequiredMixin, ListView):
+class RegistryHubView(RegistryRequiredMixin, ListView):
     model = File
     template_name = "document_management/registry_hub.html"
     context_object_name = "files"
-    permission_required = "document_management.view_file"
     paginate_by = 15
 
     def get_queryset(self):
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
-        
-        if not staff_user.is_registry:
-            raise PermissionDenied("Only registry users can access the registry hub.")
-        
-        if self.request.user.is_superuser and not staff_user.is_registry:
-            raise PermissionDenied("Super Admins should use the Admin Dashboard for full control.")
 
         queryset = File.objects.all()
 
@@ -162,19 +155,11 @@ class RegistryHubView(HTMXLoginRequiredMixin, PermissionRequiredMixin, ListView)
         except Staff.DoesNotExist:
             return None
 
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
-        messages.error(
-            self.request, "You do not have permission to access the registry dashboard."
-        )
-        return redirect("document_management:my_files")
 
-class RegistryDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, ListView):
+class RegistryDashboardView(RegistryRequiredMixin, ListView):
     model = File
     template_name = "document_management/registry_analytics.html"
     context_object_name = "files"
-    permission_required = "document_management.view_file"
 
     def get_queryset(self):
         return File.objects.none()
@@ -184,9 +169,6 @@ class RegistryDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Lis
         staff_user = self.get_staff_user()
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
-            
-        if not staff_user.is_registry:
-            raise PermissionDenied("Only registry users can access the registry analytics.")
 
         today = timezone.now().date()
         
@@ -229,11 +211,10 @@ class RegistryDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Lis
         except Staff.DoesNotExist:
             return None        
 
-class StaffWithoutFilesView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class StaffWithoutFilesView(RegistryRequiredMixin, ListView):
     model = Staff
     template_name = "document_management/staff_without_files.html"
     context_object_name = "staff_list"
-    permission_required = "document_management.view_file"
     paginate_by = 20
 
     def get_queryset(self):
@@ -260,8 +241,7 @@ class StaffWithoutFilesView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
         context["search_query"] = self.request.GET.get('q', '')
         return context
 
-class FileApproveActivationView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = "document_management.activate_file"
+class FileApproveActivationView(RegistryRequiredMixin, View):
 
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
@@ -279,9 +259,3 @@ class FileApproveActivationView(HTMXLoginRequiredMixin, PermissionRequiredMixin,
             return render(request, "document_management/partials/_registry_file_status.html", {"file": file_obj})
             
         return redirect('document_management:registry_hub')
-
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
-        messages.error(self.request, "You do not have permission to activate files.")
-        return redirect("document_management:registry_hub")

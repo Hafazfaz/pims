@@ -1,6 +1,8 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpResponse
 from django.urls import reverse_lazy
+from django.contrib import messages
+from django.shortcuts import redirect
 
 class HTMXLoginRequiredMixin(LoginRequiredMixin):
     """
@@ -10,7 +12,22 @@ class HTMXLoginRequiredMixin(LoginRequiredMixin):
     def handle_no_permission(self):
         if self.request.headers.get("HX-Request"):
             response = HttpResponse()
-            # Redirect to login page and let it redirect back to current page
             response["HX-Redirect"] = str(reverse_lazy("user_management:login"))
             return response
         return super().handle_no_permission()
+
+
+class RegistryRequiredMixin(HTMXLoginRequiredMixin, UserPassesTestMixin):
+    """Restricts access to registry staff and superusers only."""
+
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        return hasattr(user, 'staff') and user.staff.is_registry
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "Only registry staff can access this page.")
+        return redirect("document_management:my_files")

@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.db.models import Q, Prefetch
 from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
+from notifications.utils import create_notification
 from organization.models import Staff, Department
 from ..models import File, FileAccessRequest, FileMovement, Document
 from ..forms import FileForm, FileUpdateForm, SendFileForm, FileAccessRequestForm
@@ -25,7 +26,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_md)
+        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_executive)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -34,17 +35,14 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
         
-        if not (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_md):
-            raise PermissionDenied("Only executives, HODs, unit managers, and MD can access this dashboard.")
+        if not (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_executive):
+            raise PermissionDenied("Only executives, HODs, and unit managers can access this dashboard.")
 
         today = timezone.now().date()
         
-        if self.request.user.is_superuser:
+        if self.request.user.is_superuser or staff_user.is_executive:
             scope_filter = Q()
             context['scope_title'] = 'Organization-Wide'
-        elif staff_user.is_md:
-            scope_filter = Q()
-            context['scope_title'] = 'Organization-Wide (MD)'
         elif staff_user.is_hod:
             scope_filter = Q(department=staff_user.department)
             context['scope_title'] = f'{staff_user.department.name} Department'
@@ -423,7 +421,11 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
         staff_user = self.get_staff_user()
-        
+
+        if hasattr(file_obj, 'approval_chain') and file_obj.approval_chain.is_active:
+            messages.error(request, "This file is locked in an approval chain and cannot be recalled.")
+            return redirect(file_obj.get_absolute_url())
+
         if file_obj.owner != staff_user and not staff_user.is_registry:
             messages.error(request, "Only the file owner or registry staff can recall a file.")
             return redirect(file_obj.get_absolute_url())
@@ -599,7 +601,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if action == "send_file":
             staff_user = getattr(request.user, 'staff', None)
             is_registry = staff_user and staff_user.is_registry
-            
+
+            # Block if file is in an active approval chain
+            if hasattr(file_obj, 'approval_chain') and file_obj.approval_chain.is_active:
+                messages.error(request, "This file is locked in an approval chain and cannot be moved.")
+                return redirect(file_obj.get_absolute_url())
+
             if file_obj.current_location != staff_user and not is_registry:
                 messages.error(request, "Only the current custodian or registry can send this file.")
                 return redirect(file_obj.get_absolute_url())
@@ -628,6 +635,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     request=request,
                     obj=file_obj,
                     details={"to": recipient.user.get_full_name()}
+                )
+                create_notification(
+                    user=recipient.user,
+                    message=f"{request.user.get_full_name()} sent you file {file_obj.file_number} — {file_obj.title}.",
+                    obj=file_obj,
+                    link=file_obj.get_absolute_url()
                 )
                 messages.success(request, f"File sent to {recipient.user.get_full_name()}.")
                 return redirect("document_management:my_files")
@@ -839,11 +852,24 @@ class FileDeleteView(HTMXLoginRequiredMixin, UserPassesTestMixin, View):
         messages.success(request, f"File {file_number} deleted successfully.")
         return redirect('document_management:registry_hub')
 
-class RecordExplorerView(HTMXLoginRequiredMixin, ListView):
+class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
     model = File
     template_name = "document_management/record_explorer.html"
     context_object_name = "files"
     paginate_by = 20
+
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        staff = getattr(user, 'staff', None)
+        return staff and (staff.is_registry or staff.is_hod or staff.is_unit_manager)
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to access the Record Explorer.")
+        return redirect("document_management:my_files")
 
     def get_queryset(self):
         queryset = File.objects.filter(status='active').order_by('file_number')

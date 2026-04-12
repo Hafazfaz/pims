@@ -8,21 +8,17 @@ from audit_log.utils import log_action
 from notifications.utils import create_notification
 from core.constants import ACCESS_REQUEST_DURATION_HOURS
 from ..models import FileAccessRequest
+from .base import RegistryRequiredMixin
 
-class FileAccessRequestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+class FileAccessRequestListView(RegistryRequiredMixin, ListView):
     model = FileAccessRequest
     template_name = "document_management/access_request_list.html"
     context_object_name = "requests"
 
-    def test_func(self):
-        return hasattr(self.request.user, 'staff') and self.request.user.staff.is_registry
-
     def get_queryset(self):
         return FileAccessRequest.objects.filter(status='pending').order_by('-created_at')
 
-class FileAccessRequestApproveView(LoginRequiredMixin, UserPassesTestMixin, View):
-    def test_func(self):
-        return hasattr(self.request.user, 'staff') and self.request.user.staff.is_registry
+class FileAccessRequestApproveView(RegistryRequiredMixin, View):
 
     def post(self, request, pk):
         access_req = get_object_or_404(FileAccessRequest, pk=pk)
@@ -43,9 +39,7 @@ class FileAccessRequestApproveView(LoginRequiredMixin, UserPassesTestMixin, View
         messages.success(request, f"Access request for {access_req.requested_by.username} approved.")
         return redirect('document_management:access_request_list')
 
-class FileAccessRequestRejectView(LoginRequiredMixin, UserPassesTestMixin, View):
-    def test_func(self):
-        return hasattr(self.request.user, 'staff') and self.request.user.staff.is_registry
+class FileAccessRequestRejectView(RegistryRequiredMixin, View):
 
     def post(self, request, pk):
         access_req = get_object_or_404(FileAccessRequest, pk=pk)
