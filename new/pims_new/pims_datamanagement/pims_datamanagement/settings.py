@@ -12,8 +12,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+
 from django.contrib.messages import constants as messages
+from dotenv import load_dotenv
 
 load_dotenv(".env")
 
@@ -28,9 +29,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True 
+DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["pims.fmcabuja.gov.ng"]
 
 
 # Application definition
@@ -66,6 +67,7 @@ from pims_datamanagement.unfold_config import UNFOLD  # noqa: F401
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -171,11 +173,27 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 # Port 465 requires SSL, port 587 requires TLS (STARTTLS)
 # Allow explicit override via environment variables
 if EMAIL_PORT == 465:
-    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "true").lower() in ["true", "1", "yes"]
-    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in ["true", "1", "yes"]
+    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "true").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
 else:  # Port 587 or other
-    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in ["true", "1", "yes"]
-    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ["true", "1", "yes"]
+    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in [
+        "true",
+        "1",
+        "yes",
+    ]
 
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "your-password")
@@ -231,7 +249,9 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
+)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
