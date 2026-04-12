@@ -158,14 +158,4 @@ UNFOLD = {
             },
         ],
     },
-    "TABS": [
-        {
-            "models": ["document_management.file"],
-            "items": [
-                {"title": "Overview", "link": "/admin/document_management/file/"},
-                {"title": "Documents", "link": "/admin/document_management/document/"},
-                {"title": "Movements", "link": "/admin/document_management/filemovement/"},
-            ],
-        },
-    ],
 }
