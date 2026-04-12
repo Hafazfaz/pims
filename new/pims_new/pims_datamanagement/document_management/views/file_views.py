@@ -12,7 +12,7 @@ from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from organization.models import Staff, Department
 from ..models import File, FileAccessRequest, Document
-from ..forms import FileForm, FileUpdateForm, SendFileForm
+from ..forms import FileForm, FileUpdateForm, SendFileForm, FileAccessRequestForm
 from .base import HTMXLoginRequiredMixin
 
 class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, TemplateView):
@@ -550,13 +550,35 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
         context["send_file_form"] = SendFileForm()
+        context["access_request_form"] = FileAccessRequestForm()
+        context["pending_access_request"] = FileAccessRequest.objects.filter(
+            file=file_obj, requested_by=user, status='pending'
+        ).exists()
         
         return context
 
     def post(self, request, *args, **kwargs):
         file_obj = self.get_object()
         action = request.POST.get("action")
-        
+
+        if action == "request_access":
+            already_pending = FileAccessRequest.objects.filter(
+                file=file_obj, requested_by=request.user, status='pending'
+            ).exists()
+            if already_pending:
+                messages.warning(request, "You already have a pending access request for this file.")
+            else:
+                FileAccessRequest.objects.create(
+                    file=file_obj,
+                    requested_by=request.user,
+                    access_type=request.POST.get("access_type", "read_only"),
+                    reason=request.POST.get("reason", ""),
+                    status='pending',
+                )
+                log_action(request.user, "ACCESS_REQUEST_SUBMITTED", request=request, obj=file_obj)
+                messages.success(request, "Access request submitted. Registry will review shortly.")
+            return redirect(file_obj.get_absolute_url())
+
         if action == "send_file":
             staff_user = getattr(request.user, 'staff', None)
             is_registry = staff_user and staff_user.is_registry
@@ -814,7 +836,10 @@ class RecordExplorerView(HTMXLoginRequiredMixin, ListView):
 
     def get_template_names(self):
         if self.request.headers.get("HX-Request"):
-            return ["document_management/partials/_explorer_results.html"]
+            target = self.request.headers.get("HX-Target", "")
+            if target == "file-detail-content":
+                return ["document_management/partials/_explorer_file_detail.html"]
+            return ["document_management/partials/_explorer_sidebar_list.html"]
         return [self.template_name]
 
     def get_context_data(self, **kwargs):
@@ -822,6 +847,18 @@ class RecordExplorerView(HTMXLoginRequiredMixin, ListView):
         context['departments'] = Department.objects.all().order_by('name')
         context['selected_dept'] = self.request.GET.get('department', '')
         context['q'] = self.request.GET.get('q', '')
+
+        file_pk = self.request.GET.get('file_pk')
+        if file_pk:
+            try:
+                selected_file = File.objects.get(pk=file_pk)
+                documents = selected_file.documents.order_by('-uploaded_at')[:10]
+                context['selected_file'] = selected_file
+                context['documents'] = documents
+                context['has_more_documents'] = selected_file.documents.count() > 10
+            except File.DoesNotExist:
+                pass
+
         return context
 
     def get_staff_user(self):
