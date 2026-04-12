@@ -6,6 +6,27 @@ from django.utils import timezone
 from django.urls import reverse_lazy
 from ..models import File, ApprovalChain, ApprovalStep
 from .base import HTMXLoginRequiredMixin
+from notifications.utils import create_notification
+
+
+def _notify_approver(step):
+    """Notify the approver that it's their turn."""
+    create_notification(
+        user=step.approver.user,
+        message=f"You have a pending approval for file '{step.chain.file.file_number} — {step.chain.file.title}' (Step {step.order}).",
+        obj=step.chain.file,
+        link=step.chain.file.get_absolute_url(),
+    )
+
+
+def _notify_owner(chain, message):
+    """Notify the file owner/creator."""
+    create_notification(
+        user=chain.created_by,
+        message=message,
+        obj=chain.file,
+        link=chain.file.get_absolute_url(),
+    )
 
 
 class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
@@ -95,6 +116,7 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
         file_obj.current_location = first_step.approver
         file_obj.save()
 
+        _notify_approver(first_step)
         messages.success(request, f"Approval chain started. File sent to {first_step.approver}.")
         return redirect(file_obj.get_absolute_url())
 
@@ -132,11 +154,19 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
             step.status = 'approved'
             step.save()
             chain.advance()
+            # Notify next approver or owner if chain closed
+            if chain.status == 'active':
+                next_step = chain.get_current_step()
+                if next_step:
+                    _notify_approver(next_step)
+            elif chain.status == 'closed':
+                _notify_owner(chain, f"Approval chain for file '{chain.file.file_number}' has been completed.")
             messages.success(request, "Step approved.")
         elif action == 'reject':
             step.status = 'rejected'
             step.save()
             chain.reject_to_previous(step.order)
+            _notify_owner(chain, f"Step {step.order} of the approval chain for file '{chain.file.file_number}' was rejected. Note: {step.note or 'No reason given'}")
             messages.warning(request, "Step rejected. File sent back.")
         else:
             messages.error(request, "Invalid action.")
