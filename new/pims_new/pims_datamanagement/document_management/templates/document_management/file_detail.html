@@ -96,6 +96,11 @@
                                 class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">
                             Chronicle
                         </button>
+                        <button @click="activeTab = 'movements'"
+                                :class="activeTab === 'movements' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
+                                class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">
+                            Movement History
+                        </button>
                         <div class="ml-auto flex items-center gap-2">
                             {% if can_add_minute %}
                                 <a href="{% url 'document_management:document_add' file_pk=file.pk %}"
@@ -538,6 +543,46 @@
                         </div>
                     </div>
                 {% endif %}
+                <!-- Movement History Tab -->
+                <div x-show="activeTab === 'movements'"
+                     class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-900 mb-6 uppercase tracking-wider border-b border-slate-100 pb-3">Movement History</h3>
+                    {% if movements %}
+                        <ol class="relative border-l border-slate-200 space-y-6 ml-3">
+                            {% for m in movements %}
+                                <li class="ml-6">
+                                    <span class="absolute -left-3 flex items-center justify-center w-6 h-6 rounded-full {% if m.action == 'recalled' %}bg-amber-100{% else %}bg-nigeria-green/10{% endif %} ring-4 ring-white">
+                                        <i class="fas {% if m.action == 'recalled' %}fa-undo text-amber-500{% else %}fa-arrow-right text-nigeria-green{% endif %} text-[9px]"></i>
+                                    </span>
+                                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-[10px] font-black uppercase tracking-widest {% if m.action == 'recalled' %}text-amber-600{% else %}text-nigeria-green{% endif %}">{{ m.action }}</span>
+                                            <span class="text-[9px] text-slate-400 font-medium">{{ m.moved_at|date:"M d, Y H:i" }}</span>
+                                        </div>
+                                        <p class="text-xs text-slate-700 font-medium">
+                                            <span class="font-bold">{{ m.from_location.user.get_full_name|default:"Registry" }}</span>
+                                            <i class="fas fa-long-arrow-alt-right mx-2 text-slate-300"></i>
+                                            <span class="font-bold">{{ m.sent_to.user.get_full_name|default:"—" }}</span>
+                                        </p>
+                                        <p class="text-[10px] text-slate-400 mt-1">By {{ m.sent_by.get_full_name }}</p>
+                                        {% if m.note %}
+                                            <p class="text-[11px] text-slate-500 italic mt-2 border-t border-slate-100 pt-2">"{{ m.note }}"</p>
+                                        {% endif %}
+                                        {% if m.attachment %}
+                                            <a href="{{ m.attachment.url }}" target="_blank"
+                                               class="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-nigeria-green hover:underline uppercase tracking-widest">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                                View Dispatch Note
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ol>
+                    {% else %}
+                        <p class="text-xs text-slate-400 italic text-center py-12">No movement recorded yet.</p>
+                    {% endif %}
+                </div>
             </div>
             <!-- Document Preview Modal -->
             <div x-show="previewUrl"

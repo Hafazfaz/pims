@@ -314,6 +314,29 @@ class Document(models.Model):
         return f"Empty document entry for {self.file.title}"
 
 
+class FileMovement(models.Model):
+    file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='movements')
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='sent_movements'
+    )
+    sent_to = models.ForeignKey(
+        Staff, on_delete=models.SET_NULL, null=True, blank=True, related_name='received_movements'
+    )
+    from_location = models.ForeignKey(
+        Staff, on_delete=models.SET_NULL, null=True, blank=True, related_name='outgoing_movements'
+    )
+    note = models.TextField(blank=True, default='')
+    attachment = models.FileField(upload_to='movement_attachments/', blank=True, null=True)
+    moved_at = models.DateTimeField(auto_now_add=True)
+    action = models.CharField(max_length=20, default='sent')  # 'sent' or 'recalled'
+
+    class Meta:
+        ordering = ['-moved_at']
+
+    def __str__(self):
+        return f"{self.file.file_number} — {self.action} at {self.moved_at:%Y-%m-%d %H:%M}"
+
+
 class FileAccessRequest(models.Model):
     """
     Model for requesting temporary access to a file's original documents.
