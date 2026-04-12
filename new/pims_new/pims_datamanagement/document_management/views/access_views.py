@@ -52,7 +52,14 @@ class FileAccessRequestRejectView(LoginRequiredMixin, UserPassesTestMixin, View)
         access_req.status = 'rejected'
         access_req.save()
 
-        log_action(request.user, "ACCESS_REQUEST_REJECTED", request=request, obj=access_req.file, details={'requested_by': access_req.requested_by.username})
+        denial_reason = request.POST.get('denial_reason', '')
+        if denial_reason == 'Other':
+            denial_reason = request.POST.get('denial_reason_other', 'Other').strip() or 'Other'
+
+        log_action(request.user, "ACCESS_REQUEST_REJECTED", request=request, obj=access_req.file, details={
+            'requested_by': access_req.requested_by.username,
+            'denial_reason': denial_reason,
+        })
         
         create_notification(
             user=access_req.requested_by,
