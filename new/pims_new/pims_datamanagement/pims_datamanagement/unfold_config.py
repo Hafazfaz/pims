@@ -33,6 +33,24 @@ UNFOLD = {
     "THEME": "light",
     "ENVIRONMENT": "pims_datamanagement.unfold_config.environment_callback",
     "DASHBOARD_CALLBACK": "pims_datamanagement.unfold_config.dashboard_callback",
+    "STYLES": [
+        lambda request: """
+            input:not([type=checkbox]):not([type=radio]),
+            select, textarea {
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 6px !important;
+                padding: 6px 10px !important;
+                background: #fff !important;
+                color: #0f172a !important;
+            }
+            input:not([type=checkbox]):not([type=radio]):focus,
+            select:focus, textarea:focus {
+                border-color: #008751 !important;
+                outline: none !important;
+                box-shadow: 0 0 0 2px rgba(0,135,81,0.15) !important;
+            }
+        """
+    ],
     "COLORS": {
         "font": {
             "subtle-light": "100 116 139",    # slate-500
