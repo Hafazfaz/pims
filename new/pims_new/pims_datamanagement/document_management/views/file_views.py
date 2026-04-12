@@ -433,15 +433,15 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         old_location = file_obj.current_location
-        # Registry recalls set location to None (back to registry); owners recall to themselves
-        file_obj.current_location = None if staff_user.is_registry else staff_user
+        file_obj.current_location = None  # always returns to registry
+        file_obj.status = 'active'
         file_obj.save()
 
         FileMovement.objects.create(
             file=file_obj,
             sent_by=request.user,
             from_location=old_location,
-            sent_to=None if staff_user.is_registry else staff_user,
+            sent_to=None,
             action='recalled',
         )
         log_action(
