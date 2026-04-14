@@ -30,6 +30,7 @@ class CustomUserAdmin(UserAdmin):
         (None, {'fields': ('must_change_password',)}), # failed_login_attempts and lockout_until are not needed on add form
     )
     list_display = UserAdmin.list_display + ('must_change_password', 'failed_login_attempts', 'lockout_until',)
+    search_fields = ('username', 'first_name', 'last_name', 'email')
     actions = [unlock_accounts] # Register the admin action
 
 admin.site.register(CustomUser, CustomUserAdmin)
@@ -38,5 +39,9 @@ class StaffAdmin(admin.ModelAdmin):
     list_display = ('user', 'designation', 'department', 'unit', 'phone_number')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'designation__name', 'department__name')
     list_filter = ('designation', 'department', 'unit')
+    autocomplete_fields = ('user', 'designation', 'department', 'unit')
+
+    class Media:
+        js = ('admin/js/filter_units_by_department.js',)
 
 admin.site.register(Staff, StaffAdmin)

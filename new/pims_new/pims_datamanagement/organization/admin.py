@@ -5,12 +5,14 @@ from .models import Department, Unit, Designation
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'code', 'head')
     search_fields = ('name', 'code')
+    autocomplete_fields = ('head',)
 
 @admin.register(Unit)
 class UnitAdmin(admin.ModelAdmin):
     list_display = ('name', 'department', 'head')
     list_filter = ('department',)
     search_fields = ('name',)
+    autocomplete_fields = ('department', 'head')
 
 @admin.register(Designation)
 class DesignationAdmin(admin.ModelAdmin):
