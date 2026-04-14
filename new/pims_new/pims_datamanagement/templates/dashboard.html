@@ -2,143 +2,112 @@
 {% load static %}
 {% block title %}Dashboard | PIMS{% endblock %}
 {% block content %}
-    <div class="space-y-10">
-        <!-- Welcome Header -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div class="space-y-8">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
-                <p class="text-sm text-slate-500 font-medium mt-1">
-                    Welcome, {{ user_name }}. Access your administrative summary and file activity.
-                </p>
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+                <p class="text-sm text-slate-500 font-medium">Welcome back, {{ user_name }}.</p>
             </div>
             <div class="flex items-center space-x-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
                 <span class="w-2 h-2 bg-nigeria-green rounded-full animate-pulse"></span>
                 Operational Status: Nominal
             </div>
         </div>
-        <!-- Tier 1 Metrics: Action Queue -->
+
+        <!-- KPI Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-nigeria-green transition-all">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Pending Authorization</p>
-                <div class="flex items-end justify-between">
-                    <p class="text-4xl font-bold text-slate-900 group-hover:text-nigeria-green transition-colors">{{ pending_files }}</p>
-                    <div class="p-3 bg-slate-50 rounded-xl group-hover:bg-nigeria-light transition-colors">
-                        <svg class="w-6 h-6 text-slate-400 group-hover:text-nigeria-green"
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
-                            </path>
-                        </svg>
-                    </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Files</p>
+                    <i class="fas fa-folder text-slate-200 text-xl"></i>
                 </div>
+                <p class="text-4xl font-bold text-slate-900">{{ total_files }}</p>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-amber-500 transition-all">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Awaiting Signal</p>
-                <div class="flex items-end justify-between">
-                    <p class="text-4xl font-bold text-slate-900 group-hover:text-amber-600 transition-colors">0</p>
-                    <div class="p-3 bg-slate-50 rounded-xl group-hover:bg-amber-50 transition-colors">
-                        <svg class="w-6 h-6 text-slate-400 group-hover:text-amber-600"
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
-                            </path>
-                        </svg>
-                    </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Pending Activation</p>
+                    <i class="fas fa-hourglass-half text-amber-200 text-xl"></i>
                 </div>
+                <p class="text-4xl font-bold text-amber-500">{{ pending_files }}</p>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group hover:border-nigeria-green transition-all">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Active Ledgers</p>
-                <div class="flex items-end justify-between">
-                    <p class="text-4xl font-bold text-slate-900 group-hover:text-nigeria-green transition-colors">{{ total_files }}</p>
-                    <div class="p-3 bg-slate-50 rounded-xl group-hover:bg-nigeria-light transition-colors">
-                        <svg class="w-6 h-6 text-slate-400 group-hover:text-nigeria-green"
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                            </path>
-                        </svg>
-                    </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Documents</p>
+                    <i class="fas fa-file-alt text-slate-200 text-xl"></i>
                 </div>
+                <p class="text-4xl font-bold text-slate-900">{{ total_documents }}</p>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 group">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Total Documents</p>
-                <div class="flex items-end justify-between">
-                    <p class="text-4xl font-bold text-slate-900">{{ total_documents }}</p>
-                    <div class="p-3 bg-slate-50 rounded-xl">
-                        <svg class="w-6 h-6 text-slate-400"
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                            </path>
-                        </svg>
-                    </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest">This Month</p>
+                    <i class="fas fa-calendar-check text-green-100 text-xl"></i>
                 </div>
+                <p class="text-4xl font-bold text-nigeria-green">{{ documents_this_month }}</p>
             </div>
         </div>
-        <!-- Tier 2 Summary: Efficiency & Activity -->
+
+        <!-- Activity + Quick Actions -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Monthly Flux -->
-            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-widest">Document Activity Summary</h3>
-                    <span class="text-[9px] font-bold text-nigeria-green bg-green-50 px-2 py-1 rounded">Current Month
-                    Spectrum</span>
+            <!-- Activity Summary -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-nigeria-light flex items-center justify-center text-nigeria-green">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Document Activity</h3>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Current month summary</p>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-black text-nigeria-green bg-nigeria-light px-3 py-1 rounded-full border border-nigeria-green/10">{{ documents_this_month }} NEW</span>
                 </div>
                 <div class="p-8">
-                    <div class="flex items-baseline space-x-4 mb-8">
-                        <span class="text-5xl font-black text-slate-900 tracking-tighter">{{ documents_this_month }}</span>
-                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">New Signals
-                        Registered</span>
-                    </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-5 bg-slate-50 rounded-xl border border-slate-100">
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Outgoing Files</p>
-                            <p class="text-2xl font-bold text-slate-900">01</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</p>
+                            <p class="text-3xl font-bold text-slate-900">{{ total_documents }}</p>
                         </div>
                         <div class="p-5 bg-slate-50 rounded-xl border border-slate-100">
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incoming Files</p>
-                            <p class="text-2xl font-bold text-slate-900">01</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Registered This Month</p>
+                            <p class="text-3xl font-bold text-nigeria-green">{{ documents_this_month }}</p>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- System Notices / Quick Actions -->
-            {% if user.staff.is_registry %}
-                <div class="space-y-6">
-                    <div class="bg-slate-900 rounded-2xl p-8 shadow-xl relative overflow-hidden group">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-nigeria-green opacity-10 blur-3xl -mr-10 -mt-10 group-hover:opacity-20 transition-opacity">
-                        </div>
-                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 relative">Protocol Hub</h3>
-                        <div class="space-y-3 relative">
-                            <a href="{% url 'document_management:file_create' %}"
-                               class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group/btn">
-                                <span class="text-sm font-bold text-white uppercase tracking-tight">Create New File</span>
-                                <svg class="w-5 h-5 text-nigeria-green group-hover/btn:translate-x-1 transition-transform"
-                                     fill="none"
-                                     stroke="currentColor"
-                                     viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                            </a>
-                            <a href="{% url 'document_management:registry_hub' %}"
-                               class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group/btn">
-                                <span class="text-sm font-bold text-white uppercase tracking-tight">Registry Operations Hub</span>
-                                <svg class="w-5 h-5 text-nigeria-green group-hover/btn:translate-x-1 transition-transform"
-                                     fill="none"
-                                     stroke="currentColor"
-                                     viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                                    </path>
-                                </svg>
-                            </a>
-                        </div>
-                    </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-slate-900 rounded-xl p-8 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-nigeria-green opacity-10 blur-3xl -mr-10 -mt-10"></div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 relative">Quick Actions</h3>
+                <div class="space-y-3 relative">
+                    {% if perms.document_management.create_file %}
+                        <a href="{% url 'document_management:file_create' %}"
+                           class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
+                            <span class="text-sm font-bold text-white">Create New File</span>
+                            <i class="fas fa-plus text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'document_management:my_files' %}"
+                       class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
+                        <span class="text-sm font-bold text-white">My Files</span>
+                        <i class="fas fa-folder-open text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                    {% if user.staff.is_registry %}
+                        <a href="{% url 'document_management:registry_hub' %}"
+                           class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
+                            <span class="text-sm font-bold text-white">Registry Hub</span>
+                            <i class="fas fa-archive text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'user_management:profile' %}"
+                       class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
+                        <span class="text-sm font-bold text-white">My Profile</span>
+                        <i class="fas fa-user text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
+                    </a>
                 </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 {% endblock %}

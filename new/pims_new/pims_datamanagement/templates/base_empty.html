@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 {% block body_class %}flex-col items-center justify-center{% endblock %}
+{% block main_class %}{% endblock %}
 {% block sidebar %}{% endblock %}
 {% block top_nav %}{% endblock %}
 {% block footer %}{% endblock %}
+{% block content_wrapper %}<div class="flex-1 flex items-center justify-center w-full min-h-screen">{% block content %}{% endblock %}</div>{% endblock %}
 {% block extra_head %}
     <style>
   /* Standardized Input Styling for Auth Pages */

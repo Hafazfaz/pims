@@ -86,7 +86,7 @@
             {% include '_sidebar.html' %}
         {% endblock %}
         <!-- Main Content Area -->
-        <main class="flex-1 flex flex-col min-w-0 lg:ml-64">
+        <main class="flex-1 flex flex-col min-w-0 {% block main_class %}lg:ml-64{% endblock %}">
             <!-- Top Navigation -->
             {% block top_nav %}
                 <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-40">
@@ -98,7 +98,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
                         </button>
-                        <div class="w-8 h-8 bg-nigeria-green rounded flex items-center justify-center font-bold text-white">N</div>
+                        <img src="{% static 'img/logo.png' %}" alt="FMC Abuja" class="w-8 h-8 rounded object-cover">
                         <span class="text-lg font-bold tracking-tight">PIMS</span>
                     </div>
                     <div class="flex items-center ml-auto space-x-6">
@@ -126,9 +126,9 @@
                 </header>
             {% endblock %}
             <!-- Page Content -->
-            <div class="p-8 lg:py-4 mx-auto w-full flex-1">
+            {% block content_wrapper %}<div class="p-8 lg:py-4 mx-auto w-full flex-1">
                 {% block content %}{% endblock %}
-            </div>
+            </div>{% endblock %}
             <!-- Footer -->
             {% block footer %}
                 <footer class="p-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-gray-100 italic">
