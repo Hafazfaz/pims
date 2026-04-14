@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Staff Folders | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Staff Folders</h2>
+            <p class="text-sm text-slate-500 font-medium">View and manage personal files for all staff.</p>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <form method="GET" class="flex gap-4">
+            <div class="flex-1 relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" name="q" value="{{ search_query }}"
+                       placeholder="Search by name, username or department..."
+                       class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+            </div>
+            <button type="submit"
+                    class="px-6 py-2.5 bg-nigeria-green hover:bg-nigeria-dark text-white text-sm font-bold rounded-lg transition-colors">
+                Search
+            </button>
+            {% if search_query %}
+                <a href="{% url 'document_management:staff_folder_list' %}"
+                   class="px-4 py-2.5 text-slate-500 hover:text-slate-700 text-sm font-medium flex items-center">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                    <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Staff Member</th>
+                    <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Department</th>
+                    <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Designation</th>
+                    <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for staff in staff_list %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-nigeria-light flex items-center justify-center text-nigeria-green font-bold text-sm">
+                                    {{ staff.user.first_name|first|upper }}{{ staff.user.last_name|first|upper }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">{{ staff.user.get_full_name }}</p>
+                                    <p class="text-[10px] text-slate-400">@{{ staff.user.username }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-600">{{ staff.department.name|default:"—" }}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">{{ staff.designation.name|default:"—" }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'document_management:staff_folder_hub' pk=staff.pk %}"
+                               class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold rounded-lg transition-colors">
+                                <i class="fas fa-folder-open"></i> View Folder
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-sm text-slate-400 font-medium">
+                            No staff found{% if search_query %} matching "{{ search_query }}"{% endif %}.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if is_paginated %}
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                <span class="text-xs text-slate-500 font-medium">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ paginator.count }}</span>
+                <div class="flex gap-2">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                           class="px-3 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-50">Previous</a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                           class="px-3 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-50">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

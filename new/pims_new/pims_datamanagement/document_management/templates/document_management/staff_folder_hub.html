@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ staff_member }} — Folder Hub | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Staff Folder Hub</p>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ staff_member.user.get_full_name|default:staff_member.user.username }}</h2>
+            <p class="text-sm text-slate-500 font-medium">
+                {{ staff_member.designation.name|default:"—" }} &bull; {{ staff_member.department.name|default:"No Department" }}
+            </p>
+        </div>
+        <a href="{% url 'document_management:registry_hub' %}"
+           class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Files
+        </a>
+    </div>
+
+    {% if not personal_file %}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+            <i class="fas fa-folder-open text-amber-300 text-4xl mb-4"></i>
+            <p class="text-sm font-bold text-amber-700">No personal file exists for this staff member.</p>
+            {% if perms.document_management.create_file %}
+                <a href="{% url 'document_management:file_create' %}?owner_id={{ staff_member.pk }}"
+                   class="mt-4 inline-flex items-center px-5 py-2.5 bg-nigeria-green text-white text-xs font-bold rounded-lg hover:bg-nigeria-dark transition-colors">
+                    <i class="fas fa-plus mr-2"></i> Create File
+                </a>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- File Summary -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{{ personal_file.file_number }}</p>
+                <p class="text-lg font-bold text-slate-900">{{ personal_file.title }}</p>
+                <div class="flex items-center gap-3 mt-2">
+                    <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded
+                        {% if personal_file.status == 'active' %}bg-green-50 text-green-700
+                        {% elif personal_file.status == 'pending_activation' %}bg-amber-50 text-amber-700
+                        {% elif personal_file.status == 'closed' %}bg-red-50 text-red-700
+                        {% else %}bg-slate-100 text-slate-500{% endif %}">
+                        {{ personal_file.get_status_display }}
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-medium">Created {{ personal_file.created_at|date:"d M Y" }}</span>
+                </div>
+            </div>
+            <a href="{% url 'document_management:file_detail' pk=personal_file.pk %}"
+               class="inline-flex items-center px-5 py-2.5 bg-nigeria-green text-white text-xs font-bold rounded-lg hover:bg-nigeria-dark transition-colors whitespace-nowrap">
+                <i class="fas fa-folder-open mr-2"></i> Open File
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Documents -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-nigeria-light flex items-center justify-center text-nigeria-green">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Documents</h3>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">All entries in this file</p>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-black text-nigeria-green bg-nigeria-light px-3 py-1 rounded-full border border-nigeria-green/10">{{ documents.count }} TOTAL</span>
+                </div>
+                <div class="divide-y divide-slate-50">
+                    {% for doc in documents %}
+                        <div class="px-6 py-4 flex items-start justify-between gap-4 hover:bg-slate-50 transition-colors">
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                                    <i class="fas {% if doc.attachment %}fa-paperclip{% else %}fa-align-left{% endif %} text-slate-400 text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Minute Entry" }}</p>
+                                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">
+                                        By {{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} &bull; {{ doc.uploaded_at|date:"d M Y, H:i" }}
+                                    </p>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded shrink-0
+                                {% if doc.status == 'approved' %}bg-green-50 text-green-700
+                                {% elif doc.status == 'cancelled' %}bg-red-50 text-red-700
+                                {% else %}bg-slate-100 text-slate-500{% endif %}">
+                                {{ doc.status }}
+                            </span>
+                        </div>
+                    {% empty %}
+                        <div class="px-6 py-10 text-center text-sm text-slate-400 font-medium">No documents yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Approval Chains -->
+            <div class="space-y-6">
+                <!-- Active Chain -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                            <i class="fas fa-link"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Active Chain</h3>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Current approval flow</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        {% if active_chain %}
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Step {{ active_chain.current_step }}</p>
+                            <p class="text-sm font-bold text-slate-800">{{ active_chain.get_current_step.approver }}</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Started {{ active_chain.created_at|date:"d M Y" }}</p>
+                        {% else %}
+                            <p class="text-sm text-slate-400 font-medium text-center py-4">No active chain.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- All Chains -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Chain History</h3>
+                    </div>
+                    <div class="divide-y divide-slate-50">
+                        {% for chain in all_chains %}
+                            <div class="px-6 py-3 flex items-center justify-between">
+                                <p class="text-xs font-semibold text-slate-700">{{ chain.created_at|date:"d M Y" }}</p>
+                                <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded
+                                    {% if chain.status == 'active' %}bg-blue-50 text-blue-700
+                                    {% elif chain.status == 'closed' %}bg-green-50 text-green-700
+                                    {% elif chain.status == 'rejected' %}bg-red-50 text-red-700
+                                    {% else %}bg-slate-100 text-slate-500{% endif %}">
+                                    {{ chain.status }}
+                                </span>
+                            </div>
+                        {% empty %}
+                            <div class="px-6 py-6 text-center text-sm text-slate-400 font-medium">No chains yet.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

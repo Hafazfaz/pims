@@ -157,7 +157,7 @@
                                 </p>
                                 <p class="text-sm font-bold text-nigeria-green">
                                     {% if file.current_location %}
-                                        {{ file.current_location.user.get_full_name|default:file.current_location.user.username }}
+                                        {{ file.current_location_display }}
                                     {% else %}
                                         <span class="text-slate-400 italic text-xs">Unknown Location</span>
                                     {% endif %}
@@ -297,7 +297,7 @@
                                                                                 </path>
                                                                             </svg>
                                                                             <button type="button"
-                                                                                    @click="$dispatch('open-preview', { url: '{{ entry.item.attachment.url }}#toolbar=0', title: '{{ entry.item.title|escapejs|default:\'Attachment\' }}' })"
+                                                                                    @click="$dispatch('open-preview', { url: '{{ entry.item.attachment.url }}#toolbar=0', title: '{{ entry.item.title|default:"Attachment"|escapejs }}' })"
                                                                                     class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 hover:underline">
                                                                                 View Document
                                                                             </button>

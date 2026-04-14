@@ -42,8 +42,8 @@
                             </td>
                             <td class="px-8 py-6">
                                 {% if file.current_location %}
-                                    <div class="font-bold text-slate-900 text-xs">{{ file.current_location.user.get_full_name }}</div>
-                                    <div class="text-[10px] text-slate-500 uppercase">{{ file.current_location.department.name }}</div>
+                                    <div class="font-bold text-slate-900 text-xs">{{ file.current_location_display }}</div>
+                                    <div class="text-[10px] text-slate-500 uppercase">{% if not file.current_location.is_registry %}{{ file.current_location.department.name }}{% endif %}</div>
                                 {% else %}
                                     <span class="text-slate-400 italic text-xs">Pending Archive</span>
                                 {% endif %}

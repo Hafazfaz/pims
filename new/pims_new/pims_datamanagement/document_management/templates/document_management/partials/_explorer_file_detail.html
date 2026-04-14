@@ -61,7 +61,7 @@
                     <div>
                         <p class="text-sm font-bold text-slate-900">
                             {% if selected_file.current_location %}
-                                {{ selected_file.current_location.user.get_full_name }}
+                                {{ selected_file.current_location_display }}
                             {% else %}
                                 Registry Archive
                             {% endif %}
