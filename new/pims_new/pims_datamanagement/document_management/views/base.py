@@ -1,8 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db.models import Q
 from django.http import HttpResponse
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.shortcuts import redirect
+
+# Reusable Q filter to exclude registry staff
+EXCLUDE_REGISTRY_Q = Q(designation__name__icontains='registry') | Q(user__groups__name__iexact='Registry')
 
 class HTMXLoginRequiredMixin(LoginRequiredMixin):
     """

@@ -4,6 +4,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.db.models import Q
 from organization.models import Staff
+from .base import EXCLUDE_REGISTRY_Q
 
 class RecipientSearchView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
@@ -60,10 +61,7 @@ class StaffSearchView(LoginRequiredMixin, View):
         
         queryset = Staff.objects.all()
         queryset = queryset.exclude(user__is_superuser=True)
-        queryset = queryset.exclude(
-            Q(designation__name__icontains='registry') | 
-            Q(department__name__icontains='registry')
-        )
+        queryset = queryset.exclude(EXCLUDE_REGISTRY_Q)
 
         if query:
             queryset = queryset.filter(

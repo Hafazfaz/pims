@@ -1,5 +1,7 @@
 from django.views.generic import ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.http import JsonResponse
+from django.contrib.admin.views.decorators import staff_member_required
 from .models import Department, Unit
 
 class SuperuserRequiredMixin(UserPassesTestMixin):
@@ -40,3 +42,9 @@ class UnitListView(LoginRequiredMixin, SuperuserRequiredMixin, ListView):
 
     def get_template_names(self):
         return ['organization/unit_list.html']
+
+@staff_member_required
+def units_by_department(request):
+    department_id = request.GET.get('department_id')
+    units = Unit.objects.filter(department_id=department_id).order_by('name').values('id', 'name') if department_id else []
+    return JsonResponse(list(units), safe=False)

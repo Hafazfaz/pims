@@ -4,6 +4,8 @@ from .registry_views import (  # noqa: F401
     RegistryDashboardView,
     StaffWithoutFilesView,
     FileApproveActivationView,
+    StaffFolderHubView,
+    StaffFolderListView,
 )
 from .file_views import (  # noqa: F401
     ExecutiveDashboardView,

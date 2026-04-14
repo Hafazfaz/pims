@@ -41,4 +41,6 @@ urlpatterns = [
     path('file/<int:file_pk>/chain/start/', views.ApprovalChainStartView.as_view(), name='chain_start'),
     path('file/<int:file_pk>/chain/delete/', views.ApprovalChainDeleteView.as_view(), name='chain_delete'),
     path('approval-step/<int:step_pk>/action/', views.ApprovalStepActionView.as_view(), name='step_action'),
+    path('staff/<int:pk>/folder-hub/', views.StaffFolderHubView.as_view(), name='staff_folder_hub'),
+    path('staff/folders/', views.StaffFolderListView.as_view(), name='staff_folder_list'),
 ]

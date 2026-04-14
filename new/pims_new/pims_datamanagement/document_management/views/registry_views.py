@@ -1,5 +1,5 @@
 from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin
-from django.views.generic import ListView, View
+from django.views.generic import ListView, View, DetailView
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
@@ -10,8 +10,8 @@ from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from organization.models import Staff, Department, Unit
 from core.constants import FILE_TYPE_CHOICES
-from ..models import File, FileAccessRequest
-from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
+from ..models import File, FileAccessRequest, ApprovalChain
+from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin, EXCLUDE_REGISTRY_Q
 
 class RegistryHubView(RegistryRequiredMixin, ListView):
     model = File
@@ -144,7 +144,7 @@ class RegistryHubView(RegistryRequiredMixin, ListView):
 
             context["staff_without_files_count"] = Staff.objects.exclude(
                 id__in=staff_with_files
-            ).count()
+            ).exclude(EXCLUDE_REGISTRY_Q).count()
 
         return context
 
@@ -200,7 +200,7 @@ class RegistryDashboardView(RegistryRequiredMixin, ListView):
         context["total_departments_count"] = Department.objects.count()
         
         staff_with_files = File.objects.filter(file_type='personal').values_list('owner_id', flat=True).distinct()
-        context["staff_without_files_count"] = Staff.objects.exclude(id__in=staff_with_files).count()
+        context["staff_without_files_count"] = Staff.objects.exclude(id__in=staff_with_files).exclude(EXCLUDE_REGISTRY_Q).count()
 
         return context
 
@@ -221,11 +221,11 @@ class StaffWithoutFilesView(RegistryRequiredMixin, ListView):
         staff_with_files = File.objects.filter(
             file_type='personal'
         ).values_list('owner_id', flat=True).distinct()
-        
+
         queryset = Staff.objects.exclude(
             id__in=staff_with_files
-        ).select_related('user', 'department', 'unit').order_by('user__last_name')
-        
+        ).exclude(EXCLUDE_REGISTRY_Q).select_related('user', 'department', 'unit').order_by('user__last_name')
+
         search_query = self.request.GET.get('q')
         if search_query:
             queryset = queryset.filter(
@@ -259,3 +259,52 @@ class FileApproveActivationView(RegistryRequiredMixin, View):
             return render(request, "document_management/partials/_registry_file_status.html", {"file": file_obj})
             
         return redirect('document_management:registry_hub')
+
+
+class StaffFolderHubView(RegistryRequiredMixin, DetailView):
+    """Registry-only view: full picture of a staff member's file, documents, and approval chains."""
+    model = Staff
+    template_name = "document_management/staff_folder_hub.html"
+    context_object_name = "staff_member"
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if obj.is_registry:
+            raise Http404
+        return obj
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        staff = self.object
+        personal_file = File.objects.filter(file_type='personal', owner=staff).first()
+        context['personal_file'] = personal_file
+        if personal_file:
+            context['documents'] = personal_file.documents.select_related('uploaded_by').order_by('-uploaded_at')
+            context['active_chain'] = ApprovalChain.objects.filter(file=personal_file, status='active').first()
+            context['all_chains'] = ApprovalChain.objects.filter(file=personal_file).order_by('-created_at')
+        return context
+
+
+class StaffFolderListView(RegistryRequiredMixin, ListView):
+    """Registry-only: list all staff with links to their folder hub."""
+    model = Staff
+    template_name = "document_management/staff_folder_list.html"
+    context_object_name = "staff_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).select_related('user', 'department', 'designation').order_by('user__last_name')
+        q = self.request.GET.get('q')
+        if q:
+            qs = qs.filter(
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(department__name__icontains=q)
+            )
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        return context
