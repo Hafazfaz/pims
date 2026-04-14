@@ -75,6 +75,14 @@ class File(models.Model):
                 return self.department.name
         return "N/A"
 
+    @property
+    def current_location_display(self):
+        if not self.current_location:
+            return None
+        if self.current_location.is_registry:
+            return "Registry"
+        return self.current_location.user.get_full_name() or self.current_location.user.username
+
     def __str__(self):
         return f"{self.title} ({self.file_number})"
 
@@ -86,9 +94,13 @@ class File(models.Model):
         from django.core.exceptions import ValidationError
         if self.file_type == 'personal' and not self.owner:
             raise ValidationError("Personal files must have an assigned owner (Staff).")
-        
+
         if self.file_type == 'policy' and not self.department and not self.external_party:
             raise ValidationError("Policy files must be assigned to either a Department or an External Party.")
+
+        # Registry staff cannot own files
+        if self.owner and self.owner.is_registry:
+            raise ValidationError("Registry staff cannot be assigned as file owners.")
 
         # Enforce 1:1 Personal File per Staff
         if self.file_type == 'personal' and self.owner:

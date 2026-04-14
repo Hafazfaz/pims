@@ -62,9 +62,11 @@ class FileForm(forms.ModelForm):
             try:
                 creator_staff = self.user.staff
                 
-                # Registry users can assign files to ANY staff member
+                # Registry users can assign files to ANY non-registry staff member
                 if creator_staff.is_registry:
-                    self.fields["owner"].queryset = Staff.objects.all().order_by("user__username")
+                    self.fields["owner"].queryset = Staff.objects.exclude(
+                        designation__name__icontains="registry"
+                    ).order_by("user__username")
                 elif creator_staff.is_hod:
                     # HOD can create files for anyone in their department EXCEPT themselves
                     self.fields["owner"].queryset = Staff.objects.filter(
