@@ -44,6 +44,7 @@ from .search_views import (  # noqa: F401
 from .approval_views import (  # noqa: F401
     MyApprovalChainsView,
     ApprovalChainCreateView,
+    ApprovalChainBuilderView,
     ApprovalChainStartView,
     ApprovalStepActionView,
     ApprovalChainDeleteView,

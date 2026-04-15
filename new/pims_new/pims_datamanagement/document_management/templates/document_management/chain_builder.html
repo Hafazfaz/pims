@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Chain Builder — {{ file.file_number }}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow/dist/drawflow.min.css"/>
+<style>
+  body { overflow: hidden; }
+  #drawflow {
+    width: 100%; height: 100%;
+    background-color: #f8fafc;
+    background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .drawflow-node {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0;
+    min-width: 190px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+  .drawflow-node.selected { border-color: #16a34a; box-shadow: 0 0 0 3px #bbf7d0; }
+  .drawflow-node .drawflow_content_node { padding: 0; }
+  .node-inner { padding: 12px 16px; }
+  .node-step { font-size: 9px; font-weight: 900; color: #16a34a; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
+  .node-name { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .node-role { font-size: 10px; color: #94a3b8; font-weight: 600; margin-top: 1px; }
+  .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2.5; }
+  .drawflow .connection .main-path:hover { stroke: #15803d; }
+</style>
+
+<div class="flex h-screen overflow-hidden" x-data="chainBuilder()" x-init="init()">
+
+  <!-- Left Panel -->
+  <div class="w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10 shrink-0">
+    <div class="p-5 border-b border-slate-100">
+      <a href="{{ file.get_absolute_url }}?tab=settings"
+         class="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1 mb-4 transition-colors">
+        ← Back to File
+      </a>
+      <h2 class="text-xs font-black text-slate-900 uppercase tracking-widest">Approval Chain Builder</h2>
+      <p class="text-[10px] text-slate-400 mt-1 font-medium">{{ file.file_number }} — {{ file.title|truncatechars:30 }}</p>
+    </div>
+
+    <div class="p-4 border-b border-slate-100">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Available Approvers</p>
+      <div class="space-y-2 overflow-y-auto" style="max-height: calc(100vh - 320px)">
+        {% for staff in approver_choices %}
+        <div class="staff-card flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-grab active:cursor-grabbing hover:border-nigeria-green hover:bg-green-50 transition-all select-none"
+             draggable="true"
+             data-id="{{ staff.pk }}"
+             data-name="{{ staff.user.get_full_name|default:staff.user.username }}"
+             data-role="{{ staff.designation.name|default:'Staff' }}"
+             @dragstart="onDragStart($event)">
+          <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-black text-slate-600 shrink-0">
+            {{ staff.user.first_name|first|upper }}{{ staff.user.last_name|first|upper }}
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs font-bold text-slate-800 truncate">{{ staff.user.get_full_name|default:staff.user.username }}</p>
+            <p class="text-[10px] text-slate-400 font-medium truncate">{{ staff.designation.name|default:"Staff" }}</p>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-xs text-slate-400 italic text-center py-6">No available approvers.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="p-4 mt-auto space-y-1.5">
+      <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">How to use</p>
+      <p class="text-[10px] text-slate-400">① Drag staff cards onto the canvas</p>
+      <p class="text-[10px] text-slate-400">② Connect nodes to define approval order</p>
+      <p class="text-[10px] text-slate-400">③ Click <strong class="text-slate-600">Create Chain</strong></p>
+    </div>
+  </div>
+
+  <!-- Canvas Area -->
+  <div class="flex-1 flex flex-col min-w-0">
+    <!-- Toolbar -->
+    <div class="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shadow-sm shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Canvas</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-500"
+              x-text="nodes.length + ' node' + (nodes.length !== 1 ? 's' : '')"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="clearCanvas()"
+                class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 rounded-lg transition-all">
+          Clear
+        </button>
+        <button @click="submitChain()"
+                :disabled="nodes.length === 0"
+                class="px-5 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
+          Create Chain
+        </button>
+      </div>
+    </div>
+
+    <div id="drawflow" class="flex-1"
+         @dragover.prevent
+         @drop="onDrop($event)">
+    </div>
+  </div>
+
+  <!-- Hidden submit form -->
+  <form id="chain-form" method="post" action="{% url 'document_management:chain_create' file_pk=file.pk %}" class="hidden">
+    {% csrf_token %}
+    <div id="approver-inputs"></div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/drawflow/dist/drawflow.min.js"></script>
+<script>
+function chainBuilder() {
+  return {
+    editor: null,
+    nodes: [],
+    dragData: null,
+
+    init() {
+      const container = document.getElementById('drawflow');
+      this.editor = new Drawflow(container);
+      this.editor.reroute = true;
+      this.editor.start();
+      this.editor.on('nodeRemoved', (id) => {
+        this.nodes = this.nodes.filter(n => n.nodeId != id);
+        this._relabelNodes();
+      });
+    },
+
+    onDragStart(e) {
+      const el = e.currentTarget;
+      this.dragData = { id: el.dataset.id, name: el.dataset.name, role: el.dataset.role };
+      e.dataTransfer.effectAllowed = 'copy';
+    },
+
+    onDrop(e) {
+      if (!this.dragData) return;
+      const rect = document.getElementById('drawflow').getBoundingClientRect();
+      const zoom = this.editor.zoom;
+      const x = (e.clientX - rect.left - this.editor.canvas_x) / zoom - 95;
+      const y = (e.clientY - rect.top  - this.editor.canvas_y) / zoom - 40;
+
+      const step = this.nodes.length + 1;
+      const html = `
+        <div class="node-inner">
+          <div class="node-step" id="step-label-NODEID">Step ${step}</div>
+          <div class="node-name">${this.dragData.name}</div>
+          <div class="node-role">${this.dragData.role}</div>
+        </div>`;
+
+      const nodeId = this.editor.addNode(
+        'approver', 1, 1, x, y, 'approver-node',
+        { staffId: this.dragData.id }, html
+      );
+
+      // Fix the step label id now we know nodeId
+      setTimeout(() => {
+        const el = document.querySelector(`#node-${nodeId} .node-step`);
+        if (el) el.id = `step-label-${nodeId}`;
+      }, 0);
+
+      this.nodes.push({ nodeId, staffId: this.dragData.id, name: this.dragData.name });
+      this.dragData = null;
+    },
+
+    _relabelNodes() {
+      this.nodes.forEach((n, i) => {
+        const el = document.querySelector(`#node-${n.nodeId} .node-step`);
+        if (el) el.textContent = `Step ${i + 1}`;
+      });
+    },
+
+    clearCanvas() {
+      const ids = this.nodes.map(n => n.nodeId);
+      ids.forEach(id => this.editor.removeNodeId('node-' + id));
+      this.nodes = [];
+    },
+
+    submitChain() {
+      if (this.nodes.length === 0) return;
+      const ordered = this._resolveOrder();
+      if (!ordered || ordered.length === 0) {
+        alert('Please connect your nodes to define the approval order, or add at least one approver.');
+        return;
+      }
+      const container = document.getElementById('approver-inputs');
+      container.innerHTML = '';
+      ordered.forEach(staffId => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'approvers';
+        input.value = staffId;
+        container.appendChild(input);
+      });
+      document.getElementById('chain-form').submit();
+    },
+
+    _resolveOrder() {
+      const data = this.editor.export().drawflow.Home.data;
+      if (!data || Object.keys(data).length === 0) return null;
+
+      const allIds = Object.keys(data).map(Number);
+
+      // Build next map and track nodes with incoming connections
+      const nextMap = {};
+      const hasIncoming = new Set();
+      allIds.forEach(id => {
+        const conns = data[id]?.outputs?.output_1?.connections || [];
+        conns.forEach(c => {
+          nextMap[id] = parseInt(c.node);
+          hasIncoming.add(parseInt(c.node));
+        });
+      });
+
+      // No connections — use insertion order
+      if (Object.keys(nextMap).length === 0) {
+        return this.nodes.map(n => n.staffId);
+      }
+
+      // Start from node with no incoming
+      const start = allIds.find(id => !hasIncoming.has(id));
+      if (start === undefined) return null;
+
+      const ordered = [];
+      let cur = start;
+      const visited = new Set();
+      while (cur !== undefined && !visited.has(cur)) {
+        visited.add(cur);
+        const staffId = data[cur]?.data?.staffId;
+        if (staffId) ordered.push(staffId);
+        cur = nextMap[cur];
+      }
+      return ordered;
+    }
+  }
+}
+</script>
+{% endblock %}

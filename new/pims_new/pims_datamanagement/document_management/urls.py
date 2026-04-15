@@ -38,6 +38,7 @@ urlpatterns = [
     path('explorer/', views.RecordExplorerView.as_view(), name='record_explorer'),
     path('chains/', views.MyApprovalChainsView.as_view(), name='my_chains'),
     path('file/<int:file_pk>/chain/create/', views.ApprovalChainCreateView.as_view(), name='chain_create'),
+    path('file/<int:file_pk>/chain/builder/', views.ApprovalChainBuilderView.as_view(), name='chain_builder'),
     path('file/<int:file_pk>/chain/start/', views.ApprovalChainStartView.as_view(), name='chain_start'),
     path('file/<int:file_pk>/chain/delete/', views.ApprovalChainDeleteView.as_view(), name='chain_delete'),
     path('approval-step/<int:step_pk>/action/', views.ApprovalStepActionView.as_view(), name='step_action'),

@@ -111,7 +111,7 @@
                                     Add Minute/Document
                                 </a>
                             {% endif %}
-                            {% if user.staff.is_registry %}
+                            {% if user.staff.is_registry or file.owner == user.staff or file.created_by == user %}
                                 <button @click="activeTab = 'settings'"
                                         :class="activeTab === 'settings' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
                                         class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">
@@ -419,7 +419,7 @@
                                 </div>
                             </div>
                         </div>
-                        {% if user.staff.is_registry %}
+                        {% if user.staff.is_registry or file.owner == user.staff or file.created_by == user %}
                             <div x-show="activeTab === 'settings'"
                                  class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-8">
                                 <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 uppercase tracking-wider">
@@ -501,35 +501,13 @@
                                             {% endif %}
                                         </div>
                                     {% else %}
-                                        <form method="post" action="{% url 'document_management:chain_create' file_pk=file.pk %}"
-                                              x-data="{ approvers: [''] }">
-                                            {% csrf_token %}
-                                            <div class="space-y-2 mb-4">
-                                                <template x-for="(a, i) in approvers" :key="i">
-                                                    <div class="flex gap-2">
-                                                        <select name="approvers"
-                                                                class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-                                                            <option value="">Select approver...</option>
-                                                            {% for staff in approver_choices %}
-                                                                <option value="{{ staff.pk }}">{{ staff.user.get_full_name|default:staff.user.username }} — {{ staff.designation.name|default:"Staff" }}</option>
-                                                            {% endfor %}
-                                                        </select>
-                                                        <button type="button" @click="approvers.splice(i, 1)" x-show="approvers.length > 1"
-                                                                class="text-red-400 hover:text-red-600 px-2">✕</button>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                            <div class="flex items-center gap-3">
-                                                <button type="button" @click="approvers.push('')"
-                                                        class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest hover:underline">
-                                                    + Add Step
-                                                </button>
-                                                <button type="submit"
-                                                        class="px-4 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-black transition-colors">
-                                                    Create Chain
-                                                </button>
-                                            </div>
-                                        </form>
+                                        <a href="{% url 'document_management:chain_builder' file_pk=file.pk %}"
+                                           class="inline-flex items-center gap-2 px-5 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all active:scale-95">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
+                                            </svg>
+                                            Open Chain Builder
+                                        </a>
                                     {% endif %}
                                 </div>
                                 {% endif %}

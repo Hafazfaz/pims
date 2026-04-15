@@ -52,7 +52,35 @@ class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
         return context
 
 
-class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
+class ApprovalChainBuilderView(HTMXLoginRequiredMixin, View):
+    """Visual canvas-based chain builder page."""
+
+    def get(self, request, file_pk):
+        from django.shortcuts import render
+        from organization.models import Staff as StaffModel
+        file_obj = get_object_or_404(File, pk=file_pk)
+        staff = getattr(request.user, 'staff', None)
+
+        if file_obj.owner != staff and file_obj.created_by != request.user:
+            messages.error(request, "Only the file owner can build an approval chain.")
+            return redirect(file_obj.get_absolute_url())
+
+        if hasattr(file_obj, 'approval_chain'):
+            messages.error(request, "This file already has an approval chain.")
+            return redirect(file_obj.get_absolute_url())
+
+        from document_management.views.base import EXCLUDE_REGISTRY_Q
+        approver_choices = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(
+            user=request.user
+        ).select_related('user', 'designation', 'department').order_by('user__last_name')
+
+        return render(request, 'document_management/chain_builder.html', {
+            'file': file_obj,
+            'approver_choices': approver_choices,
+        })
+
+
+
     """Owner sets up the approval chain for their file."""
 
     def post(self, request, file_pk):
@@ -72,7 +100,7 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
             messages.error(request, "This file already has an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
-        approver_ids = request.POST.getlist('approvers')
+        approver_ids = [a for a in request.POST.getlist('approvers') if a]
         if not approver_ids:
             messages.error(request, "Please select at least one approver.")
             return redirect(file_obj.get_absolute_url())
