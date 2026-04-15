@@ -245,8 +245,8 @@ class FileApproveActivationView(RegistryRequiredMixin, View):
 
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
-        if file_obj.status != 'pending_activation':
-            messages.error(request, "File is not pending activation.")
+        if file_obj.status not in ('pending_activation', 'inactive'):
+            messages.error(request, "File cannot be activated from its current status.")
             return redirect('document_management:registry_hub')
 
         file_obj.status = 'active'
@@ -254,11 +254,11 @@ class FileApproveActivationView(RegistryRequiredMixin, View):
 
         log_action(request.user, "FILE_ACTIVATED", request=request, obj=file_obj)
         messages.success(request, f"File {file_obj.file_number} has been activated.")
-        
+
         if request.headers.get("HX-Request"):
             return render(request, "document_management/partials/_registry_file_status.html", {"file": file_obj})
-            
-        return redirect('document_management:registry_hub')
+
+        return redirect('document_management:file_detail', pk=file_obj.pk)
 
 
 class StaffFolderHubView(RegistryRequiredMixin, DetailView):

@@ -10,6 +10,14 @@ from core.constants import ACCESS_REQUEST_DURATION_HOURS
 from ..models import FileAccessRequest
 from .base import RegistryRequiredMixin
 
+DENY_REASONS = [
+    ('Insufficient justification', 'Insufficient justification'),
+    ('Unauthorised access level requested', 'Unauthorised access level requested'),
+    ('File is classified / restricted', 'File is classified / restricted'),
+    ('Requester lacks clearance', 'Requester lacks clearance'),
+    ('Other', 'Other'),
+]
+
 class FileAccessRequestListView(RegistryRequiredMixin, ListView):
     model = FileAccessRequest
     template_name = "document_management/access_request_list.html"
@@ -17,6 +25,11 @@ class FileAccessRequestListView(RegistryRequiredMixin, ListView):
 
     def get_queryset(self):
         return FileAccessRequest.objects.filter(status='pending').order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['deny_reasons'] = DENY_REASONS
+        return context
 
 class FileAccessRequestApproveView(RegistryRequiredMixin, View):
 
@@ -26,6 +39,14 @@ class FileAccessRequestApproveView(RegistryRequiredMixin, View):
         access_req.approved_at = timezone.now()
         access_req.expires_at = timezone.now() + timedelta(hours=ACCESS_REQUEST_DURATION_HOURS)
         access_req.save()
+
+        # Transfer custody to the requesting user
+        file_obj = access_req.file
+        try:
+            file_obj.current_location = access_req.requested_by.staff
+            file_obj.save()
+        except Exception:
+            pass
 
         log_action(request.user, "ACCESS_REQUEST_APPROVED", request=request, obj=access_req.file, details={'requested_by': access_req.requested_by.username})
         

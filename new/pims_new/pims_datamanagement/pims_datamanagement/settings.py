@@ -90,7 +90,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "notifications.context_processors.unread_notifications",  # Added this line
+                "notifications.context_processors.unread_notifications",
+                "notifications.context_processors.pending_activation_count",  # Added this line
             ],
         },
     },

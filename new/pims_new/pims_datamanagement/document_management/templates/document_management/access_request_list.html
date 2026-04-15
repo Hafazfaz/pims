@@ -93,15 +93,24 @@
                                             <form method="post" action="{% url 'document_management:access_request_reject' pk=req.pk %}">
                                                 {% csrf_token %}
                                                 <div class="space-y-3">
-                                                    <select name="denial_reason" x-model="reason" required
-                                                            class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-300">
-                                                        <option value="" disabled selected>Select a reason...</option>
-                                                        <option value="Insufficient justification">Insufficient justification</option>
-                                                        <option value="Unauthorised access level requested">Unauthorised access level requested</option>
-                                                        <option value="File is classified / restricted">File is classified / restricted</option>
-                                                        <option value="Requester lacks clearance">Requester lacks clearance</option>
-                                                        <option value="Other">Other</option>
-                                                    </select>
+                                                    <div x-data="{ open: false, selected: '', selectedLabel: '' }" class="relative">
+                                                        <input type="hidden" name="denial_reason" x-model="reason" :value="selected" required>
+                                                        <button type="button" @click="open = !open"
+                                                                class="w-full flex items-center justify-between border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-red-300 hover:border-slate-300 transition-all">
+                                                            <span x-text="selectedLabel || 'Select a reason...'" :class="selectedLabel ? 'text-slate-800' : 'text-slate-400'"></span>
+                                                            <i class="fas fa-chevron-down text-slate-400 text-[10px] transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                                                        </button>
+                                                        <div x-show="open" @click.outside="open = false" x-cloak
+                                                             class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                                            {% for val, label in deny_reasons %}
+                                                            <button type="button"
+                                                                    @click="selected = '{{ val }}'; selectedLabel = '{{ label }}'; reason = '{{ val }}'; open = false"
+                                                                    class="w-full text-left px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-nigeria-light hover:text-nigeria-green transition-colors border-b border-slate-50 last:border-0">
+                                                                {{ label }}
+                                                            </button>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
                                                     <textarea x-show="reason === 'Other'" name="denial_reason_other"
                                                               x-model="other"
                                                               :required="reason === 'Other'"

@@ -506,6 +506,31 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         return False
 
+    def _reclaim_expired_custody(self, file_obj):
+        """If current custodian holds the file via an expired access request, return it to registry."""
+        holder = file_obj.current_location
+        if not holder or holder.is_registry:
+            return
+        # Check if holder is the file owner — owners always keep custody
+        if file_obj.owner == holder:
+            return
+        # Check if holder has any active (non-expired) approved access
+        active_access = FileAccessRequest.objects.filter(
+            file=file_obj,
+            requested_by=holder.user,
+            status='approved'
+        ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+        if not active_access:
+            # Find any registry staff to return to
+            from organization.models import Staff as StaffModel
+            from document_management.views.base import EXCLUDE_REGISTRY_Q
+            registry_staff = StaffModel.objects.filter(
+                Q(designation__name__icontains='registry') | Q(user__groups__name__iexact='Registry')
+            ).first()
+            if registry_staff:
+                file_obj.current_location = registry_staff
+                file_obj.save(update_fields=['current_location'])
+
     def can_view_original(self, file, user):
         if user.is_superuser:
             return True
@@ -538,7 +563,10 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context = super().get_context_data(**kwargs)
         file_obj = self.get_object()
         user = self.request.user
-        
+
+        # Return custody to registry if current holder's access has expired
+        self._reclaim_expired_custody(file_obj)
+
         is_custodian = hasattr(user, 'staff') and file_obj.current_location == user.staff
         
         has_approved_access = FileAccessRequest.objects.filter(
@@ -556,11 +584,13 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         is_registry = hasattr(user, 'staff') and user.staff.is_registry
         
-        context["can_add_minutes"] = is_custodian or has_rw_access or is_registry
+        context["can_add_minute"] = is_custodian or has_rw_access or is_registry
+        context["can_add_minutes"] = context["can_add_minute"]
         context["can_send_file"] = is_custodian or is_registry
         context["is_custodian"] = is_custodian
         context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
+        context["access_type"] = 'read_write' if has_rw_access else ('read_only' if has_approved_access else None)
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
         context["send_file_form"] = SendFileForm()
@@ -571,9 +601,34 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["movements"] = file_obj.movements.select_related(
             'sent_by', 'from_location__user', 'sent_to__user'
         )[:20]
+        from organization.models import Staff as StaffModel
+        from document_management.views.base import EXCLUDE_REGISTRY_Q
+        context["approver_choices"] = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(
+            user=user
+        ).select_related('user', 'designation').order_by('user__last_name')
+        try:
+            context["approval_chain"] = file_obj.approval_chain
+        except Exception:
+            context["approval_chain"] = None
         from core.constants import STATUS_CHOICES
         context["status_choices"] = STATUS_CHOICES
-        
+
+        # Build unified chronicle: merge documents and audit log movements sorted by date
+        documents = list(file_obj.documents.select_related('uploaded_by').all())
+        audit_entries = list(AuditLogEntry.objects.filter(
+            object_id=file_obj.pk,
+            content_type__model='file'
+        ).select_related('user').order_by('timestamp'))
+
+        chronicle = []
+        for doc in documents:
+            chronicle.append({'type': 'document', 'item': doc, 'timestamp': doc.uploaded_at})
+        for entry in audit_entries:
+            chronicle.append({'type': 'audit', 'item': entry, 'timestamp': entry.timestamp})
+
+        chronicle.sort(key=lambda x: x['timestamp'])
+        context["chronicle"] = chronicle
+
         return context
 
     def post(self, request, *args, **kwargs):

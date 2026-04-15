@@ -423,8 +423,9 @@
                             <div x-show="activeTab === 'settings'"
                                  class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-8">
                                 <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 uppercase tracking-wider">
-                                    File Management (Registry Only)
+                                    File Settings
                                 </h3>
+                                {% if user.staff.is_registry or user.is_superuser %}
                                 <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
                                     <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Update File Status</label>
                                     <form action="{% url 'document_management:file_detail' pk=file.pk %}"
@@ -447,12 +448,96 @@
                                         Changing the status may affect who can view or edit this file. Use with caution.
                                     </p>
                                 </div>
+                                {% endif %}
+
+                                <!-- Approval Chain -->
+                                {% if file.owner == user.staff or file.created_by == user %}
+                                <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Approval Chain</label>
+                                    {% if approval_chain %}
+                                        <div class="space-y-3">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs font-bold text-slate-700">Status:
+                                                    <span class="{% if approval_chain.status == 'active' %}text-nigeria-green{% elif approval_chain.status == 'closed' %}text-blue-600{% elif approval_chain.status == 'rejected' %}text-red-600{% else %}text-amber-600{% endif %}">
+                                                        {{ approval_chain.status|upper }}
+                                                    </span>
+                                                </span>
+                                                {% if approval_chain.status == 'draft' %}
+                                                    <form method="post" action="{% url 'document_management:chain_start' file_pk=file.pk %}">
+                                                        {% csrf_token %}
+                                                        <button type="submit"
+                                                                class="px-4 py-2 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors">
+                                                            Start Chain
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </div>
+                                            <ol class="space-y-2">
+                                                {% for step in approval_chain.steps.all %}
+                                                    <li class="flex items-center gap-3 text-xs">
+                                                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black
+                                                            {% if step.status == 'approved' %}bg-green-100 text-green-700
+                                                            {% elif step.status == 'rejected' %}bg-red-100 text-red-700
+                                                            {% else %}bg-slate-100 text-slate-500{% endif %}">
+                                                            {{ step.order }}
+                                                        </span>
+                                                        <span class="font-semibold text-slate-700">{{ step.approver }}</span>
+                                                        <span class="text-[10px] font-bold uppercase tracking-widest
+                                                            {% if step.status == 'approved' %}text-green-600
+                                                            {% elif step.status == 'rejected' %}text-red-600
+                                                            {% else %}text-slate-400{% endif %}">
+                                                            {{ step.status }}
+                                                        </span>
+                                                    </li>
+                                                {% endfor %}
+                                            </ol>
+                                            {% if approval_chain.status == 'draft' %}
+                                                <form method="post" action="{% url 'document_management:chain_delete' file_pk=file.pk %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-widest">
+                                                        Delete Chain
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <form method="post" action="{% url 'document_management:chain_create' file_pk=file.pk %}"
+                                              x-data="{ approvers: [''] }">
+                                            {% csrf_token %}
+                                            <div class="space-y-2 mb-4">
+                                                <template x-for="(a, i) in approvers" :key="i">
+                                                    <div class="flex gap-2">
+                                                        <select name="approvers"
+                                                                class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
+                                                            <option value="">Select approver...</option>
+                                                            {% for staff in approver_choices %}
+                                                                <option value="{{ staff.pk }}">{{ staff.user.get_full_name|default:staff.user.username }} — {{ staff.designation.name|default:"Staff" }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" @click="approvers.splice(i, 1)" x-show="approvers.length > 1"
+                                                                class="text-red-400 hover:text-red-600 px-2">✕</button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <button type="button" @click="approvers.push('')"
+                                                        class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest hover:underline">
+                                                    + Add Step
+                                                </button>
+                                                <button type="submit"
+                                                        class="px-4 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-black transition-colors">
+                                                    Create Chain
+                                                </button>
+                                            </div>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                             </div>
                         {% endif %}
                     </div>
                 </div>
-                {% if not user.staff.is_registry %}
-                    <!-- Sidebar Section -->
+                <!-- Sidebar Section -->
                     <div class="space-y-8">
                         <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 sticky top-24">
                             <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8 text-center border-b border-slate-50 pb-2">
@@ -505,6 +590,18 @@
                                 </div>
                             {% endif %}
                             <div class="space-y-3 pt-8">
+                                {% if file.status == 'inactive' or file.status == 'pending_activation' %}
+                                    {% if user.staff.is_registry or user.is_superuser %}
+                                        <form action="{% url 'document_management:file_approve_activation' pk=file.pk %}"
+                                              method="post">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    class="w-full py-4 bg-nigeria-green text-white hover:bg-nigeria-dark rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                                                Activate File
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                {% endif %}
                                 {% if file.status == 'active' %}
                                     {% if user.staff.is_registry or user.is_superuser %}
                                         <form action="{% url 'document_management:file_close' pk=file.pk %}"
@@ -542,7 +639,6 @@
                             </div>
                         </div>
                     </div>
-                {% endif %}
                 <!-- Movement History Tab -->
                 <div x-show="activeTab === 'movements'"
                      class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">

@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
 {% block title %}Upload Document | PIMS{% endblock %}
+{% block extra_head %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+{% endblock %}
 {% block content %}
     <div class="max-w-2xl mx-auto py-8 lg:py-12">
         <!-- Form Card -->
@@ -15,10 +19,20 @@
                 <form method="post" enctype="multipart/form-data" class="space-y-8">
                     {% csrf_token %}
                     <div class="space-y-6">
+                        {% if preselected_file %}
+                            <input type="hidden" name="file" value="{{ preselected_file.pk }}">
+                            <div class="p-4 bg-nigeria-light border border-nigeria-green/20 rounded-lg">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Adding to File</p>
+                                <p class="text-sm font-bold text-nigeria-green">{{ preselected_file.file_number }} — {{ preselected_file.title }}</p>
+                            </div>
+                        {% endif %}
                         {% for field in form %}
+                            {% if field.name == 'file' and preselected_file %}{# hidden above #}{% else %}
                             <div class="space-y-1.5">
                                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">{{ field.label }}</label>
-                                {% if field.name == 'attachment' %}
+                                {% if field.name == 'minute_content' %}
+                                    {{ field }}
+                                {% elif field.name == 'attachment' %}
                                     <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
                                         <div class="space-y-1 text-center">
                                             <svg class="mx-auto h-12 w-12 text-slate-400"
@@ -42,6 +56,7 @@
                                     <p class="text-[10px] text-red-600 font-bold uppercase italic">{{ error }}</p>
                                 {% endfor %}
                             </div>
+                        {% endif %}
                         {% endfor %}
                     </div>
                     <div class="pt-6 border-t border-slate-100 flex items-center justify-end space-x-4">
@@ -67,4 +82,21 @@
             Locked</span>
         </div>
     </div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('.summernote').summernote({
+        height: 200,
+        toolbar: [
+            ['style', ['bold', 'italic', 'underline']],
+            ['para', ['ul', 'ol']],
+            ['insert', ['link']],
+            ['view', ['fullscreen', 'codeview']]
+        ],
+        placeholder: 'Enter minute or note content...'
+    });
+});
+</script>
 {% endblock %}

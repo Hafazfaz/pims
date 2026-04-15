@@ -273,15 +273,20 @@ class FileUpdateForm(forms.ModelForm):
 class DocumentUploadForm(forms.ModelForm):
     # This form allows uploading an attachment to an existing file
     file = forms.ModelChoiceField(
-        queryset=File.objects.all().order_by('title'), # Users will select from existing files
+        queryset=File.objects.all().order_by('title'),
         empty_label="Select a File",
         widget=forms.Select(attrs={"class": "form-control"}),
         label="Associate with File",
     )
+    minute_content = forms.CharField(
+        required=False,
+        label="Minute / Note Content",
+        widget=forms.Textarea(attrs={"class": "form-control summernote", "rows": 6}),
+    )
 
     class Meta:
         model = Document
-        fields = ["file", "title", "attachment"] # Allow labeling the document
+        fields = ["file", "title", "minute_content", "attachment"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -321,11 +326,9 @@ class DocumentUploadForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         attachment = cleaned_data.get("attachment")
-
-        if not attachment:
-            raise forms.ValidationError(
-                "Please upload an attachment."
-            )
+        minute_content = cleaned_data.get("minute_content")
+        if not attachment and not minute_content:
+            raise forms.ValidationError("Please provide either a document upload or minute content.")
         return cleaned_data
 
 class FileAccessRequestForm(forms.ModelForm):

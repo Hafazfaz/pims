@@ -42,6 +42,7 @@
                         </a>
                         {% endif %}
 
+                        {% if not user.staff.is_registry %}
                         <a href="{% url 'document_management:messages' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'messages' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
@@ -53,6 +54,7 @@
                             <i class="fas fa-clipboard-check w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Approvals</span>
                         </a>
+                        {% endif %}
                     {% endif %}
 
                     {% endwith %}
@@ -72,7 +74,10 @@
                     <a href="{% url 'document_management:registry_hub' %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/registry/hub' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-archive w-4 text-center"></i>
-                        <span class="text-xs font-bold uppercase tracking-wider">All Files</span>
+                        <span class="text-xs font-bold uppercase tracking-wider flex-1">All Files</span>
+                        {% if pending_activation_count > 0 %}
+                            <span class="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full">{{ pending_activation_count }}</span>
+                        {% endif %}
                     </a>
                     <a href="{% url 'document_management:file_create' %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'file_create' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
@@ -82,7 +87,10 @@
                     <a href="{% url 'document_management:access_request_list' %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'access-requests' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-key w-4 text-center"></i>
-                        <span class="text-xs font-bold uppercase tracking-wider">Access Requests</span>
+                        <span class="text-xs font-bold uppercase tracking-wider flex-1">Access Requests</span>
+                        {% if pending_access_count > 0 %}
+                            <span class="text-[9px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full">{{ pending_access_count }}</span>
+                        {% endif %}
                     </a>
                 </div>
             </div>

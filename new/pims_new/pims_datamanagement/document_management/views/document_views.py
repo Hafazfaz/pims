@@ -17,12 +17,38 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
     model = Document
     form_class = DocumentUploadForm
     template_name = "document_management/document_upload_form.html"
-    success_url = reverse_lazy("document_management:my_files")
+
+    def get_file(self):
+        file_pk = self.kwargs.get('file_pk') or self.request.GET.get('file_pk')
+        if file_pk:
+            return get_object_or_404(File, pk=file_pk)
+        return None
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        file = self.get_file()
+        if file:
+            initial['file'] = file
+        parent_id = self.request.GET.get('parent_id')
+        if parent_id:
+            initial['parent'] = parent_id
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['preselected_file'] = self.get_file()
+        return context
+
+    def get_success_url(self):
+        file = self.get_file()
+        if file:
+            return reverse_lazy("document_management:file_detail", kwargs={"pk": file.pk})
+        return reverse_lazy("document_management:my_files")
 
     def form_valid(self, form):
         document = form.save(commit=False)
