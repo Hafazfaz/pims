@@ -81,13 +81,14 @@ class ApprovalChainBuilderView(HTMXLoginRequiredMixin, View):
 
 
 
+
+class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
     """Owner sets up the approval chain for their file."""
 
     def post(self, request, file_pk):
         file_obj = get_object_or_404(File, pk=file_pk)
-
-        # Only owner or creator can set up chain
         staff = getattr(request.user, 'staff', None)
+
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can set up an approval chain.")
             return redirect(file_obj.get_absolute_url())
