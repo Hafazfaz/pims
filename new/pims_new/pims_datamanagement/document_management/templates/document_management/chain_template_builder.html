@@ -64,54 +64,113 @@
     <div class="p-4 border-b border-slate-100">
       <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Add Step</p>
       <div class="space-y-2">
-        <select x-model="newStep.role_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-          <option value="unit_manager">Unit Manager</option>
-          <option value="hod">Head of Department</option>
-          <option value="director_general">Director General</option>
-          <option value="designation">By Designation</option>
-          <option value="specific_person">Specific Person</option>
-        </select>
+
+        <!-- Role Type -->
+        <div class="relative" x-data="{ open: false }">
+          <button type="button" @click="open = !open" @click.outside="open = false"
+                  class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+            <span x-text="{unit_manager:'Unit Manager',hod:'Head of Department',director_general:'Director General',designation:'By Designation',specific_person:'Specific Person'}[newStep.role_type]"></span>
+            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+            <template x-for="[val, label] in [['unit_manager','Unit Manager'],['hod','Head of Department'],['director_general','Director General'],['designation','By Designation'],['specific_person','Specific Person']]" :key="val">
+              <button type="button" @click="newStep.role_type = val; open = false"
+                      class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
+                      :class="newStep.role_type === val ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+                <span x-text="label"></span>
+                <svg x-show="newStep.role_type === val" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              </button>
+            </template>
+          </div>
+        </div>
 
         <!-- HOD / Unit Manager dept scope -->
         <template x-if="newStep.role_type === 'hod' || newStep.role_type === 'unit_manager'">
           <div class="space-y-2">
-            <select x-model="newStep.department_scope" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-              <option value="sender">Sender's Department</option>
-              <option value="specific">Specific Department</option>
-            </select>
+            <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[10px] font-black uppercase tracking-widest">
+              <button type="button" @click="newStep.department_scope = 'sender'"
+                      class="flex-1 py-2 transition-colors"
+                      :class="newStep.department_scope === 'sender' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">
+                Sender's Dept
+              </button>
+              <button type="button" @click="newStep.department_scope = 'specific'"
+                      class="flex-1 py-2 transition-colors border-l border-slate-200"
+                      :class="newStep.department_scope === 'specific' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">
+                Specific Dept
+              </button>
+            </div>
             <template x-if="newStep.department_scope === 'specific'">
-              <select x-model="newStep.specific_department_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-                <option value="">Select department...</option>
-                {% for dept in departments %}
-                <option value="{{ dept.pk }}">{{ dept.name }}</option>
-                {% endfor %}
-              </select>
+              <div class="relative" x-data="{ open: false }">
+                <button type="button" @click="open = !open" @click.outside="open = false"
+                        class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+                  <span x-text="newStep.specific_department_id ? deptMap[newStep.specific_department_id] : 'Select department...'"></span>
+                  <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                  {% for dept in departments %}
+                  <button type="button" @click="newStep.specific_department_id = '{{ dept.pk }}'; open = false"
+                          class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
+                          :class="newStep.specific_department_id === '{{ dept.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+                    {{ dept.name }}
+                  </button>
+                  {% endfor %}
+                </div>
+              </div>
             </template>
           </div>
         </template>
 
         <!-- Designation -->
         <template x-if="newStep.role_type === 'designation'">
-          <select x-model="newStep.designation_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-            <option value="">Select designation...</option>
-            {% for desig in designations %}
-            <option value="{{ desig.pk }}">{{ desig.name }} (Level {{ desig.level }})</option>
-            {% endfor %}
-          </select>
+          <div class="relative" x-data="{ open: false }">
+            <button type="button" @click="open = !open" @click.outside="open = false"
+                    class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+              <span x-text="newStep.designation_id ? desigMap[newStep.designation_id] : 'Select designation...'"></span>
+              <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+              {% for desig in designations %}
+              <button type="button" @click="newStep.designation_id = '{{ desig.pk }}'; open = false"
+                      class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
+                      :class="newStep.designation_id === '{{ desig.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+                {{ desig.name }} <span class="text-slate-400 font-medium">Level {{ desig.level }}</span>
+              </button>
+              {% endfor %}
+            </div>
+          </div>
         </template>
 
         <!-- Specific Person -->
         <template x-if="newStep.role_type === 'specific_person'">
-          <select x-model="newStep.staff_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-            <option value="">Select person...</option>
-            {% for s in staff_list %}
-            <option value="{{ s.pk }}">{{ s.user.get_full_name|default:s.user.username }} — {{ s.designation.name|default:"Staff" }}</option>
-            {% endfor %}
-          </select>
+          <div class="relative" x-data="{ open: false, search: '' }">
+            <button type="button" @click="open = !open" @click.outside="open = false"
+                    class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+              <span x-text="newStep.staff_id ? staffMap[newStep.staff_id] : 'Select person...'"></span>
+              <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+              <div class="p-2 border-b border-slate-100">
+                <input type="text" x-model="search" placeholder="Search..." @click.stop
+                       class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-nigeria-green">
+              </div>
+              <div class="max-h-40 overflow-y-auto">
+                {% for s in staff_list %}
+                <button type="button"
+                        x-show="!'{{ s.user.get_full_name|default:s.user.username }}'.toLowerCase().includes(search.toLowerCase()) === false"
+                        @click="newStep.staff_id = '{{ s.pk }}'; open = false; search = ''"
+                        class="w-full px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                        :class="newStep.staff_id === '{{ s.pk }}' ? 'bg-green-50' : ''">
+                  <p class="text-xs font-bold" :class="newStep.staff_id === '{{ s.pk }}' ? 'text-nigeria-green' : 'text-slate-700'">{{ s.user.get_full_name|default:s.user.username }}</p>
+                  <p class="text-[10px] text-slate-400">{{ s.designation.name|default:"Staff" }}</p>
+                </button>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
         </template>
 
         <button @click="addStepToCanvas()"
-                class="w-full py-2 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
+                class="w-full py-2.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
           + Add to Canvas
         </button>
       </div>
@@ -176,6 +235,9 @@ function templateBuilder() {
     department: '{{ template.department_id|default:"" }}',
     stepsJson: '[]',
     newStep: { role_type: 'unit_manager', department_scope: 'sender', specific_department_id: '', designation_id: '', staff_id: '' },
+    deptMap: DEPT_MAP,
+    desigMap: DESIG_MAP,
+    staffMap: STAFF_MAP,
 
     init() {
       this.editor = new Drawflow(document.getElementById('drawflow'));
