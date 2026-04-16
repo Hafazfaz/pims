@@ -1,36 +1,38 @@
 {% extends "base.html" %}
 {% block title %}{% if template %}Edit{% else %}New{% endif %} Chain Template{% endblock %}
 
-{% block content %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow/dist/drawflow.min.css"/>
+{% block sidebar %}{% endblock %}
+{% block top_nav %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block main_class %}{% endblock %}
+{% block content_wrapper %}
 <style>
   body { overflow: hidden; }
-  #drawflow {
-    width: 100%; height: 100%;
+  #canvas {
+    width: 100%; height: 100%; position: relative; overflow: hidden;
     background-color: #f8fafc;
     background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  .drawflow-node { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 0; min-width: 180px; max-width: 180px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-  .drawflow-node.selected { border-color: #16a34a; box-shadow: 0 0 0 3px #bbf7d0; }
-  .drawflow-node .drawflow_content_node { padding: 0; }
-  .node-inner { padding: 12px 16px; }
+  .step-node {
+    position: absolute;
+    width: 180px;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    cursor: grab;
+    user-select: none;
+  }
+  .step-node.selected { border-color: #16a34a; box-shadow: 0 0 0 3px #bbf7d0; }
   .node-step { font-size: 9px; font-weight: 900; color: #16a34a; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
   .node-role { font-size: 12px; font-weight: 700; color: #0f172a; }
   .node-sub { font-size: 10px; color: #94a3b8; font-weight: 600; margin-top: 1px; }
-  .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2px; }
-  .drawflow .connection { z-index: 0 !important; }
-  .drawflow .drawflow-node { z-index: 1 !important; background: white !important; }
-  /* Hide default ports — we rely on Drawflow's built-in connection dragging */
-  .drawflow .drawflow-node .input,
-  .drawflow .drawflow-node .output {
-    width: 14px !important;
-    height: 14px !important;
-    background: #16a34a !important;
-    border: 2px solid white !important;
-    border-radius: 50% !important;
-    margin-top: -7px !important;
-  }
+  /* jsPlumb endpoint dots */
+  .jtk-endpoint { z-index: 10; }
+  .jtk-connector { z-index: 5; }
+  .jtk-overlay { z-index: 6; }
 </style>
 
 <div class="flex h-screen overflow-hidden" x-data="templateBuilder()" x-init="init()">
@@ -45,176 +47,176 @@
       </h2>
     </div>
 
-    <!-- Scrollable content -->
     <div class="flex-1 overflow-y-auto">
 
-    <!-- Template Meta -->
-    <div class="p-4 border-b border-slate-100 space-y-3">
-      <div>
-        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Name *</label>
-        <input type="text" x-model="name" placeholder="e.g. Standard HOD Approval"
-               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none"
-               value="{{ template.name|default:'' }}">
-      </div>
-      <div>
-        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Department (optional)</label>
-        <div class="relative" x-data="{ open: false }">
-          <button type="button" @click="open = !open" @click.outside="open = false"
-                  class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
-            <span x-text="department ? deptMap[department] : 'Org-Wide'"></span>
-            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </button>
-          <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
-            <button type="button" @click="department = ''; open = false"
-                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
-                    :class="!department ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
-              Org-Wide
-              <svg x-show="!department" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-            </button>
-            {% for dept in departments %}
-            <button type="button" @click="department = '{{ dept.pk }}'; open = false"
-                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
-                    :class="department === '{{ dept.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
-              {{ dept.name }}
-              <svg x-show="department === '{{ dept.pk }}'" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-            </button>
-            {% endfor %}
-          </div>
+      <!-- Template Meta -->
+      <div class="p-4 border-b border-slate-100 space-y-3">
+        <div>
+          <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Name *</label>
+          <input type="text" x-model="name" placeholder="e.g. Standard HOD Approval"
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
         </div>
-      </div>
-      <div>
-        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Description</label>
-        <textarea x-model="description" rows="2" placeholder="Optional description..."
-                  class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none resize-none">{{ template.description|default:'' }}</textarea>
-      </div>
-    </div>
-
-    <!-- Step Builder -->
-    <div class="p-4 border-b border-slate-100">
-      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Add Step</p>
-      <div class="space-y-2">
-
-        <!-- Role Type -->
-        <div class="relative" x-data="{ open: false }">
-          <button type="button" @click="open = !open" @click.outside="open = false"
-                  class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
-            <span x-text="{unit_manager:'Unit Manager',hod:'Head of Department',director_general:'Director General',designation:'By Designation',specific_person:'Specific Person'}[newStep.role_type]"></span>
-            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </button>
-          <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-            <template x-for="[val, label] in [['unit_manager','Unit Manager'],['hod','Head of Department'],['director_general','Director General'],['designation','By Designation'],['specific_person','Specific Person']]" :key="val">
-              <button type="button" @click="newStep.role_type = val; open = false"
-                      class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
-                      :class="newStep.role_type === val ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
-                <span x-text="label"></span>
-                <svg x-show="newStep.role_type === val" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-              </button>
-            </template>
-          </div>
-        </div>
-
-        <!-- HOD / Unit Manager dept scope -->
-        <template x-if="newStep.role_type === 'hod' || newStep.role_type === 'unit_manager'">
-          <div class="space-y-2">
-            <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[10px] font-black uppercase tracking-widest">
-              <button type="button" @click="newStep.department_scope = 'sender'"
-                      class="flex-1 py-2 transition-colors"
-                      :class="newStep.department_scope === 'sender' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">
-                Sender's Dept
-              </button>
-              <button type="button" @click="newStep.department_scope = 'specific'"
-                      class="flex-1 py-2 transition-colors border-l border-slate-200"
-                      :class="newStep.department_scope === 'specific' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">
-                Specific Dept
-              </button>
+        <div>
+          <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Department (optional)</label>
+          <div class="relative" x-data="{ open: false }">
+            <button type="button" @click="open = !open" @click.outside="open = false"
+                    class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+              <span x-text="department ? deptMap[department] : 'Org-Wide'"></span>
+              <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+              <button type="button" @click="department = ''; open = false"
+                      class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50"
+                      :class="!department ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">Org-Wide</button>
+              {% for dept in departments %}
+              <button type="button" @click="department = '{{ dept.pk }}'; open = false"
+                      class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50"
+                      :class="department === '{{ dept.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">{{ dept.name }}</button>
+              {% endfor %}
             </div>
-            <template x-if="newStep.department_scope === 'specific'">
-              <div class="relative" x-data="{ open: false }">
-                <button type="button" @click="open = !open" @click.outside="open = false"
-                        class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
-                  <span x-text="newStep.specific_department_id ? deptMap[newStep.specific_department_id] : 'Select department...'"></span>
-                  <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+        <div>
+          <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Description</label>
+          <textarea x-model="description" rows="2" placeholder="Optional description..."
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Step Builder / Node Editor -->
+      <div class="p-4 border-b border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest"
+             x-text="editingNodeId !== null ? 'Edit Step' : 'Add Step'"></p>
+          <button x-show="editingNodeId !== null" @click="editingNodeId = null"
+                  class="text-[9px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest">← New Step</button>
+        </div>
+
+        <div class="space-y-2">
+          <!-- Role Type -->
+          <div class="relative" x-data="{ open: false }">
+            <button type="button" @click="open = !open" @click.outside="open = false"
+                    class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+              <span x-text="{unit_manager:'Unit Manager',hod:'Head of Department',director_general:'Director General',designation:'By Designation',specific_person:'Specific Person'}[activeStep.role_type]"></span>
+              <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+              <template x-for="[val, label] in [['unit_manager','Unit Manager'],['hod','Head of Department'],['director_general','Director General'],['designation','By Designation'],['specific_person','Specific Person']]" :key="val">
+                <button type="button" @click="activeStep.role_type = val; open = false"
+                        class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50"
+                        :class="activeStep.role_type === val ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+                  <span x-text="label"></span>
                 </button>
-                <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
-                  {% for dept in departments %}
-                  <button type="button" @click="newStep.specific_department_id = '{{ dept.pk }}'; open = false"
-                          class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
-                          :class="newStep.specific_department_id === '{{ dept.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
-                    {{ dept.name }}
+              </template>
+            </div>
+          </div>
+
+          <!-- Sender/Specific dept toggle -->
+          <template x-if="activeStep.role_type === 'hod' || activeStep.role_type === 'unit_manager'">
+            <div class="space-y-2">
+              <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[10px] font-black uppercase tracking-widest">
+                <button type="button" @click="activeStep.department_scope = 'sender'"
+                        class="flex-1 py-2 transition-colors"
+                        :class="activeStep.department_scope === 'sender' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">Sender's Dept</button>
+                <button type="button" @click="activeStep.department_scope = 'specific'"
+                        class="flex-1 py-2 transition-colors border-l border-slate-200"
+                        :class="activeStep.department_scope === 'specific' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">Specific Dept</button>
+              </div>
+              <template x-if="activeStep.department_scope === 'specific'">
+                <div class="relative" x-data="{ open: false }">
+                  <button type="button" @click="open = !open" @click.outside="open = false"
+                          class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+                    <span x-text="activeStep.specific_department_id ? deptMap[activeStep.specific_department_id] : 'Select department...'"></span>
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                  <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                    {% for dept in departments %}
+                    <button type="button" @click="activeStep.specific_department_id = '{{ dept.pk }}'; open = false"
+                            class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50"
+                            :class="activeStep.specific_department_id === '{{ dept.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">{{ dept.name }}</button>
+                    {% endfor %}
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <!-- Designation -->
+          <template x-if="activeStep.role_type === 'designation'">
+            <div class="relative" x-data="{ open: false }">
+              <button type="button" @click="open = !open" @click.outside="open = false"
+                      class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+                <span x-text="activeStep.designation_id ? desigMap[activeStep.designation_id] : 'Select designation...'"></span>
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                {% for desig in designations %}
+                <button type="button" @click="activeStep.designation_id = '{{ desig.pk }}'; open = false"
+                        class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50"
+                        :class="activeStep.designation_id === '{{ desig.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">{{ desig.name }}</button>
+                {% endfor %}
+              </div>
+            </div>
+          </template>
+
+          <!-- Specific Person -->
+          <template x-if="activeStep.role_type === 'specific_person'">
+            <div class="relative" x-data="{ open: false, search: '' }">
+              <button type="button" @click="open = !open" @click.outside="open = false"
+                      class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+                <span x-text="activeStep.staff_id ? staffMap[activeStep.staff_id] : 'Select person...'"></span>
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                <div class="p-2 border-b border-slate-100">
+                  <input type="text" x-model="search" placeholder="Search..." @click.stop
+                         class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-nigeria-green">
+                </div>
+                <div class="max-h-40 overflow-y-auto">
+                  {% for s in staff_list %}
+                  <button type="button"
+                          x-show="'{{ s.user.get_full_name|default:s.user.username }}'.toLowerCase().includes(search.toLowerCase())"
+                          @click="activeStep.staff_id = '{{ s.pk }}'; open = false; search = ''"
+                          class="w-full px-4 py-2.5 text-left hover:bg-slate-50"
+                          :class="activeStep.staff_id === '{{ s.pk }}' ? 'bg-green-50' : ''">
+                    <p class="text-xs font-bold" :class="activeStep.staff_id === '{{ s.pk }}' ? 'text-nigeria-green' : 'text-slate-700'">{{ s.user.get_full_name|default:s.user.username }}</p>
+                    <p class="text-[10px] text-slate-400">{{ s.designation.name|default:"Staff" }}</p>
                   </button>
                   {% endfor %}
                 </div>
               </div>
-            </template>
-          </div>
-        </template>
+            </div>
+          </template>
 
-        <!-- Designation -->
-        <template x-if="newStep.role_type === 'designation'">
-          <div class="relative" x-data="{ open: false }">
-            <button type="button" @click="open = !open" @click.outside="open = false"
-                    class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
-              <span x-text="newStep.designation_id ? desigMap[newStep.designation_id] : 'Select designation...'"></span>
-              <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
-              {% for desig in designations %}
-              <button type="button" @click="newStep.designation_id = '{{ desig.pk }}'; open = false"
-                      class="w-full px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
-                      :class="newStep.designation_id === '{{ desig.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
-                {{ desig.name }} <span class="text-slate-400 font-medium">Level {{ desig.level }}</span>
+          <button x-show="editingNodeId === null" @click="addNode()"
+                  class="w-full py-2.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
+            + Add to Canvas
+          </button>
+
+          <template x-if="editingNodeId !== null">
+            <div class="space-y-2">
+              <button @click="applyEdit()"
+                      class="w-full py-2.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
+                Apply Changes
               </button>
-              {% endfor %}
+              <button @click="deleteNode(editingNodeId)"
+                      class="w-full py-2 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 rounded-lg transition-all">
+                Delete Step
+              </button>
             </div>
-          </div>
-        </template>
-
-        <!-- Specific Person -->
-        <template x-if="newStep.role_type === 'specific_person'">
-          <div class="relative" x-data="{ open: false, search: '' }">
-            <button type="button" @click="open = !open" @click.outside="open = false"
-                    class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
-              <span x-text="newStep.staff_id ? staffMap[newStep.staff_id] : 'Select person...'"></span>
-              <svg class="w-3.5 h-3.5 text-slate-400" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-              <div class="p-2 border-b border-slate-100">
-                <input type="text" x-model="search" placeholder="Search..." @click.stop
-                       class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-nigeria-green">
-              </div>
-              <div class="max-h-40 overflow-y-auto">
-                {% for s in staff_list %}
-                <button type="button"
-                        x-show="!'{{ s.user.get_full_name|default:s.user.username }}'.toLowerCase().includes(search.toLowerCase()) === false"
-                        @click="newStep.staff_id = '{{ s.pk }}'; open = false; search = ''"
-                        class="w-full px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
-                        :class="newStep.staff_id === '{{ s.pk }}' ? 'bg-green-50' : ''">
-                  <p class="text-xs font-bold" :class="newStep.staff_id === '{{ s.pk }}' ? 'text-nigeria-green' : 'text-slate-700'">{{ s.user.get_full_name|default:s.user.username }}</p>
-                  <p class="text-[10px] text-slate-400">{{ s.designation.name|default:"Staff" }}</p>
-                </button>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <button @click="addStepToCanvas()"
-                class="w-full py-2.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
-          + Add to Canvas
-        </button>
+          </template>
+        </div>
       </div>
+
     </div>
 
-    </div> <!-- end scrollable content -->
-
     <div class="p-4 border-t border-slate-100 shrink-0">
-      <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Tips</p>
-      <p class="text-[10px] text-slate-400">Connect nodes left→right · Click to edit · Delete removes</p>
+      <p class="text-[10px] text-slate-400">Drag from right port → left port to connect</p>
     </div>
   </div>
 
   <!-- Canvas -->
-  <div class="flex-1 flex flex-col min-w-0 relative">
+  <div class="flex-1 flex flex-col min-w-0">
     <div class="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shadow-sm shrink-0">
       <div class="flex items-center gap-3">
         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Canvas</span>
@@ -223,259 +225,206 @@
       </div>
       <div class="flex items-center gap-2">
         <button @click="clearCanvas()" class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 rounded-lg transition-all">Clear</button>
-        <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden">
-          <button @click="editor.zoom_out()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">−</button>
-          <button @click="editor.zoom_reset()" class="px-3 py-2 text-[10px] font-black text-slate-400 hover:bg-slate-100 transition-colors border-x border-slate-200 uppercase tracking-widest">Reset</button>
-          <button @click="editor.zoom_in()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">+</button>
-        </div>
         <button @click="saveTemplate()" :disabled="!name || nodes.length === 0"
                 class="px-5 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
           Save Template
         </button>
       </div>
     </div>
-    <div id="drawflow" class="flex-1"></div>
-
-    <!-- Floating edit popover -->
-    <div x-show="editingNodeId !== null" x-cloak
-         :style="`position:absolute; left:${popoverX}px; top:${popoverY}px; z-index:100;`"
-         class="w-64 bg-white border border-slate-200 rounded-xl shadow-2xl p-4 space-y-3">
-      <div class="flex items-center justify-between mb-1">
-        <p class="text-[9px] font-black text-nigeria-green uppercase tracking-widest">Edit Step</p>
-        <button @click="editingNodeId = null" class="text-slate-400 hover:text-slate-600">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <select x-model="editStep.role_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-nigeria-green">
-        <option value="unit_manager">Unit Manager</option>
-        <option value="hod">Head of Department</option>
-        <option value="director_general">Director General</option>
-        <option value="designation">By Designation</option>
-        <option value="specific_person">Specific Person</option>
-      </select>
-
-      <template x-if="editStep.role_type === 'hod' || editStep.role_type === 'unit_manager'">
-        <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[10px] font-black uppercase tracking-widest">
-          <button type="button" @click="editStep.department_scope = 'sender'"
-                  class="flex-1 py-2 transition-colors"
-                  :class="editStep.department_scope === 'sender' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">Sender's</button>
-          <button type="button" @click="editStep.department_scope = 'specific'"
-                  class="flex-1 py-2 transition-colors border-l border-slate-200"
-                  :class="editStep.department_scope === 'specific' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">Specific</button>
-        </div>
-      </template>
-
-      <template x-if="(editStep.role_type === 'hod' || editStep.role_type === 'unit_manager') && editStep.department_scope === 'specific'">
-        <select x-model="editStep.specific_department_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none">
-          <option value="">Select dept...</option>
-          {% for dept in departments %}<option value="{{ dept.pk }}">{{ dept.name }}</option>{% endfor %}
-        </select>
-      </template>
-
-      <template x-if="editStep.role_type === 'designation'">
-        <select x-model="editStep.designation_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none">
-          <option value="">Select designation...</option>
-          {% for desig in designations %}<option value="{{ desig.pk }}">{{ desig.name }}</option>{% endfor %}
-        </select>
-      </template>
-
-      <template x-if="editStep.role_type === 'specific_person'">
-        <select x-model="editStep.staff_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none">
-          <option value="">Select person...</option>
-          {% for s in staff_list %}<option value="{{ s.pk }}">{{ s.user.get_full_name|default:s.user.username }}</option>{% endfor %}
-        </select>
-      </template>
-
-      <button @click="applyEdit()"
-              class="w-full py-2 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
-        Apply
-      </button>
-    </div>
+    <div id="canvas" class="flex-1"></div>
   </div>
 
-  <!-- Hidden form -->
   <form id="save-form" method="post" class="hidden">
     {% csrf_token %}
-    <input type="hidden" name="name" :value="name">
-    <input type="hidden" name="description" :value="description">
-    <input type="hidden" name="department" :value="department">
-    <input type="hidden" name="steps_json" :value="stepsJson">
+    <input type="hidden" name="name">
+    <input type="hidden" name="description">
+    <input type="hidden" name="department">
+    <input type="hidden" name="steps_json">
   </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/drawflow/dist/drawflow.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsPlumb/2.15.6/js/jsplumb.min.js"></script>
 <script>
-const ROLE_LABELS = {
-  unit_manager: 'Unit Manager',
-  hod: 'Head of Department',
-  director_general: 'Director General',
-  designation: 'By Designation',
-  specific_person: 'Specific Person',
-};
-
-const DEPT_MAP = { {% for d in departments %}'{{ d.pk }}': '{{ d.name }}', {% endfor %} };
-const DESIG_MAP = { {% for d in designations %}'{{ d.pk }}': '{{ d.name }}', {% endfor %} };
-const STAFF_MAP = { {% for s in staff_list %}'{{ s.pk }}': '{{ s.user.get_full_name|default:s.user.username }}', {% endfor %} };
+const ROLE_LABELS = { unit_manager:'Unit Manager', hod:'Head of Department', director_general:'Director General', designation:'By Designation', specific_person:'Specific Person' };
+const DEPT_MAP = { {% for d in departments %}'{{ d.pk }}':'{{ d.name }}', {% endfor %} };
+const DESIG_MAP = { {% for d in designations %}'{{ d.pk }}':'{{ d.name }}', {% endfor %} };
+const STAFF_MAP = { {% for s in staff_list %}'{{ s.pk }}':'{{ s.user.get_full_name|default:s.user.username }}', {% endfor %} };
 
 function templateBuilder() {
   return {
-    editor: null,
-    nodes: [],
+    jsp: null,
+    nodes: [],       // [{ id, role_type, department_scope, specific_department_id, designation_id, staff_id }]
+    connections: [], // [{ sourceId, targetId }]
     name: '{{ template.name|default:""|escapejs }}',
     description: '{{ template.description|default:""|escapejs }}',
     department: '{{ template.department_id|default:"" }}',
-    stepsJson: '[]',
     newStep: { role_type: 'unit_manager', department_scope: 'sender', specific_department_id: '', designation_id: '', staff_id: '' },
-    deptMap: DEPT_MAP,
-    desigMap: DESIG_MAP,
-    staffMap: STAFF_MAP,
-    // Edit panel
+    deptMap: DEPT_MAP, desigMap: DESIG_MAP, staffMap: STAFF_MAP,
     editingNodeId: null,
-    editStep: { role_type: 'unit_manager', department_scope: 'sender', specific_department_id: '', designation_id: '', staff_id: '' },
-    popoverX: 100,
-    popoverY: 100,
+    editStep: {},
+    _counter: 0,
+
+    get activeStep() { return this.editingNodeId !== null ? this.editStep : this.newStep; },
 
     init() {
-      const container = document.getElementById('drawflow');
-      this.editor = new Drawflow(container);
-      this.editor.reroute = true;
-      this.editor.start();
+      jsPlumb.ready(() => {
+        this.jsp = jsPlumb.getInstance({
+          Container: 'canvas',
+          PaintStyle: { stroke: '#16a34a', strokeWidth: 2 },
+          EndpointStyle: { fill: '#16a34a', radius: 6 },
+          Connector: ['Bezier', { curviness: 60 }],
+          ConnectionOverlays: [['Arrow', { width: 10, length: 10, location: 1 }]],
+        });
 
-      this.editor.on('nodeRemoved', id => {
-        this.nodes = this.nodes.filter(n => n.nodeId != id);
-        this._relabel();
-        if (this.editingNodeId == id) this.editingNodeId = null;
-      });
+        this.jsp.bind('connection', (info) => {
+          this.connections.push({ sourceId: info.source.id, targetId: info.target.id });
+        });
+        this.jsp.bind('connectionDetached', (info) => {
+          this.connections = this.connections.filter(
+            c => !(c.sourceId === info.source.id && c.targetId === info.target.id)
+          );
+        });
 
-      // Click node to open edit popover near the node
-      this.editor.on('nodeSelected', id => {
-        const node = this.nodes.find(n => n.nodeId == id);
-        if (node) {
-          this.editingNodeId = id;
-          this.editStep = { ...node };
-          // Position popover below the node
-          const el = document.querySelector(`#node-${id}`);
-          const canvas = document.getElementById('drawflow').getBoundingClientRect();
-          if (el) {
-            const rect = el.getBoundingClientRect();
-            this.popoverX = rect.left - canvas.left + rect.width / 2 - 128;
-            this.popoverY = rect.bottom - canvas.top + 8;
-          }
+        const existing = {{ existing_steps_json|safe }};
+        existing.forEach((s, i) => this._createNode(s, 60 + (i % 4) * 220, 80 + Math.floor(i / 4) * 140));
+        for (let i = 0; i < this.nodes.length - 1; i++) {
+          this._connect(this.nodes[i].id, this.nodes[i+1].id);
         }
       });
-      this.editor.on('nodeUnselected', () => { this.editingNodeId = null; });
-
-      // Load existing steps and restore connections
-      const existing = {{ existing_steps_json|safe }};
-      existing.forEach(s => this._addNode(s, false)); // false = no auto-connect
-      // Restore connections in order
-      for (let i = 0; i < this.nodes.length - 1; i++) {
-        try { this.editor.addConnection(this.nodes[i].nodeId, this.nodes[i+1].nodeId, 'output_1', 'input_1'); } catch(e) {}
-      }
     },
 
     _stepLabel(s) {
-      let label = ROLE_LABELS[s.role_type] || s.role_type;
+      const label = ROLE_LABELS[s.role_type] || s.role_type;
       let sub = '';
       if (s.role_type === 'hod' || s.role_type === 'unit_manager') {
-        sub = s.department_scope === 'specific' && s.specific_department_id
-          ? DEPT_MAP[s.specific_department_id] || 'Dept'
-          : "Sender's Dept";
-      } else if (s.role_type === 'designation') {
-        sub = DESIG_MAP[s.designation_id] || '';
-      } else if (s.role_type === 'specific_person') {
-        sub = STAFF_MAP[s.staff_id] || '';
-      }
+        sub = s.department_scope === 'specific' && s.specific_department_id ? DEPT_MAP[s.specific_department_id] || 'Dept' : "Sender's Dept";
+      } else if (s.role_type === 'designation') sub = DESIG_MAP[s.designation_id] || '';
+      else if (s.role_type === 'specific_person') sub = STAFF_MAP[s.staff_id] || '';
       return { label, sub };
     },
 
-    _nodeHtml(stepData, stepNum) {
+    _createNode(stepData, x, y) {
+      const id = 'node-' + (++this._counter);
+      const stepNum = this.nodes.length + 1;
       const { label, sub } = this._stepLabel(stepData);
-      return `<div class="node-inner">
+
+      const el = document.createElement('div');
+      el.id = id;
+      el.className = 'step-node';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.innerHTML = `
         <div class="node-step">Step ${stepNum}</div>
         <div class="node-role">${label}</div>
         ${sub ? `<div class="node-sub">${sub}</div>` : ''}
-      </div>`;
+      `;
+      el.addEventListener('click', () => this._selectNode(id));
+      document.getElementById('canvas').appendChild(el);
+
+      this.jsp.draggable(el);
+
+      this.jsp.addEndpoint(id, { anchor: 'Right', isSource: true, isTarget: false, maxConnections: 1,
+        paintStyle: { fill: '#16a34a', radius: 6 },
+        connectorStyle: { stroke: '#16a34a', strokeWidth: 2 },
+        connectorOverlays: [['Arrow', { width: 10, length: 10, location: 1 }]],
+      });
+      this.jsp.addEndpoint(id, { anchor: 'Left', isSource: false, isTarget: true, maxConnections: -1,
+        paintStyle: { fill: '#16a34a', radius: 6 },
+      });
+
+      this.nodes.push({ id, ...stepData });
     },
 
-    _addNode(stepData, autoConnect = true) {
-      const step = this.nodes.length + 1;
-      const col = this.nodes.length % 4;
-      const row = Math.floor(this.nodes.length / 4);
-      const x = 60 + col * 220;
-      const y = 80 + row * 140;
-      const nodeId = this.editor.addNode('step', 1, 1, x, y, 'approver-node', { ...stepData }, this._nodeHtml(stepData, step));
-      this.nodes.push({ nodeId, ...stepData });
-      if (autoConnect && this.nodes.length > 1) {
-        const prev = this.nodes[this.nodes.length - 2];
-        const cur = this.nodes[this.nodes.length - 1];
-        try { this.editor.addConnection(prev.nodeId, cur.nodeId, 'output_1', 'input_1'); } catch(e) {}
-      }
+    _connect(sourceId, targetId) {
+      const eps = this.jsp.getEndpoints(sourceId);
+      const srcEp = eps.find(e => e.anchor.type === 'Right');
+      const tgtEps = this.jsp.getEndpoints(targetId);
+      const tgtEp = tgtEps.find(e => e.anchor.type === 'Left');
+      if (srcEp && tgtEp) this.jsp.connect({ source: srcEp, target: tgtEp });
     },
 
-    addStepToCanvas() {
+    _selectNode(id) {
+      document.querySelectorAll('.step-node').forEach(el => el.classList.remove('selected'));
+      document.getElementById(id)?.classList.add('selected');
+      const node = this.nodes.find(n => n.id === id);
+      if (node) { this.editingNodeId = id; this.editStep = { ...node }; }
+    },
+
+    addNode() {
       const s = { ...this.newStep };
       if (s.role_type === 'specific_person' && !s.staff_id) { alert('Select a person.'); return; }
       if (s.role_type === 'designation' && !s.designation_id) { alert('Select a designation.'); return; }
-      this._addNode(s, true);
+      const col = this.nodes.length % 4, row = Math.floor(this.nodes.length / 4);
+      this._createNode(s, 60 + col * 220, 80 + row * 140);
     },
 
     applyEdit() {
       if (!this.editingNodeId) return;
-      const idx = this.nodes.findIndex(n => n.nodeId == this.editingNodeId);
+      const idx = this.nodes.findIndex(n => n.id === this.editingNodeId);
       if (idx === -1) return;
       const updated = { ...this.editStep };
       this.nodes[idx] = { ...this.nodes[idx], ...updated };
-      // Update node HTML
-      const html = this._nodeHtml(updated, idx + 1);
-      this.editor.updateNodeDataFromId(this.editingNodeId, updated);
-      const el = document.querySelector(`#node-${this.editingNodeId} .drawflow_content_node`);
-      if (el) el.innerHTML = html;
+      const { label, sub } = this._stepLabel(updated);
+      const el = document.getElementById(this.editingNodeId);
+      if (el) {
+        el.querySelector('.node-role').textContent = label;
+        const subEl = el.querySelector('.node-sub');
+        if (sub) { if (subEl) subEl.textContent = sub; else el.insertAdjacentHTML('beforeend', `<div class="node-sub">${sub}</div>`); }
+        else if (subEl) subEl.remove();
+      }
+      document.querySelectorAll('.step-node').forEach(e => e.classList.remove('selected'));
+      this.editingNodeId = null;
+    },
+
+    deleteNode(id) {
+      this.jsp.remove(id);
+      this.nodes = this.nodes.filter(n => n.id !== id);
+      this.connections = this.connections.filter(c => c.sourceId !== id && c.targetId !== id);
+      this._relabel();
       this.editingNodeId = null;
     },
 
     _relabel() {
       this.nodes.forEach((n, i) => {
-        const el = document.querySelector(`#node-${n.nodeId} .node-step`);
-        if (el) el.textContent = `Step ${i + 1}`;
+        const el = document.getElementById(n.id);
+        if (el) el.querySelector('.node-step').textContent = `Step ${i + 1}`;
       });
     },
 
     clearCanvas() {
-      [...this.nodes].forEach(n => this.editor.removeNodeId('node-' + n.nodeId));
-      this.nodes = [];
-      this.editingNodeId = null;
+      [...this.nodes].forEach(n => this.deleteNode(n.id));
     },
 
     saveTemplate() {
       if (!this.name || this.nodes.length === 0) return;
       const ordered = this._resolveOrder();
-      this.stepsJson = JSON.stringify(ordered);
-      this.$nextTick(() => document.getElementById('save-form').submit());
+      const form = document.getElementById('save-form');
+      form.querySelector('[name=name]').value = this.name;
+      form.querySelector('[name=description]').value = this.description;
+      form.querySelector('[name=department]').value = this.department;
+      form.querySelector('[name=steps_json]').value = JSON.stringify(ordered);
+      form.submit();
     },
 
     _resolveOrder() {
-      const data = this.editor.export().drawflow.Home.data;
-      if (!data || Object.keys(data).length === 0) return this.nodes.map(n => ({ ...n }));
-      const allIds = Object.keys(data).map(Number);
+      if (!this.connections.length) {
+        return this.nodes.map(({ id, ...rest }) => rest);
+      }
       const nextMap = {};
       const hasIncoming = new Set();
-      allIds.forEach(id => {
-        (data[id]?.outputs?.output_1?.connections || []).forEach(c => {
-          nextMap[id] = parseInt(c.node);
-          hasIncoming.add(parseInt(c.node));
-        });
+      this.connections.forEach(c => {
+        nextMap[c.sourceId] = c.targetId;
+        hasIncoming.add(c.targetId);
       });
-      if (!Object.keys(nextMap).length) return this.nodes.map(n => ({ ...n }));
-      const start = allIds.find(id => !hasIncoming.has(id));
-      if (start === undefined) return this.nodes.map(n => ({ ...n }));
+      const start = this.nodes.find(n => !hasIncoming.has(n.id));
+      if (!start) return this.nodes.map(({ id, ...rest }) => rest);
       const ordered = [];
-      let cur = start;
+      let cur = start.id;
       const visited = new Set();
-      while (cur !== undefined && !visited.has(cur)) {
+      while (cur && !visited.has(cur)) {
         visited.add(cur);
-        if (data[cur]) ordered.push(data[cur].data);
+        const node = this.nodes.find(n => n.id === cur);
+        if (node) { const { id, ...rest } = node; ordered.push(rest); }
         cur = nextMap[cur];
       }
       return ordered;
