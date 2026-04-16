@@ -241,3 +241,182 @@ class StaffFolderHubTest(TestCase):
     def test_staff_hub_accessible(self):
         r = self.client.get(reverse("document_management:staff_folder_hub", kwargs={"pk": self.staff.pk}))
         self.assertEqual(r.status_code, 200)
+
+
+class LeaveRequestChainTest(TestCase):
+    """
+    End-to-end simulation: Leave request document dispatched via chain.
+    Flow: Unit Manager → HOD
+    Scenario:
+      1. Staff submits leave request document
+      2. Chain applied: Unit Manager → HOD
+      3. HOD rejects → file returns to Unit Manager
+      4. Unit Manager re-approves (addresses HOD comment)
+      5. Goes back to HOD → HOD approves → file returns to registry
+    """
+
+    def setUp(self):
+        self.dept = Department.objects.create(name="Finance", code="FIN")
+        self.unit = Unit.objects.create(name="Accounts Unit", department=self.dept)
+
+        # Registry
+        reg_user = make_user("registry_user", "Registry")
+        reg_desig, _ = Designation.objects.get_or_create(name="Registry Officer", defaults={"level": 1})
+        self.registry = Staff.objects.create(user=reg_user, designation=reg_desig, department=self.dept)
+
+        # Staff (file owner)
+        staff_user = make_user("john_staff", "Staff")
+        staff_desig, _ = Designation.objects.get_or_create(name="Officer", defaults={"level": 5})
+        self.staff = Staff.objects.create(user=staff_user, designation=staff_desig, department=self.dept, unit=self.unit)
+
+        # Unit Manager
+        um_user = make_user("unit_mgr", "Staff")
+        um_desig, _ = Designation.objects.get_or_create(name="Unit Manager", defaults={"level": 3})
+        self.unit_manager = Staff.objects.create(user=um_user, designation=um_desig, department=self.dept, unit=self.unit)
+        self.unit.head = self.unit_manager
+        self.unit.save()
+
+        # HOD
+        hod_user = make_user("hod_user", "Staff")
+        hod_desig, _ = Designation.objects.get_or_create(name="Head of Department", defaults={"level": 2})
+        self.hod = Staff.objects.create(user=hod_user, designation=hod_desig, department=self.dept)
+        self.dept.head = self.hod
+        self.dept.save()
+
+        # Signature for unit manager and HOD (required for step action)
+        from organization.models import StaffSignature
+        from django.core.files.base import ContentFile
+        sig_content = ContentFile(b"fake-sig", name="sig.png")
+        self.um_sig = StaffSignature.objects.create(staff=self.unit_manager, image=sig_content, is_active=True, is_verified=True)
+        self.hod_sig = StaffSignature.objects.create(staff=self.hod, image=sig_content, is_active=True, is_verified=True)
+
+        # Create and activate file owned by staff, currently at unit manager
+        self.file = File.objects.create(
+            title="LEAVE REQUEST FILE",
+            file_type="personal",
+            owner=self.staff,
+            department=self.dept,
+            status="active",
+            current_location=self.unit_manager,
+            created_by=staff_user,
+        )
+
+        # Leave request document
+        self.doc = Document.objects.create(
+            file=self.file,
+            uploaded_by=staff_user,
+            title="Annual Leave Request 2026",
+            minute_content="I request 10 days annual leave from May 1.",
+        )
+
+    def _apply_chain(self):
+        """Create chain: Step 1 = Unit Manager, Step 2 = HOD."""
+        chain = ApprovalChain.objects.create(
+            document=self.doc,
+            file=self.file,
+            created_by=self.unit_manager.user,
+            status='active',
+            current_step=1,
+        )
+        self.step1 = ApprovalStep.objects.create(chain=chain, approver=self.unit_manager, order=1)
+        self.step2 = ApprovalStep.objects.create(chain=chain, approver=self.hod, order=2)
+        self.chain = chain
+        # File dispatched to unit manager (step 1)
+        self.file.current_location = self.unit_manager
+        self.file.save()
+        return chain
+
+    def test_full_chain_approve_flow(self):
+        """Happy path: Unit Manager approves → HOD approves → file to registry."""
+        chain = self._apply_chain()
+
+        # Step 1: Unit Manager approves
+        self.step1.status = 'approved'
+        self.step1.signature = self.um_sig
+        self.step1.save()
+        chain.advance()
+
+        chain.refresh_from_db()
+        self.file.refresh_from_db()
+        self.assertEqual(chain.current_step, 2)
+        self.assertEqual(self.file.current_location, self.hod)
+
+        # Step 2: HOD approves
+        self.step2.status = 'approved'
+        self.step2.signature = self.hod_sig
+        self.step2.save()
+        chain.advance()
+
+        chain.refresh_from_db()
+        self.file.refresh_from_db()
+        self.assertEqual(chain.status, 'closed')
+        self.assertEqual(self.file.current_location, self.registry)
+
+    def test_hod_rejects_then_unit_manager_resubmits(self):
+        """
+        HOD rejects at step 2 → file back to Unit Manager.
+        Unit Manager re-approves → back to HOD → HOD approves → registry.
+        """
+        chain = self._apply_chain()
+
+        # Step 1: Unit Manager approves
+        self.step1.status = 'approved'
+        self.step1.signature = self.um_sig
+        self.step1.save()
+        chain.advance()
+
+        chain.refresh_from_db()
+        self.assertEqual(chain.current_step, 2)
+
+        # Step 2: HOD rejects
+        self.step2.note = "Please revise — dates conflict with project deadline."
+        self.step2.save()
+        chain.reject_to_previous(from_order=2)
+
+        chain.refresh_from_db()
+        self.file.refresh_from_db()
+        self.step1.refresh_from_db()
+        # File back to unit manager
+        self.assertEqual(self.file.current_location, self.unit_manager)
+        self.assertEqual(chain.current_step, 1)
+        self.assertEqual(self.step1.status, 'pending')
+
+        # Unit Manager addresses comment and re-approves
+        self.step1.status = 'approved'
+        self.step1.note = "Revised dates: May 15–25 to avoid conflict."
+        self.step1.signature = self.um_sig
+        self.step1.save()
+        chain.advance()
+
+        chain.refresh_from_db()
+        self.file.refresh_from_db()
+        self.assertEqual(chain.current_step, 2)
+        self.assertEqual(self.file.current_location, self.hod)
+
+        # HOD approves
+        self.step2.status = 'approved'
+        self.step2.signature = self.hod_sig
+        self.step2.save()
+        chain.advance()
+
+        chain.refresh_from_db()
+        self.file.refresh_from_db()
+        self.assertEqual(chain.status, 'closed')
+        self.assertEqual(self.file.current_location, self.registry)
+
+    def test_file_is_readonly_during_active_chain(self):
+        """File should report is_in_active_chain=True while chain is active."""
+        self._apply_chain()
+        self.assertTrue(self.file.is_in_active_chain)
+
+    def test_file_not_readonly_after_chain_closes(self):
+        """After chain completes, is_in_active_chain should be False."""
+        chain = self._apply_chain()
+        self.step1.status = 'approved'
+        self.step1.save()
+        chain.advance()
+        self.step2.status = 'approved'
+        self.step2.save()
+        chain.advance()
+        self.file.refresh_from_db()
+        self.assertFalse(self.file.is_in_active_chain)
