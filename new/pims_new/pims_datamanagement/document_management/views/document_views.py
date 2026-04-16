@@ -199,12 +199,22 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         )
         
         can_send_file = False
-        if not is_registry and file_obj.status == 'active':
+        if not is_registry and file_obj.status == 'active' and not file_obj.is_in_active_chain:
             if hasattr(self.request.user, 'staff') and file_obj.current_location == self.request.user.staff:
                 can_send_file = True
-        
+
         context["can_send_file"] = can_send_file
-        
+        context["has_active_chain"] = file_obj.is_in_active_chain
+
+        # Chain templates available for dispatch
+        from document_management.models import ChainTemplate, ApprovalChain as AC
+        from django.db.models import Q as DQ
+        staff_dept = getattr(getattr(self.request.user, 'staff', None), 'department', None)
+        context["available_chain_templates"] = ChainTemplate.objects.filter(
+            is_active=True
+        ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
+        context["document_has_chain"] = hasattr(document, 'approval_chain')
+
         return context
 
     def handle_no_permission(self):
