@@ -46,12 +46,29 @@
       </div>
       <div>
         <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Department (optional)</label>
-        <select x-model="department" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-          <option value="">Org-Wide</option>
-          {% for dept in departments %}
-          <option value="{{ dept.pk }}" {% if template.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="relative" x-data="{ open: false }">
+          <button type="button" @click="open = !open" @click.outside="open = false"
+                  class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+            <span x-text="department ? deptMap[department] : 'Org-Wide'"></span>
+            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+            <button type="button" @click="department = ''; open = false"
+                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
+                    :class="!department ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+              Org-Wide
+              <svg x-show="!department" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            </button>
+            {% for dept in departments %}
+            <button type="button" @click="department = '{{ dept.pk }}'; open = false"
+                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
+                    :class="department === '{{ dept.pk }}' ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+              {{ dept.name }}
+              <svg x-show="department === '{{ dept.pk }}'" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
       </div>
       <div>
         <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Description</label>
