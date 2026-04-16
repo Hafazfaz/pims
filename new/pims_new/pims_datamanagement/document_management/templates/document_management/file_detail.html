@@ -538,27 +538,64 @@
                                                 {% endif %}
                                             </div>
                                             {% elif available_chain_templates %}
-                                            <form method="post" action="{% url 'document_management:chain_apply_template' file_pk=file.pk %}" class="space-y-3">
+                                            <form method="post" action="{% url 'document_management:chain_apply_template' file_pk=file.pk %}"
+                                                  class="space-y-3"
+                                                  x-data="{ docId: '', docLabel: '', tmplId: '', tmplLabel: '', docOpen: false, tmplOpen: false }">
                                                 {% csrf_token %}
+                                                <input type="hidden" name="document_id" :value="docId">
+                                                <input type="hidden" name="template_id" :value="tmplId">
+                                                <!-- Document picker -->
                                                 <div>
                                                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Select Document</label>
-                                                    <select name="document_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-                                                        <option value="">Choose document...</option>
-                                                        {% for doc in file.documents.all %}
-                                                        <option value="{{ doc.pk }}">{{ doc.title|default:"Minute/Signal" }} — {{ doc.uploaded_at|date:"M d, Y" }}</option>
-                                                        {% endfor %}
-                                                    </select>
+                                                    <div class="relative">
+                                                        <button type="button" @click="docOpen = !docOpen" @click.outside="docOpen = false"
+                                                                class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold hover:border-nigeria-green transition-colors"
+                                                                :class="docId ? 'text-slate-700' : 'text-slate-400'">
+                                                            <span x-text="docLabel || 'Choose document...'"></span>
+                                                            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform shrink-0" :class="docOpen && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                        </button>
+                                                        <div x-show="docOpen" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                                                            {% for doc in file.documents.all %}
+                                                            <button type="button" @click="docId = '{{ doc.pk }}'; docLabel = '{{ doc.title|default:"Minute/Signal"|escapejs }}'; docOpen = false"
+                                                                    class="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                                                                    :class="docId === '{{ doc.pk }}' ? 'bg-green-50' : ''">
+                                                                <div>
+                                                                    <p class="text-xs font-bold" :class="docId === '{{ doc.pk }}' ? 'text-nigeria-green' : 'text-slate-700'">{{ doc.title|default:"Minute/Signal" }}</p>
+                                                                    <p class="text-[10px] text-slate-400">{{ doc.uploaded_at|date:"M d, Y" }}</p>
+                                                                </div>
+                                                                <svg x-show="docId === '{{ doc.pk }}'" class="w-3.5 h-3.5 text-nigeria-green shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                                            </button>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                <!-- Template picker -->
                                                 <div>
                                                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Select Chain Template</label>
-                                                    <select name="template_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-                                                        <option value="">Choose template...</option>
-                                                        {% for tmpl in available_chain_templates %}
-                                                        <option value="{{ tmpl.pk }}">{{ tmpl.name }}{% if tmpl.department %} — {{ tmpl.department.name }}{% endif %}</option>
-                                                        {% endfor %}
-                                                    </select>
+                                                    <div class="relative">
+                                                        <button type="button" @click="tmplOpen = !tmplOpen" @click.outside="tmplOpen = false"
+                                                                class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold hover:border-nigeria-green transition-colors"
+                                                                :class="tmplId ? 'text-slate-700' : 'text-slate-400'">
+                                                            <span x-text="tmplLabel || 'Choose template...'"></span>
+                                                            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform shrink-0" :class="tmplOpen && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                        </button>
+                                                        <div x-show="tmplOpen" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                                                            {% for tmpl in available_chain_templates %}
+                                                            <button type="button" @click="tmplId = '{{ tmpl.pk }}'; tmplLabel = '{{ tmpl.name|escapejs }}'; tmplOpen = false"
+                                                                    class="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                                                                    :class="tmplId === '{{ tmpl.pk }}' ? 'bg-green-50' : ''">
+                                                                <div>
+                                                                    <p class="text-xs font-bold" :class="tmplId === '{{ tmpl.pk }}' ? 'text-nigeria-green' : 'text-slate-700'">{{ tmpl.name }}</p>
+                                                                    {% if tmpl.department %}<p class="text-[10px] text-slate-400">{{ tmpl.department.name }}</p>{% endif %}
+                                                                </div>
+                                                                <svg x-show="tmplId === '{{ tmpl.pk }}'" class="w-3.5 h-3.5 text-nigeria-green shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                                            </button>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <button type="submit" class="w-full py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all active:scale-95">
+                                                <button type="submit" :disabled="!docId || !tmplId"
+                                                        class="w-full py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
                                                     Dispatch with Chain
                                                 </button>
                                             </form>
