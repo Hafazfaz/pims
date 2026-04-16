@@ -19,20 +19,18 @@
   .node-role { font-size: 12px; font-weight: 700; color: #0f172a; }
   .node-sub { font-size: 10px; color: #94a3b8; font-weight: 600; margin-top: 1px; }
   .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2px; }
-  .drawflow .drawflow-node { background: white !important; }
-  /* Port dots — centered vertically on node sides */
+  .drawflow .connection { z-index: 0 !important; }
+  .drawflow .drawflow-node { z-index: 1 !important; background: white !important; }
+  /* Hide default ports — we rely on Drawflow's built-in connection dragging */
   .drawflow .drawflow-node .input,
   .drawflow .drawflow-node .output {
-    background: #16a34a !important;
-    border: 2px solid white !important;
     width: 14px !important;
     height: 14px !important;
+    background: #16a34a !important;
+    border: 2px solid white !important;
     border-radius: 50% !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    margin-top: -7px !important;
   }
-  .drawflow .drawflow-node .input { left: -8px !important; }
-  .drawflow .drawflow-node .output { right: -8px !important; }
 </style>
 
 <div class="flex h-screen overflow-hidden" x-data="templateBuilder()" x-init="init()">
