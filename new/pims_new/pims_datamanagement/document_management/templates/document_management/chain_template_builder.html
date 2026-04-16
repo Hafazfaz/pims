@@ -193,10 +193,71 @@
       </div>
     </div>
 
-    <div class="p-4 mt-auto">
+    <div class="p-4 mt-auto space-y-1.5">
       <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Tips</p>
       <p class="text-[10px] text-slate-400">Connect nodes left→right to set order</p>
+      <p class="text-[10px] text-slate-400">Click a node to edit it</p>
       <p class="text-[10px] text-slate-400">Delete key removes selected node</p>
+    </div>
+
+    <!-- Edit Panel (shown when node selected) -->
+    <div x-show="editingNodeId !== null" x-cloak class="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+      <p class="text-[9px] font-black text-nigeria-green uppercase tracking-widest">Editing Node</p>
+
+      <div class="relative" x-data="{ open: false }">
+        <button type="button" @click="open = !open" @click.outside="open = false"
+                class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
+          <span x-text="{unit_manager:'Unit Manager',hod:'Head of Department',director_general:'Director General',designation:'By Designation',specific_person:'Specific Person'}[editStep.role_type]"></span>
+          <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden bottom-full mb-1">
+          <template x-for="[val, label] in [['unit_manager','Unit Manager'],['hod','Head of Department'],['director_general','Director General'],['designation','By Designation'],['specific_person','Specific Person']]" :key="val">
+            <button type="button" @click="editStep.role_type = val; open = false"
+                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
+                    :class="editStep.role_type === val ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
+              <span x-text="label"></span>
+              <svg x-show="editStep.role_type === val" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <template x-if="editStep.role_type === 'hod' || editStep.role_type === 'unit_manager'">
+        <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[10px] font-black uppercase tracking-widest">
+          <button type="button" @click="editStep.department_scope = 'sender'"
+                  class="flex-1 py-2 transition-colors"
+                  :class="editStep.department_scope === 'sender' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">Sender's</button>
+          <button type="button" @click="editStep.department_scope = 'specific'"
+                  class="flex-1 py-2 transition-colors border-l border-slate-200"
+                  :class="editStep.department_scope === 'specific' ? 'bg-nigeria-green text-white' : 'bg-white text-slate-400 hover:bg-slate-50'">Specific</button>
+        </div>
+      </template>
+
+      <template x-if="(editStep.role_type === 'hod' || editStep.role_type === 'unit_manager') && editStep.department_scope === 'specific'">
+        <select x-model="editStep.specific_department_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none">
+          <option value="">Select dept...</option>
+          {% for dept in departments %}<option value="{{ dept.pk }}">{{ dept.name }}</option>{% endfor %}
+        </select>
+      </template>
+
+      <template x-if="editStep.role_type === 'designation'">
+        <select x-model="editStep.designation_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none">
+          <option value="">Select designation...</option>
+          {% for desig in designations %}<option value="{{ desig.pk }}">{{ desig.name }}</option>{% endfor %}
+        </select>
+      </template>
+
+      <template x-if="editStep.role_type === 'specific_person'">
+        <select x-model="editStep.staff_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none">
+          <option value="">Select person...</option>
+          {% for s in staff_list %}<option value="{{ s.pk }}">{{ s.user.get_full_name|default:s.user.username }}</option>{% endfor %}
+        </select>
+      </template>
+
+      <button @click="applyEdit()"
+              class="w-full py-2 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
+        Apply Changes
+      </button>
     </div>
   </div>
 
@@ -260,19 +321,39 @@ function templateBuilder() {
     deptMap: DEPT_MAP,
     desigMap: DESIG_MAP,
     staffMap: STAFF_MAP,
+    // Edit panel
+    editingNodeId: null,
+    editStep: { role_type: 'unit_manager', department_scope: 'sender', specific_department_id: '', designation_id: '', staff_id: '' },
 
     init() {
-      this.editor = new Drawflow(document.getElementById('drawflow'));
+      const container = document.getElementById('drawflow');
+      this.editor = new Drawflow(container);
       this.editor.reroute = true;
       this.editor.start();
+
       this.editor.on('nodeRemoved', id => {
         this.nodes = this.nodes.filter(n => n.nodeId != id);
         this._relabel();
+        if (this.editingNodeId == id) this.editingNodeId = null;
       });
 
-      // Load existing steps
+      // Click node to open edit panel
+      this.editor.on('nodeSelected', id => {
+        const node = this.nodes.find(n => n.nodeId == id);
+        if (node) {
+          this.editingNodeId = id;
+          this.editStep = { ...node };
+        }
+      });
+      this.editor.on('nodeUnselected', () => { this.editingNodeId = null; });
+
+      // Load existing steps and restore connections
       const existing = {{ existing_steps_json|safe }};
-      existing.forEach(s => this._addNode(s));
+      existing.forEach(s => this._addNode(s, false)); // false = no auto-connect
+      // Restore connections in order
+      for (let i = 0; i < this.nodes.length - 1; i++) {
+        try { this.editor.addConnection(this.nodes[i].nodeId, this.nodes[i+1].nodeId, 'output_1', 'input_1'); } catch(e) {}
+      }
     },
 
     _stepLabel(s) {
@@ -290,32 +371,47 @@ function templateBuilder() {
       return { label, sub };
     },
 
-    _addNode(stepData) {
-      const step = this.nodes.length + 1;
+    _nodeHtml(stepData, stepNum) {
       const { label, sub } = this._stepLabel(stepData);
-      const html = `<div class="node-inner">
-        <div class="node-step">Step ${step}</div>
+      return `<div class="node-inner">
+        <div class="node-step">Step ${stepNum}</div>
         <div class="node-role">${label}</div>
         ${sub ? `<div class="node-sub">${sub}</div>` : ''}
       </div>`;
+    },
 
+    _addNode(stepData, autoConnect = true) {
+      const step = this.nodes.length + 1;
       const x = 80 + (this.nodes.length * 260);
       const y = 120;
-      const nodeId = this.editor.addNode('step', 1, 1, x, y, 'approver-node', stepData, html);
+      const nodeId = this.editor.addNode('step', 1, 1, x, y, 'approver-node', { ...stepData }, this._nodeHtml(stepData, step));
       this.nodes.push({ nodeId, ...stepData });
+      if (autoConnect && this.nodes.length > 1) {
+        const prev = this.nodes[this.nodes.length - 2];
+        const cur = this.nodes[this.nodes.length - 1];
+        try { this.editor.addConnection(prev.nodeId, cur.nodeId, 'output_1', 'input_1'); } catch(e) {}
+      }
     },
 
     addStepToCanvas() {
       const s = { ...this.newStep };
       if (s.role_type === 'specific_person' && !s.staff_id) { alert('Select a person.'); return; }
       if (s.role_type === 'designation' && !s.designation_id) { alert('Select a designation.'); return; }
-      this._addNode(s);
-      // Auto-connect to previous node
-      if (this.nodes.length > 1) {
-        const prev = this.nodes[this.nodes.length - 2];
-        const cur = this.nodes[this.nodes.length - 1];
-        try { this.editor.addConnection(prev.nodeId, cur.nodeId, 'output_1', 'input_1'); } catch(e) {}
-      }
+      this._addNode(s, true);
+    },
+
+    applyEdit() {
+      if (!this.editingNodeId) return;
+      const idx = this.nodes.findIndex(n => n.nodeId == this.editingNodeId);
+      if (idx === -1) return;
+      const updated = { ...this.editStep };
+      this.nodes[idx] = { ...this.nodes[idx], ...updated };
+      // Update node HTML
+      const html = this._nodeHtml(updated, idx + 1);
+      this.editor.updateNodeDataFromId(this.editingNodeId, updated);
+      const el = document.querySelector(`#node-${this.editingNodeId} .drawflow_content_node`);
+      if (el) el.innerHTML = html;
+      this.editingNodeId = null;
     },
 
     _relabel() {
@@ -328,6 +424,7 @@ function templateBuilder() {
     clearCanvas() {
       [...this.nodes].forEach(n => this.editor.removeNodeId('node-' + n.nodeId));
       this.nodes = [];
+      this.editingNodeId = null;
     },
 
     saveTemplate() {
@@ -339,7 +436,7 @@ function templateBuilder() {
 
     _resolveOrder() {
       const data = this.editor.export().drawflow.Home.data;
-      if (!data || Object.keys(data).length === 0) return this.nodes;
+      if (!data || Object.keys(data).length === 0) return this.nodes.map(n => ({ ...n }));
       const allIds = Object.keys(data).map(Number);
       const nextMap = {};
       const hasIncoming = new Set();
