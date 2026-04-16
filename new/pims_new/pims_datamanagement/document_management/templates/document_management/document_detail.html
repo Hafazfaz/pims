@@ -99,15 +99,6 @@
                     {% endif %}
                 </div>
                 <div class="flex flex-wrap gap-3 mt-8 pt-6 border-t border-slate-100">
-                    {% if can_add_minute %}
-                        <a href="{% url 'document_management:document_add' file_pk=document.file.pk %}?parent_id={{ document.pk }}"
-                           class="px-6 py-3 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all shadow-md flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l5 5m-5-5l5-5"></path>
-                            </svg>
-                            Reply to Document
-                        </a>
-                    {% endif %}
                     {% if can_send_file %}
                         {% if document_has_chain %}
                             <span class="px-6 py-3 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-widest rounded-lg">Chain Already Applied</span>
