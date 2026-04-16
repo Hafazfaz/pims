@@ -211,28 +211,49 @@
       <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Tips</p>
       <p class="text-[10px] text-slate-400">Connect nodes left→right · Click to edit · Delete removes</p>
     </div>
+  </div>
 
-    <!-- Edit Panel pinned at bottom -->
-    <div x-show="editingNodeId !== null" x-cloak class="p-4 border-t border-slate-200 bg-slate-50 space-y-3 shrink-0">
-      <p class="text-[9px] font-black text-nigeria-green uppercase tracking-widest">Editing Node</p>
-
-      <div class="relative" x-data="{ open: false }">
-        <button type="button" @click="open = !open" @click.outside="open = false"
-                class="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-nigeria-green transition-colors">
-          <span x-text="{unit_manager:'Unit Manager',hod:'Head of Department',director_general:'Director General',designation:'By Designation',specific_person:'Specific Person'}[editStep.role_type]"></span>
-          <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-        </button>
-        <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden bottom-full mb-1">
-          <template x-for="[val, label] in [['unit_manager','Unit Manager'],['hod','Head of Department'],['director_general','Director General'],['designation','By Designation'],['specific_person','Specific Person']]" :key="val">
-            <button type="button" @click="editStep.role_type = val; open = false"
-                    class="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left hover:bg-slate-50 transition-colors"
-                    :class="editStep.role_type === val ? 'text-nigeria-green bg-green-50' : 'text-slate-700'">
-              <span x-text="label"></span>
-              <svg x-show="editStep.role_type === val" class="w-3.5 h-3.5 text-nigeria-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-            </button>
-          </template>
-        </div>
+  <!-- Canvas -->
+  <div class="flex-1 flex flex-col min-w-0 relative">
+    <div class="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shadow-sm shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Canvas</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-500"
+              x-text="nodes.length + ' step' + (nodes.length !== 1 ? 's' : '')"></span>
       </div>
+      <div class="flex items-center gap-2">
+        <button @click="clearCanvas()" class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 rounded-lg transition-all">Clear</button>
+        <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+          <button @click="editor.zoom_out()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">−</button>
+          <button @click="editor.zoom_reset()" class="px-3 py-2 text-[10px] font-black text-slate-400 hover:bg-slate-100 transition-colors border-x border-slate-200 uppercase tracking-widest">Reset</button>
+          <button @click="editor.zoom_in()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">+</button>
+        </div>
+        <button @click="saveTemplate()" :disabled="!name || nodes.length === 0"
+                class="px-5 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
+          Save Template
+        </button>
+      </div>
+    </div>
+    <div id="drawflow" class="flex-1"></div>
+
+    <!-- Floating edit popover -->
+    <div x-show="editingNodeId !== null" x-cloak
+         :style="`position:absolute; left:${popoverX}px; top:${popoverY}px; z-index:100;`"
+         class="w-64 bg-white border border-slate-200 rounded-xl shadow-2xl p-4 space-y-3">
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-[9px] font-black text-nigeria-green uppercase tracking-widest">Edit Step</p>
+        <button @click="editingNodeId = null" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <select x-model="editStep.role_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-nigeria-green">
+        <option value="unit_manager">Unit Manager</option>
+        <option value="hod">Head of Department</option>
+        <option value="director_general">Director General</option>
+        <option value="designation">By Designation</option>
+        <option value="specific_person">Specific Person</option>
+      </select>
 
       <template x-if="editStep.role_type === 'hod' || editStep.role_type === 'unit_manager'">
         <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[10px] font-black uppercase tracking-widest">
@@ -268,33 +289,9 @@
 
       <button @click="applyEdit()"
               class="w-full py-2 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
-        Apply Changes
+        Apply
       </button>
     </div>
-  </div>
-
-  <!-- Canvas -->
-  <div class="flex-1 flex flex-col min-w-0">
-    <div class="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shadow-sm shrink-0">
-      <div class="flex items-center gap-3">
-        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Canvas</span>
-        <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-500"
-              x-text="nodes.length + ' step' + (nodes.length !== 1 ? 's' : '')"></span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button @click="clearCanvas()" class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 rounded-lg transition-all">Clear</button>
-        <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden">
-          <button @click="editor.zoom_out()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">−</button>
-          <button @click="editor.zoom_reset()" class="px-3 py-2 text-[10px] font-black text-slate-400 hover:bg-slate-100 transition-colors border-x border-slate-200 uppercase tracking-widest">Reset</button>
-          <button @click="editor.zoom_in()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">+</button>
-        </div>
-        <button @click="saveTemplate()" :disabled="!name || nodes.length === 0"
-                class="px-5 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
-          Save Template
-        </button>
-      </div>
-    </div>
-    <div id="drawflow" class="flex-1"></div>
   </div>
 
   <!-- Hidden form -->
@@ -336,6 +333,8 @@ function templateBuilder() {
     // Edit panel
     editingNodeId: null,
     editStep: { role_type: 'unit_manager', department_scope: 'sender', specific_department_id: '', designation_id: '', staff_id: '' },
+    popoverX: 100,
+    popoverY: 100,
 
     init() {
       const container = document.getElementById('drawflow');
@@ -349,12 +348,20 @@ function templateBuilder() {
         if (this.editingNodeId == id) this.editingNodeId = null;
       });
 
-      // Click node to open edit panel
+      // Click node to open edit popover near the node
       this.editor.on('nodeSelected', id => {
         const node = this.nodes.find(n => n.nodeId == id);
         if (node) {
           this.editingNodeId = id;
           this.editStep = { ...node };
+          // Position popover below the node
+          const el = document.querySelector(`#node-${id}`);
+          const canvas = document.getElementById('drawflow').getBoundingClientRect();
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            this.popoverX = rect.left - canvas.left + rect.width / 2 - 128;
+            this.popoverY = rect.bottom - canvas.top + 8;
+          }
         }
       });
       this.editor.on('nodeUnselected', () => { this.editingNodeId = null; });
