@@ -34,15 +34,14 @@
                     </a>
 
                     {% if not user.is_superuser %}
-                        {% if not user.staff.is_registry %}
+                        {% with is_reg=user.staff.is_registry %}
+                        {% if not is_reg %}
                         <a href="{% url 'document_management:my_files' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'my_files' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-folder w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">My Files</span>
                         </a>
-                        {% endif %}
 
-                        {% if not user.staff.is_registry %}
                         <a href="{% url 'document_management:messages' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'messages' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
@@ -55,6 +54,7 @@
                             <span class="text-xs font-bold uppercase tracking-wider">Approvals</span>
                         </a>
                         {% endif %}
+                        {% endwith %}
                     {% endif %}
 
                     {% endwith %}
@@ -91,6 +91,11 @@
                         {% if pending_access_count > 0 %}
                             <span class="text-[9px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full">{{ pending_access_count }}</span>
                         {% endif %}
+                    </a>
+                    <a href="{% url 'document_management:chain_template_list' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'chains/templates' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-project-diagram w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Chain Templates</span>
                     </a>
                 </div>
             </div>
