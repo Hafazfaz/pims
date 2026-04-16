@@ -171,6 +171,11 @@ class File(models.Model):
         last = self.movements.filter(action='sent').order_by('-moved_at').first()
         return last.moved_at if last else self.created_at
 
+    @property
+    def is_in_active_chain(self):
+        """True if any document in this file has an active approval chain."""
+        return self.documents.filter(approval_chain__status='active').exists()
+
 
 class Document(models.Model):
     """
@@ -308,13 +313,18 @@ class ApprovalChain(models.Model):
         ('closed', 'Closed'),
         ('rejected', 'Rejected'),
     ]
-    file = models.OneToOneField(File, on_delete=models.CASCADE, related_name='approval_chain')
+    # Chain is now attached to a Document, not a File
+    document = models.OneToOneField('Document', on_delete=models.CASCADE, related_name='approval_chain', null=True, blank=True)
+    # Keep file FK for backwards compat but nullable
+    file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='approval_chains', null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_chains')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     current_step = models.PositiveIntegerField(default=1)
 
     def __str__(self):
+        if self.document:
+            return f"Chain for doc '{self.document}' [{self.status}]"
         return f"Chain for {self.file.file_number} [{self.status}]"
 
     @property
@@ -324,38 +334,69 @@ class ApprovalChain(models.Model):
     def get_current_step(self):
         return self.steps.filter(order=self.current_step).first()
 
+    def _get_file(self):
+        return self.document.file if self.document else self.file
+
+    def _get_registry(self):
+        from organization.models import Staff as StaffModel
+        from django.db.models import Q
+        return StaffModel.objects.filter(
+            Q(designation__name__icontains='registry') | Q(user__groups__name__iexact='Registry')
+        ).first()
+
     def advance(self):
-        """Move to next step or close chain if all steps done."""
+        """Move to next step or close chain and return file to registry."""
         next_step = self.steps.filter(order__gt=self.current_step, status='pending').order_by('order').first()
+        file_obj = self._get_file()
         if next_step:
             self.current_step = next_step.order
             self.save()
-            self.file.current_location = next_step.approver
-            self.file.save()
+            file_obj.current_location = next_step.approver
+            file_obj.save()
         else:
             self.status = 'closed'
             self.save()
-            self.file.status = 'active'
-            self.file.current_location = None
-            self.file.save()
+            # Return file to registry
+            registry = self._get_registry()
+            file_obj.current_location = registry
+            file_obj.save()
+            # Notify sender
+            from notifications.utils import create_notification
+            create_notification(
+                user=self.created_by,
+                message=f"Approval chain for '{self.document or file_obj.file_number}' completed. File returned to registry.",
+                obj=file_obj,
+                link=file_obj.get_absolute_url(),
+            )
 
     def reject_to_previous(self, from_order):
-        """Send back to previous approver, or to owner if step 1."""
+        """Send back to previous approver, or back to sender if step 1."""
+        file_obj = self._get_file()
         prev_step = self.steps.filter(order__lt=from_order).order_by('-order').first()
         if prev_step:
             prev_step.status = 'pending'
             prev_step.save()
             self.current_step = prev_step.order
             self.save()
-            self.file.current_location = prev_step.approver
-            self.file.save()
+            file_obj.current_location = prev_step.approver
+            file_obj.save()
         else:
-            # Back to owner
             self.status = 'rejected'
             self.save()
-            self.file.current_location = self.file.owner
-            self.file.status = 'active'
-            self.file.save()
+            # Return to sender
+            from notifications.utils import create_notification
+            create_notification(
+                user=self.created_by,
+                message=f"Approval chain for '{self.document or file_obj.file_number}' was rejected at step {from_order}. File returned to you.",
+                obj=file_obj,
+                link=file_obj.get_absolute_url(),
+            )
+            try:
+                sender_staff = self.created_by.staff
+                file_obj.current_location = sender_staff
+            except Exception:
+                pass
+            file_obj.save()
 
 
 class ApprovalStep(models.Model):

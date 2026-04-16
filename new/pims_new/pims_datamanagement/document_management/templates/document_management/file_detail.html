@@ -507,17 +507,59 @@
                                                 Manage Chain Templates
                                             </a>
                                         {% else %}
-                                            {% if available_chain_templates %}
+                                            {% if is_in_active_chain %}
+                                            <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                                <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">File In Active Chain</p>
+                                                <p class="text-[10px] text-amber-600 mt-1">This file is currently travelling through an approval chain. It is in read-only mode.</p>
+                                            </div>
+                                            {% elif active_document_chain %}
+                                            <div class="space-y-3">
+                                                <p class="text-[10px] text-slate-500">Chain on: <strong>{{ active_document_chain.document.title|default:"Minute/Signal" }}</strong></p>
+                                                <ol class="space-y-1">
+                                                    {% for step in active_document_chain.steps.all %}
+                                                    <li class="flex items-center gap-2 text-xs">
+                                                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black {% if step.status == 'approved' %}bg-green-100 text-green-700{% elif step.status == 'rejected' %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ step.order }}</span>
+                                                        <span class="font-semibold text-slate-700">{{ step.approver }}</span>
+                                                        <span class="text-[10px] font-bold uppercase {% if step.status == 'approved' %}text-green-600{% elif step.status == 'rejected' %}text-red-600{% else %}text-slate-400{% endif %}">{{ step.status }}</span>
+                                                    </li>
+                                                    {% endfor %}
+                                                </ol>
+                                                {% if active_document_chain.status == 'draft' %}
+                                                <div class="flex gap-2">
+                                                    <form method="post" action="{% url 'document_management:chain_start' file_pk=file.pk %}">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="px-4 py-2 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors">Start Chain</button>
+                                                    </form>
+                                                    <form method="post" action="{% url 'document_management:chain_delete' file_pk=file.pk %}">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="px-4 py-2 text-red-500 border border-red-200 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-red-50 transition-colors">Delete</button>
+                                                    </form>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            {% elif available_chain_templates %}
                                             <form method="post" action="{% url 'document_management:chain_apply_template' file_pk=file.pk %}" class="space-y-3">
                                                 {% csrf_token %}
-                                                <select name="template_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
-                                                    <option value="">Select a chain template...</option>
-                                                    {% for tmpl in available_chain_templates %}
-                                                    <option value="{{ tmpl.pk }}">{{ tmpl.name }}{% if tmpl.department %} — {{ tmpl.department.name }}{% endif %}</option>
-                                                    {% endfor %}
-                                                </select>
+                                                <div>
+                                                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Select Document</label>
+                                                    <select name="document_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
+                                                        <option value="">Choose document...</option>
+                                                        {% for doc in file.documents.all %}
+                                                        <option value="{{ doc.pk }}">{{ doc.title|default:"Minute/Signal" }} — {{ doc.uploaded_at|date:"M d, Y" }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Select Chain Template</label>
+                                                    <select name="template_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-nigeria-green outline-none">
+                                                        <option value="">Choose template...</option>
+                                                        {% for tmpl in available_chain_templates %}
+                                                        <option value="{{ tmpl.pk }}">{{ tmpl.name }}{% if tmpl.department %} — {{ tmpl.department.name }}{% endif %}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
                                                 <button type="submit" class="w-full py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all active:scale-95">
-                                                    Apply Chain
+                                                    Dispatch with Chain
                                                 </button>
                                             </form>
                                             {% else %}

@@ -119,19 +119,19 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
 
 
 class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
-    """Owner starts the chain — locks the file and dispatches to step 1."""
+    """Owner starts the chain — dispatches file to step 1 in read-only mode."""
 
     def post(self, request, file_pk):
         file_obj = get_object_or_404(File, pk=file_pk)
-        chain = get_object_or_404(ApprovalChain, file=file_obj)
+        # Find draft chain on any document in this file
+        chain = ApprovalChain.objects.filter(file=file_obj, status='draft').first()
+        if not chain:
+            messages.error(request, "No draft chain found for this file.")
+            return redirect(file_obj.get_absolute_url())
 
         staff = getattr(request.user, 'staff', None)
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can start the approval chain.")
-            return redirect(file_obj.get_absolute_url())
-
-        if chain.status != 'draft':
-            messages.error(request, "Chain has already been started.")
             return redirect(file_obj.get_absolute_url())
 
         if not chain.steps.exists():
@@ -143,12 +143,12 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
         chain.current_step = first_step.order
         chain.save()
 
-        file_obj.status = 'in_review'
+        # File goes to first approver in read-only mode (status unchanged)
         file_obj.current_location = first_step.approver
         file_obj.save()
 
         _notify_approver(first_step)
-        messages.success(request, f"Approval chain started. File sent to {first_step.approver}.")
+        messages.success(request, f"Chain started. File dispatched to {first_step.approver} in read-only mode.")
         return redirect(file_obj.get_absolute_url())
 
 
@@ -158,7 +158,7 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
     def post(self, request, step_pk):
         step = get_object_or_404(ApprovalStep, pk=step_pk)
         chain = step.chain
-        file_obj = chain.file
+        file_obj = chain._get_file()
         staff = getattr(request.user, 'staff', None)
 
         if step.approver != staff:
@@ -210,15 +210,14 @@ class ApprovalChainDeleteView(HTMXLoginRequiredMixin, View):
 
     def post(self, request, file_pk):
         file_obj = get_object_or_404(File, pk=file_pk)
-        chain = get_object_or_404(ApprovalChain, file=file_obj)
+        chain = ApprovalChain.objects.filter(file=file_obj, status='draft').first()
+        if not chain:
+            messages.error(request, "No draft chain found.")
+            return redirect(file_obj.get_absolute_url())
 
         staff = getattr(request.user, 'staff', None)
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can delete the chain.")
-            return redirect(file_obj.get_absolute_url())
-
-        if chain.status != 'draft':
-            messages.error(request, "Only draft chains can be deleted.")
             return redirect(file_obj.get_absolute_url())
 
         chain.delete()
@@ -319,10 +318,10 @@ class ChainTemplateDeleteView(RegistryRequiredMixin, View):
 
 
 class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
-    """Staff applies a chain template to a file when dispatching."""
+    """Staff applies a chain template to a specific document when dispatching."""
 
     def post(self, request, file_pk):
-        from document_management.models import FileAccessRequest
+        from document_management.models import FileAccessRequest, Document
         from django.db.models import Q
         file_obj = get_object_or_404(File, pk=file_pk)
         staff = getattr(request.user, 'staff', None)
@@ -331,7 +330,7 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
             messages.error(request, "Staff profile not found.")
             return redirect(file_obj.get_absolute_url())
 
-        # Must have read+write access
+        # Must have read+write access or be custodian/owner
         has_rw = (
             file_obj.owner == staff or
             file_obj.current_location == staff or
@@ -341,17 +340,23 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
             ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
         )
         if not has_rw:
-            messages.error(request, "You need read & write access to apply a chain.")
-            return redirect(file_obj.get_absolute_url())
-
-        if hasattr(file_obj, 'approval_chain'):
-            messages.error(request, "This file already has an approval chain.")
+            messages.error(request, "You need read & write access to dispatch a chain.")
             return redirect(file_obj.get_absolute_url())
 
         template_id = request.POST.get('template_id')
-        tmpl = get_object_or_404(ChainTemplate, pk=template_id, is_active=True)
+        document_id = request.POST.get('document_id')
 
-        chain = ApprovalChain.objects.create(file=file_obj, created_by=request.user, status='draft')
+        tmpl = get_object_or_404(ChainTemplate, pk=template_id, is_active=True)
+        document = get_object_or_404(Document, pk=document_id, file=file_obj)
+
+        if hasattr(document, 'approval_chain'):
+            messages.error(request, "This document already has an approval chain.")
+            return redirect(file_obj.get_absolute_url())
+
+        chain = ApprovalChain.objects.create(
+            document=document, file=file_obj,
+            created_by=request.user, status='draft'
+        )
         unresolved = []
         for step in tmpl.steps.all():
             approver = step.resolve(staff)
@@ -363,6 +368,6 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
         if unresolved:
             messages.warning(request, f"Chain applied but could not resolve: {', '.join(unresolved)}")
         else:
-            messages.success(request, f"Chain '{tmpl.name}' applied. You can now start it.")
+            messages.success(request, f"Chain '{tmpl.name}' applied to document. Start it to dispatch.")
 
         return redirect(file_obj.get_absolute_url())

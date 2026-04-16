@@ -584,9 +584,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         is_registry = hasattr(user, 'staff') and user.staff.is_registry
         
-        context["can_add_minute"] = is_custodian or has_rw_access or is_registry
+        context["can_add_minute"] = (is_custodian or has_rw_access or is_registry) and not file_obj.is_in_active_chain
         context["can_add_minutes"] = context["can_add_minute"]
-        context["can_send_file"] = is_custodian or is_registry
+        context["can_send_file"] = (is_custodian or is_registry) and not file_obj.is_in_active_chain
         context["is_custodian"] = is_custodian
         context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
@@ -614,12 +614,18 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["status_choices"] = STATUS_CHOICES
 
         # Available chain templates for this file's department
-        from document_management.models import ChainTemplate
+        from document_management.models import ChainTemplate, ApprovalChain as AC
         from django.db.models import Q as DQ
         staff_dept = getattr(getattr(user, 'staff', None), 'department', None)
         context["available_chain_templates"] = ChainTemplate.objects.filter(
             is_active=True
         ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
+
+        # Active document chain (if any)
+        context["is_in_active_chain"] = file_obj.is_in_active_chain
+        context["active_document_chain"] = AC.objects.filter(
+            file=file_obj, status__in=['draft', 'active']
+        ).select_related('document').prefetch_related('steps__approver__user').first()
 
         # Build unified chronicle
         documents = list(file_obj.documents.select_related('uploaded_by').all())
