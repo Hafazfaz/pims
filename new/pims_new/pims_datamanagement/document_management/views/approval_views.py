@@ -32,8 +32,6 @@ def _notify_owner(chain, message):
 
 
 class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
-    """Shows all approval chains for files owned by the current user,
-    plus chains where the user is an approver."""
     template_name = "document_management/my_chains.html"
     context_object_name = "chains"
 
@@ -41,16 +39,14 @@ class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
         staff = getattr(self.request.user, 'staff', None)
         if not staff:
             return ApprovalChain.objects.none()
-        # Chains on files I own
-        owned = ApprovalChain.objects.filter(file__owner=staff)
-        # Chains where I'm an approver
-        as_approver = ApprovalChain.objects.filter(steps__approver=staff)
-        return (owned | as_approver).distinct().select_related('file').prefetch_related('steps')
+        from django.db.models import Q
+        return ApprovalChain.objects.filter(
+            Q(file__owner=staff) | Q(created_by=self.request.user) | Q(steps__approver=staff)
+        ).distinct().select_related('file', 'document').prefetch_related('steps')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        staff = getattr(self.request.user, 'staff', None)
-        context['staff'] = staff
+        context['staff'] = getattr(self.request.user, 'staff', None)
         return context
 
 
@@ -67,7 +63,7 @@ class ApprovalChainBuilderView(HTMXLoginRequiredMixin, View):
             messages.error(request, "Only the file owner can build an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
-        if hasattr(file_obj, 'approval_chain'):
+        if file_obj.is_in_active_chain:
             messages.error(request, "This file already has an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
@@ -99,7 +95,7 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
             messages.error(request, "File must be active or inactive to start an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
-        if hasattr(file_obj, 'approval_chain'):
+        if file_obj.is_in_active_chain:
             messages.error(request, "This file already has an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
@@ -185,19 +181,18 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
             step.status = 'approved'
             step.save()
             chain.advance()
-            # Notify next approver or owner if chain closed
             if chain.status == 'active':
                 next_step = chain.get_current_step()
                 if next_step:
                     _notify_approver(next_step)
             elif chain.status == 'closed':
-                _notify_owner(chain, f"Approval chain for file '{chain.file.file_number}' has been completed.")
+                _notify_owner(chain, f"Approval chain for '{chain.document or chain._get_file().file_number}' has been completed. File returned to registry.")
             messages.success(request, "Step approved.")
         elif action == 'reject':
             step.status = 'rejected'
             step.save()
             chain.reject_to_previous(step.order)
-            _notify_owner(chain, f"Step {step.order} of the approval chain for file '{chain.file.file_number}' was rejected. Note: {step.note or 'No reason given'}")
+            _notify_owner(chain, f"Step {step.order} was rejected. Note: {step.note or 'No reason given'}")
             messages.warning(request, "Step rejected. File sent back.")
         else:
             messages.error(request, "Invalid action.")

@@ -422,7 +422,7 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
         file_obj = get_object_or_404(File, pk=pk)
         staff_user = self.get_staff_user()
 
-        if hasattr(file_obj, 'approval_chain') and file_obj.approval_chain.is_active:
+        if file_obj.is_in_active_chain:
             messages.error(request, "This file is locked in an approval chain and cannot be recalled.")
             return redirect(file_obj.get_absolute_url())
 
@@ -606,10 +606,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["approver_choices"] = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(
             user=user
         ).select_related('user', 'designation').order_by('user__last_name')
-        try:
-            context["approval_chain"] = file_obj.approval_chain
-        except Exception:
-            context["approval_chain"] = None
         from core.constants import STATUS_CHOICES
         context["status_choices"] = STATUS_CHOICES
 
@@ -672,7 +668,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             is_registry = staff_user and staff_user.is_registry
 
             # Block if file is in an active approval chain
-            if hasattr(file_obj, 'approval_chain') and file_obj.approval_chain.is_active:
+            if file_obj.is_in_active_chain:
                 messages.error(request, "This file is locked in an approval chain and cannot be moved.")
                 return redirect(file_obj.get_absolute_url())
 
