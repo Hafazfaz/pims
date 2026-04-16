@@ -1,9 +1,9 @@
-from django.shortcuts import  redirect
+from django.shortcuts import redirect
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
-from document_management.models import File, Document
-from organization.models import Staff # Import the Staff model
+from document_management.models import File, Document, ApprovalChain, ApprovalStep
+from organization.models import Staff
 
 class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
@@ -12,71 +12,58 @@ class HomeView(LoginRequiredMixin, TemplateView):
         if request.user.is_authenticated:
             if request.user.is_superuser:
                 return redirect('user_management:admin_dashboard_health')
-            
             try:
                 staff = request.user.staff
-                # Route registry users to registry dashboard
                 if staff.is_registry:
                     return redirect('document_management:registry')
                 elif staff.is_executive or staff.is_hod or staff.is_unit_manager:
                     return redirect('document_management:executive_dashboard')
             except Staff.DoesNotExist:
                 pass
-                
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        context['user_name'] = user.get_full_name() or user.username
-
-        document_queryset = Document.objects.all()
-
-        if user.is_authenticated and not user.is_superuser:
-            try:
-                staff_user = user.staff
-                if staff_user.is_hod and staff_user.department:
-                    # HOD sees documents for files in their department
-                    document_queryset = document_queryset.filter(file__department=staff_user.department)
-                elif staff_user.is_registry and staff_user.unit:
-                    # Registry sees documents for files in their unit
-                    document_queryset = document_queryset.filter(file__owner__unit=staff_user.unit)
-                else:
-                    # Regular staff see only documents for files they own or are currently holding
-                    document_queryset = document_queryset.filter(file__owner=staff_user) | \
-                                        document_queryset.filter(file__current_location=staff_user)
-            except Staff.DoesNotExist:
-                # If user is authenticated but not a staff member, show no documents
-                document_queryset = Document.objects.none()
-        elif not user.is_authenticated:
-            # Unauthenticated users see no documents
-            document_queryset = Document.objects.none()
-        
-        # Calculate counts from the filtered queryset
-        context['total_documents'] = document_queryset.count()
-
         now = timezone.now()
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        context['documents_this_month'] = document_queryset.filter(uploaded_at__gte=start_of_month).count()
 
-        # Existing file counts (will apply to user's context, or global for superuser)
-        file_queryset = File.objects.all()
-        if user.is_authenticated and not user.is_superuser:
-            try:
-                staff_user = user.staff
-                if staff_user.is_hod and staff_user.department:
-                    file_queryset = file_queryset.filter(department=staff_user.department)
-                elif staff_user.is_registry and staff_user.unit:
-                    file_queryset = file_queryset.filter(owner__unit=staff_user.unit)
-                else:
-                    file_queryset = file_queryset.filter(owner=staff_user) | \
-                                    file_queryset.filter(current_location=staff_user)
-            except Staff.DoesNotExist:
-                file_queryset = File.objects.none()
-        elif not user.is_authenticated:
-            file_queryset = File.objects.none()
+        try:
+            staff = user.staff
+        except Staff.DoesNotExist:
+            staff = None
 
-        context['total_files'] = file_queryset.count()
-        context['pending_files'] = file_queryset.filter(status='pending_activation').count()
+        context['user_name'] = user.get_full_name() or user.username
+        context['staff'] = staff
+
+        # Files owned or in custody
+        owned_files = File.objects.filter(owner=staff) if staff else File.objects.none()
+        custody_files = File.objects.filter(current_location=staff).exclude(owner=staff) if staff else File.objects.none()
+
+        context['total_files'] = owned_files.count()
+        context['active_files'] = owned_files.filter(status='active').count()
+        context['pending_files'] = owned_files.filter(status='pending_activation').count()
+        context['files_in_custody'] = custody_files.count()
+
+        # Documents this month
+        context['documents_this_month'] = Document.objects.filter(
+            file__owner=staff, uploaded_at__gte=start_of_month
+        ).count() if staff else 0
+
+        # Pending approval steps for this user
+        context['pending_approvals'] = ApprovalStep.objects.filter(
+            approver=staff, status='pending'
+        ).select_related('chain__file').order_by('chain__file__file_number') if staff else []
+
+        # Files currently in custody (incoming dispatches)
+        context['custody_list'] = custody_files.select_related('owner__user', 'department').order_by('-created_at')[:5]
+
+        # Recent activity on owned files
+        context['recent_documents'] = Document.objects.filter(
+            file__owner=staff
+        ).select_related('file', 'uploaded_by').order_by('-uploaded_at')[:5] if staff else []
+
+        # Personal file
+        context['personal_file'] = owned_files.filter(file_type='personal').first()
 
         return context

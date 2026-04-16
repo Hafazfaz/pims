@@ -2,112 +2,195 @@
 {% load static %}
 {% block title %}Dashboard | PIMS{% endblock %}
 {% block content %}
-    <div class="space-y-8">
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
-                <p class="text-sm text-slate-500 font-medium">Welcome back, {{ user_name }}.</p>
-            </div>
-            <div class="flex items-center space-x-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
-                <span class="w-2 h-2 bg-nigeria-green rounded-full animate-pulse"></span>
-                Operational Status: Nominal
-            </div>
-        </div>
+<div class="space-y-6">
 
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Files</p>
-                    <i class="fas fa-folder text-slate-200 text-xl"></i>
-                </div>
-                <p class="text-4xl font-bold text-slate-900">{{ total_files }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Pending Activation</p>
-                    <i class="fas fa-hourglass-half text-amber-200 text-xl"></i>
-                </div>
-                <p class="text-4xl font-bold text-amber-500">{{ pending_files }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Documents</p>
-                    <i class="fas fa-file-alt text-slate-200 text-xl"></i>
-                </div>
-                <p class="text-4xl font-bold text-slate-900">{{ total_documents }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest">This Month</p>
-                    <i class="fas fa-calendar-check text-green-100 text-xl"></i>
-                </div>
-                <p class="text-4xl font-bold text-nigeria-green">{{ documents_this_month }}</p>
-            </div>
-        </div>
-
-        <!-- Activity + Quick Actions -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Activity Summary -->
-            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-nigeria-light flex items-center justify-center text-nigeria-green">
-                            <i class="fas fa-chart-bar"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Document Activity</h3>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Current month summary</p>
-                        </div>
-                    </div>
-                    <span class="text-[11px] font-black text-nigeria-green bg-nigeria-light px-3 py-1 rounded-full border border-nigeria-green/10">{{ documents_this_month }} NEW</span>
-                </div>
-                <div class="p-8">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="p-5 bg-slate-50 rounded-xl border border-slate-100">
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</p>
-                            <p class="text-3xl font-bold text-slate-900">{{ total_documents }}</p>
-                        </div>
-                        <div class="p-5 bg-slate-50 rounded-xl border border-slate-100">
-                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Registered This Month</p>
-                            <p class="text-3xl font-bold text-nigeria-green">{{ documents_this_month }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="bg-slate-900 rounded-xl p-8 shadow-xl relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-nigeria-green opacity-10 blur-3xl -mr-10 -mt-10"></div>
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 relative">Quick Actions</h3>
-                <div class="space-y-3 relative">
-                    {% if perms.document_management.create_file %}
-                        <a href="{% url 'document_management:file_create' %}"
-                           class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
-                            <span class="text-sm font-bold text-white">Create New File</span>
-                            <i class="fas fa-plus text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
-                        </a>
-                    {% endif %}
-                    <a href="{% url 'document_management:my_files' %}"
-                       class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
-                        <span class="text-sm font-bold text-white">My Files</span>
-                        <i class="fas fa-folder-open text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                    {% if user.staff.is_registry %}
-                        <a href="{% url 'document_management:registry_hub' %}"
-                           class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
-                            <span class="text-sm font-bold text-white">Registry Hub</span>
-                            <i class="fas fa-archive text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
-                        </a>
-                    {% endif %}
-                    <a href="{% url 'user_management:profile' %}"
-                       class="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group">
-                        <span class="text-sm font-bold text-white">My Profile</span>
-                        <i class="fas fa-user text-nigeria-green group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-xl font-black text-slate-900 tracking-tight">Good {% now "H" as hour %}{% if hour < "12" %}Morning{% elif hour < "17" %}Afternoon{% else %}Evening{% endif %}, {{ user_name|truncatewords:1 }}.</h2>
+      <p class="text-xs text-slate-400 font-medium mt-0.5">
+        {% if staff %}{{ staff.designation.name|default:"Staff" }} &middot; {{ staff.department.name|default:"" }}{% endif %}
+      </p>
     </div>
+    <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+      <span class="w-1.5 h-1.5 bg-nigeria-green rounded-full animate-pulse"></span>
+      System Nominal
+    </div>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">My Files</p>
+      <p class="text-3xl font-black text-slate-900">{{ total_files }}</p>
+      <p class="text-[10px] text-slate-400 mt-1">{{ active_files }} active</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <p class="text-[9px] font-black {% if pending_files > 0 %}text-amber-500{% else %}text-slate-400{% endif %} uppercase tracking-widest mb-3">Pending Activation</p>
+      <p class="text-3xl font-black {% if pending_files > 0 %}text-amber-500{% else %}text-slate-900{% endif %}">{{ pending_files }}</p>
+      <p class="text-[10px] text-slate-400 mt-1">awaiting registry</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <p class="text-[9px] font-black {% if files_in_custody > 0 %}text-blue-500{% else %}text-slate-400{% endif %} uppercase tracking-widest mb-3">In My Custody</p>
+      <p class="text-3xl font-black {% if files_in_custody > 0 %}text-blue-600{% else %}text-slate-900{% endif %}">{{ files_in_custody }}</p>
+      <p class="text-[10px] text-slate-400 mt-1">dispatched to me</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <p class="text-[9px] font-black {% if pending_approvals %}text-red-500{% else %}text-slate-400{% endif %} uppercase tracking-widest mb-3">Pending Approvals</p>
+      <p class="text-3xl font-black {% if pending_approvals %}text-red-500{% else %}text-slate-900{% endif %}">{{ pending_approvals|length }}</p>
+      <p class="text-[10px] text-slate-400 mt-1">waiting for your action</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: Pending Approvals + Custody -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Pending Approvals -->
+      {% if pending_approvals %}
+      <div class="bg-white rounded-xl border border-red-100 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-red-50 flex items-center gap-3">
+          <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest">Action Required — Pending Approvals</h3>
+        </div>
+        <div class="divide-y divide-slate-50">
+          {% for step in pending_approvals %}
+          <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-slate-900 truncate">{{ step.chain.file.title }}</p>
+              <p class="text-[10px] text-slate-400 font-medium mt-0.5">{{ step.chain.file.file_number }} &middot; Step {{ step.order }}</p>
+            </div>
+            <a href="{{ step.chain.file.get_absolute_url }}"
+               class="shrink-0 px-4 py-2 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 transition-all active:scale-95">
+              Review
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Files in Custody -->
+      {% if custody_list %}
+      <div class="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-blue-50 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest">Files In My Custody</h3>
+          </div>
+          <a href="{% url 'document_management:messages' %}" class="text-[10px] font-bold text-blue-500 hover:underline uppercase tracking-widest">View All</a>
+        </div>
+        <div class="divide-y divide-slate-50">
+          {% for file in custody_list %}
+          <a href="{{ file.get_absolute_url }}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors block">
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-slate-900 truncate">{{ file.title }}</p>
+              <p class="text-[10px] text-slate-400 font-medium mt-0.5">{{ file.file_number }} &middot; from {{ file.owner.user.get_full_name|default:"Unknown" }}</p>
+            </div>
+            <span class="shrink-0 text-[9px] font-black px-2 py-0.5 bg-blue-100 text-blue-700 rounded uppercase tracking-widest">In Custody</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Recent Documents -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest">Recent Activity</h3>
+          {% if personal_file %}
+          <a href="{{ personal_file.get_absolute_url }}?tab=chronicle" class="text-[10px] font-bold text-nigeria-green hover:underline uppercase tracking-widest">View Chronicle</a>
+          {% endif %}
+        </div>
+        {% if recent_documents %}
+        <div class="divide-y divide-slate-50">
+          {% for doc in recent_documents %}
+          <div class="px-6 py-4 flex items-center gap-4">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-bold text-slate-800 truncate">{{ doc.title|default:"Minute / Signal" }}</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.file.file_number }} &middot; {{ doc.uploaded_at|timesince }} ago</p>
+            </div>
+            <span class="shrink-0 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest
+              {% if doc.status == 'approved' %}bg-green-100 text-green-700
+              {% elif doc.status == 'cancelled' %}bg-red-100 text-red-700
+              {% else %}bg-amber-100 text-amber-700{% endif %}">
+              {{ doc.get_status_display }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-10 text-center text-slate-300 italic text-xs">No recent document activity.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right: Quick Actions + Personal File -->
+    <div class="space-y-6">
+
+      <!-- Personal File Card -->
+      {% if personal_file %}
+      <div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-6 shadow-xl text-white relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-nigeria-green opacity-10 blur-2xl"></div>
+        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">My Personnel File</p>
+        <p class="text-sm font-black text-white mb-0.5">{{ personal_file.file_number }}</p>
+        <p class="text-[10px] text-slate-400 mb-4">{{ personal_file.documents.count }} document{{ personal_file.documents.count|pluralize }}</p>
+        <a href="{{ personal_file.get_absolute_url }}"
+           class="inline-flex items-center gap-2 px-4 py-2 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
+          Open File
+        </a>
+      </div>
+      {% endif %}
+
+      <!-- Quick Actions -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h3>
+        <div class="space-y-2">
+          <a href="{% url 'document_management:my_files' %}"
+             class="flex items-center justify-between w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 transition-all group">
+            <span class="text-xs font-bold text-slate-700">My Files</span>
+            <svg class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+          <a href="{% url 'document_management:messages' %}"
+             class="flex items-center justify-between w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 transition-all group">
+            <span class="text-xs font-bold text-slate-700">Inbox</span>
+            {% if files_in_custody > 0 %}<span class="text-[9px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">{{ files_in_custody }}</span>{% else %}<svg class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>{% endif %}
+          </a>
+          <a href="{% url 'document_management:my_chains' %}"
+             class="flex items-center justify-between w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 transition-all group">
+            <span class="text-xs font-bold text-slate-700">Approval Chains</span>
+            {% if pending_approvals %}<span class="text-[9px] font-black bg-red-500 text-white px-2 py-0.5 rounded-full">{{ pending_approvals|length }}</span>{% else %}<svg class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>{% endif %}
+          </a>
+          {% if perms.document_management.create_file %}
+          <a href="{% url 'document_management:file_create' %}"
+             class="flex items-center justify-between w-full px-4 py-3 bg-nigeria-green/10 hover:bg-nigeria-green/20 rounded-xl border border-nigeria-green/20 transition-all group">
+            <span class="text-xs font-bold text-nigeria-green">Create New File</span>
+            <svg class="w-4 h-4 text-nigeria-green group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </a>
+          {% endif %}
+          <a href="{% url 'user_management:profile' %}"
+             class="flex items-center justify-between w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 transition-all group">
+            <span class="text-xs font-bold text-slate-700">My Profile</span>
+            <svg class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- This Month -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">This Month</h3>
+        <div class="flex items-end gap-2">
+          <p class="text-4xl font-black text-nigeria-green">{{ documents_this_month }}</p>
+          <p class="text-xs text-slate-400 mb-1 font-medium">new document{{ documents_this_month|pluralize }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
