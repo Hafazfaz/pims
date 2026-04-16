@@ -210,6 +210,11 @@
       </div>
       <div class="flex items-center gap-2">
         <button @click="clearCanvas()" class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 rounded-lg transition-all">Clear</button>
+        <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+          <button @click="editor.zoom_out()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">−</button>
+          <button @click="editor.zoom_reset()" class="px-3 py-2 text-[10px] font-black text-slate-400 hover:bg-slate-100 transition-colors border-x border-slate-200 uppercase tracking-widest">Reset</button>
+          <button @click="editor.zoom_in()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors text-sm font-bold">+</button>
+        </div>
         <button @click="saveTemplate()" :disabled="!name || nodes.length === 0"
                 class="px-5 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
           Save Template
