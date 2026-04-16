@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import File, Document, FileMovement, FileAccessRequest
+from .models import File, Document, FileMovement, FileAccessRequest, ChainTemplate, ChainTemplateStep
 
 
 @admin.register(File)
@@ -36,3 +36,17 @@ class FileAccessRequestAdmin(admin.ModelAdmin):
     search_fields = ('file__file_number', 'requested_by__username')
     readonly_fields = ('created_at', 'approved_at', 'expires_at')
     autocomplete_fields = ('file', 'requested_by')
+
+
+class ChainTemplateStepInline(admin.TabularInline):
+    model = ChainTemplateStep
+    extra = 1
+    fields = ('order', 'role_type', 'department_scope', 'specific_department', 'designation', 'staff')
+
+
+@admin.register(ChainTemplate)
+class ChainTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'department', 'is_active', 'created_by', 'created_at')
+    list_filter = ('is_active', 'department')
+    search_fields = ('name',)
+    inlines = [ChainTemplateStepInline]

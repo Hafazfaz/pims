@@ -415,3 +415,100 @@ class FileAccessRequest(models.Model):
     def is_active(self):
         from django.utils import timezone
         return self.status == 'approved' and (self.expires_at is None or self.expires_at > timezone.now())
+
+
+class ChainTemplate(models.Model):
+    """Reusable approval chain template created by admin/registry."""
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='chain_templates',
+        help_text="Leave blank for org-wide templates."
+    )
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        scope = self.department.name if self.department else "Org-Wide"
+        return f"{self.name} [{scope}]"
+
+
+class ChainTemplateStep(models.Model):
+    """A single step in a chain template, defined by role not person."""
+
+    ROLE_TYPE_CHOICES = [
+        ('specific_person', 'Specific Person'),
+        ('unit_manager', 'Unit Manager'),
+        ('hod', 'Head of Department'),
+        ('designation', 'By Designation'),
+        ('director_general', 'Director General'),
+    ]
+
+    DEPARTMENT_SCOPE_CHOICES = [
+        ('sender', "Sender's Department"),
+        ('specific', 'Specific Department'),
+    ]
+
+    template = models.ForeignKey(ChainTemplate, on_delete=models.CASCADE, related_name='steps')
+    order = models.PositiveIntegerField()
+    role_type = models.CharField(max_length=30, choices=ROLE_TYPE_CHOICES)
+    # For role_type = 'hod' or 'unit_manager' — which dept?
+    department_scope = models.CharField(
+        max_length=20, choices=DEPARTMENT_SCOPE_CHOICES, default='sender', blank=True
+    )
+    specific_department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='template_steps'
+    )
+    # For role_type = 'designation'
+    designation = models.ForeignKey(
+        'organization.Designation', on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # For role_type = 'specific_person'
+    staff = models.ForeignKey(
+        Staff, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='assigned_template_steps'
+    )
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return f"Step {self.order}: {self.get_role_type_display()}"
+
+    def resolve(self, sender_staff):
+        """Resolve this step to an actual Staff instance at dispatch time."""
+        if self.role_type == 'specific_person':
+            return self.staff
+
+        dept = (
+            sender_staff.department
+            if self.department_scope == 'sender'
+            else self.specific_department
+        )
+
+        if self.role_type == 'unit_manager':
+            unit = sender_staff.unit if self.department_scope == 'sender' else None
+            if unit and unit.head:
+                return unit.head
+            # fallback: any unit head in dept
+            from organization.models import Unit
+            u = Unit.objects.filter(department=dept, head__isnull=False).first()
+            return u.head if u else None
+
+        if self.role_type == 'hod':
+            return dept.head if dept else None
+
+        if self.role_type == 'director_general':
+            return Staff.objects.filter(
+                user__groups__name__iexact='Executive'
+            ).first()
+
+        if self.role_type == 'designation':
+            return Staff.objects.filter(
+                designation=self.designation, department=dept
+            ).first()
+
+        return None

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Chain Templates{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto py-10 px-6">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-xl font-black text-slate-900 uppercase tracking-tight">Approval Chain Templates</h1>
+      <p class="text-xs text-slate-400 mt-1">Define reusable approval flows for your organisation.</p>
+    </div>
+    <a href="{% url 'document_management:chain_template_create' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all active:scale-95">
+      + New Template
+    </a>
+  </div>
+
+  {% if templates %}
+  <div class="space-y-4">
+    {% for tmpl in templates %}
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex items-start justify-between gap-4">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-3 mb-1">
+          <h3 class="text-sm font-bold text-slate-900">{{ tmpl.name }}</h3>
+          <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest {% if tmpl.is_active %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-400{% endif %}">
+            {% if tmpl.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+          <span class="text-[9px] font-bold text-slate-400 uppercase">
+            {{ tmpl.department.name|default:"Org-Wide" }}
+          </span>
+        </div>
+        {% if tmpl.description %}
+        <p class="text-xs text-slate-400 mb-3">{{ tmpl.description }}</p>
+        {% endif %}
+        <div class="flex items-center gap-2 flex-wrap">
+          {% for step in tmpl.steps.all %}
+          <div class="flex items-center gap-1">
+            <span class="text-[9px] font-black text-slate-400 uppercase">{{ step.order }}.</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+              {{ step.get_role_type_display }}
+              {% if step.role_type == 'hod' or step.role_type == 'unit_manager' %}
+                {% if step.department_scope == 'specific' and step.specific_department %}({{ step.specific_department.name }}){% else %}(Sender's Dept){% endif %}
+              {% elif step.role_type == 'designation' and step.designation %}({{ step.designation.name }}){% endif %}
+              {% if step.role_type == 'specific_person' and step.staff %}({{ step.staff }}){% endif %}
+            </span>
+            {% if not forloop.last %}<span class="text-slate-300">→</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="{% url 'document_management:chain_template_edit' pk=tmpl.pk %}"
+           class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-slate-200 rounded-lg hover:bg-slate-50 transition-all">Edit</a>
+        <form method="post" action="{% url 'document_management:chain_template_delete' pk=tmpl.pk %}"
+              onsubmit="return confirm('Delete this template?')">
+          {% csrf_token %}
+          <button type="submit" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-red-400 border border-red-100 rounded-lg hover:bg-red-50 transition-all">Delete</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-24 text-center">
+    <p class="text-sm font-black text-slate-300 uppercase tracking-widest">No templates yet</p>
+    <p class="text-xs text-slate-400 mt-2">Create your first chain template to get started.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

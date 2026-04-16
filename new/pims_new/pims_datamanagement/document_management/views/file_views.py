@@ -613,7 +613,15 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         from core.constants import STATUS_CHOICES
         context["status_choices"] = STATUS_CHOICES
 
-        # Build unified chronicle: merge documents and audit log movements sorted by date
+        # Available chain templates for this file's department
+        from document_management.models import ChainTemplate
+        from django.db.models import Q as DQ
+        staff_dept = getattr(getattr(user, 'staff', None), 'department', None)
+        context["available_chain_templates"] = ChainTemplate.objects.filter(
+            is_active=True
+        ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
+
+        # Build unified chronicle
         documents = list(file_obj.documents.select_related('uploaded_by').all())
         audit_entries = list(AuditLogEntry.objects.filter(
             object_id=file_obj.pk,

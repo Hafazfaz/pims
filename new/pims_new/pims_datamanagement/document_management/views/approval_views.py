@@ -1,11 +1,13 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import CreateView, View, DetailView, ListView
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse_lazy
-from ..models import File, ApprovalChain, ApprovalStep
-from .base import HTMXLoginRequiredMixin
+from django.http import JsonResponse
+import json
+from ..models import File, ApprovalChain, ApprovalStep, ChainTemplate, ChainTemplateStep
+from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
 from notifications.utils import create_notification
 
 
@@ -221,4 +223,146 @@ class ApprovalChainDeleteView(HTMXLoginRequiredMixin, View):
 
         chain.delete()
         messages.success(request, "Approval chain deleted.")
+        return redirect(file_obj.get_absolute_url())
+
+
+class ChainTemplateListView(RegistryRequiredMixin, ListView):
+    model = ChainTemplate
+    template_name = 'document_management/chain_template_list.html'
+    context_object_name = 'templates'
+
+    def get_queryset(self):
+        return ChainTemplate.objects.select_related('department', 'created_by').prefetch_related('steps').order_by('-created_at')
+
+
+class ChainTemplateBuilderView(RegistryRequiredMixin, View):
+    """Canvas-based chain template builder for admin/registry."""
+
+    def get(self, request, pk=None):
+        from organization.models import Department, Designation, Staff as StaffModel
+        template = get_object_or_404(ChainTemplate, pk=pk) if pk else None
+        departments = Department.objects.all().order_by('name')
+        designations = Designation.objects.all().order_by('level')
+        staff_list = StaffModel.objects.select_related('user', 'designation', 'department').order_by('user__last_name')
+
+        existing_steps = []
+        if template:
+            for step in template.steps.all():
+                existing_steps.append({
+                    'order': step.order,
+                    'role_type': step.role_type,
+                    'department_scope': step.department_scope,
+                    'specific_department_id': step.specific_department_id,
+                    'designation_id': step.designation_id,
+                    'staff_id': step.staff_id,
+                    'label': str(step),
+                })
+
+        return render(request, 'document_management/chain_template_builder.html', {
+            'template': template,
+            'departments': departments,
+            'designations': designations,
+            'staff_list': staff_list,
+            'existing_steps_json': json.dumps(existing_steps),
+        })
+
+    def post(self, request, pk=None):
+        from organization.models import Department, Designation, Staff as StaffModel
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        dept_id = request.POST.get('department') or None
+
+        if not name:
+            messages.error(request, "Template name is required.")
+            return redirect(request.path)
+
+        if pk:
+            tmpl = get_object_or_404(ChainTemplate, pk=pk)
+            tmpl.name = name
+            tmpl.description = description
+            tmpl.department_id = dept_id
+            tmpl.save()
+            tmpl.steps.all().delete()
+        else:
+            tmpl = ChainTemplate.objects.create(
+                name=name, description=description,
+                department_id=dept_id, created_by=request.user
+            )
+
+        steps_json = request.POST.get('steps_json', '[]')
+        try:
+            steps = json.loads(steps_json)
+        except json.JSONDecodeError:
+            steps = []
+
+        for i, step in enumerate(steps, start=1):
+            ChainTemplateStep.objects.create(
+                template=tmpl,
+                order=i,
+                role_type=step.get('role_type', 'specific_person'),
+                department_scope=step.get('department_scope', 'sender'),
+                specific_department_id=step.get('specific_department_id') or None,
+                designation_id=step.get('designation_id') or None,
+                staff_id=step.get('staff_id') or None,
+            )
+
+        messages.success(request, f"Chain template '{tmpl.name}' saved.")
+        return redirect(reverse_lazy('document_management:chain_template_list'))
+
+
+class ChainTemplateDeleteView(RegistryRequiredMixin, View):
+    def post(self, request, pk):
+        tmpl = get_object_or_404(ChainTemplate, pk=pk)
+        tmpl.delete()
+        messages.success(request, "Template deleted.")
+        return redirect(reverse_lazy('document_management:chain_template_list'))
+
+
+class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
+    """Staff applies a chain template to a file when dispatching."""
+
+    def post(self, request, file_pk):
+        from document_management.models import FileAccessRequest
+        from django.db.models import Q
+        file_obj = get_object_or_404(File, pk=file_pk)
+        staff = getattr(request.user, 'staff', None)
+
+        if not staff:
+            messages.error(request, "Staff profile not found.")
+            return redirect(file_obj.get_absolute_url())
+
+        # Must have read+write access
+        has_rw = (
+            file_obj.owner == staff or
+            file_obj.current_location == staff or
+            FileAccessRequest.objects.filter(
+                file=file_obj, requested_by=request.user,
+                status='approved', access_type='read_write'
+            ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+        )
+        if not has_rw:
+            messages.error(request, "You need read & write access to apply a chain.")
+            return redirect(file_obj.get_absolute_url())
+
+        if hasattr(file_obj, 'approval_chain'):
+            messages.error(request, "This file already has an approval chain.")
+            return redirect(file_obj.get_absolute_url())
+
+        template_id = request.POST.get('template_id')
+        tmpl = get_object_or_404(ChainTemplate, pk=template_id, is_active=True)
+
+        chain = ApprovalChain.objects.create(file=file_obj, created_by=request.user, status='draft')
+        unresolved = []
+        for step in tmpl.steps.all():
+            approver = step.resolve(staff)
+            if not approver:
+                unresolved.append(str(step))
+                continue
+            ApprovalStep.objects.create(chain=chain, approver=approver, order=step.order)
+
+        if unresolved:
+            messages.warning(request, f"Chain applied but could not resolve: {', '.join(unresolved)}")
+        else:
+            messages.success(request, f"Chain '{tmpl.name}' applied. You can now start it.")
+
         return redirect(file_obj.get_absolute_url())

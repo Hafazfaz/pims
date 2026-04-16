@@ -48,4 +48,8 @@ from .approval_views import (  # noqa: F401
     ApprovalChainStartView,
     ApprovalStepActionView,
     ApprovalChainDeleteView,
+    ChainTemplateListView,
+    ChainTemplateBuilderView,
+    ChainTemplateDeleteView,
+    ApplyChainTemplateView,
 )
