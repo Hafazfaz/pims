@@ -27,6 +27,8 @@
   .node-role { font-size: 10px; color: #94a3b8; font-weight: 600; margin-top: 1px; }
   .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2.5; }
   .drawflow .connection .main-path:hover { stroke: #15803d; }
+  .drawflow .drawflow-node { background: white !important; }
+  .drawflow .drawflow-node .input, .drawflow .drawflow-node .output { background: #16a34a !important; border-color: #16a34a !important; width: 12px !important; height: 12px !important; }
 </style>
 
 <div class="flex h-screen overflow-hidden" x-data="chainBuilder()" x-init="init()">

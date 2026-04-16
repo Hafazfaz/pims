@@ -19,6 +19,9 @@
   .node-role { font-size: 12px; font-weight: 700; color: #0f172a; }
   .node-sub { font-size: 10px; color: #94a3b8; font-weight: 600; margin-top: 1px; }
   .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2.5; }
+  /* Override Drawflow defaults */
+  .drawflow .drawflow-node { background: white !important; }
+  .drawflow .drawflow-node .input, .drawflow .drawflow-node .output { background: #16a34a !important; border-color: #16a34a !important; width: 12px !important; height: 12px !important; }
 </style>
 
 <div class="flex h-screen overflow-hidden" x-data="templateBuilder()" x-init="init()">
