@@ -11,17 +11,28 @@
     background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  .drawflow-node { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 0; min-width: 210px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .drawflow-node { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 0; min-width: 180px; max-width: 180px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
   .drawflow-node.selected { border-color: #16a34a; box-shadow: 0 0 0 3px #bbf7d0; }
   .drawflow-node .drawflow_content_node { padding: 0; }
   .node-inner { padding: 12px 16px; }
   .node-step { font-size: 9px; font-weight: 900; color: #16a34a; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
   .node-role { font-size: 12px; font-weight: 700; color: #0f172a; }
   .node-sub { font-size: 10px; color: #94a3b8; font-weight: 600; margin-top: 1px; }
-  .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2.5; }
-  /* Override Drawflow defaults */
+  .drawflow .connection .main-path { stroke: #16a34a; stroke-width: 2px; }
   .drawflow .drawflow-node { background: white !important; }
-  .drawflow .drawflow-node .input, .drawflow .drawflow-node .output { background: #16a34a !important; border-color: #16a34a !important; width: 12px !important; height: 12px !important; }
+  /* Port dots — centered vertically on node sides */
+  .drawflow .drawflow-node .input,
+  .drawflow .drawflow-node .output {
+    background: #16a34a !important;
+    border: 2px solid white !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+  }
+  .drawflow .drawflow-node .input { left: -8px !important; }
+  .drawflow .drawflow-node .output { right: -8px !important; }
 </style>
 
 <div class="flex h-screen overflow-hidden" x-data="templateBuilder()" x-init="init()">
@@ -382,8 +393,10 @@ function templateBuilder() {
 
     _addNode(stepData, autoConnect = true) {
       const step = this.nodes.length + 1;
-      const x = 80 + (this.nodes.length * 260);
-      const y = 120;
+      const col = this.nodes.length % 4;
+      const row = Math.floor(this.nodes.length / 4);
+      const x = 60 + col * 220;
+      const y = 80 + row * 140;
       const nodeId = this.editor.addNode('step', 1, 1, x, y, 'approver-node', { ...stepData }, this._nodeHtml(stepData, step));
       this.nodes.push({ nodeId, ...stepData });
       if (autoConnect && this.nodes.length > 1) {
