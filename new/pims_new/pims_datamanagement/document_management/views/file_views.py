@@ -753,6 +753,23 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             
             return redirect(file_obj.get_absolute_url())
 
+        elif action == "update_status":
+            staff = getattr(request.user, 'staff', None)
+            if not (request.user.is_superuser or (staff and staff.is_registry)):
+                messages.error(request, "Only registry staff can update file status.")
+                return redirect(file_obj.get_absolute_url())
+            new_status = request.POST.get("status")
+            valid = [v for v, _ in file_obj._meta.get_field('status').choices]
+            if new_status not in valid:
+                messages.error(request, "Invalid status.")
+                return redirect(file_obj.get_absolute_url())
+            file_obj.status = new_status
+            file_obj.save()
+            log_action(request.user, "FILE_STATUS_UPDATED", request=request, obj=file_obj,
+                       details={"new_status": new_status})
+            messages.success(request, f"File status updated to {new_status.title()}.")
+            return redirect(file_obj.get_absolute_url())
+
         elif action == "sign_document":
             doc_id = request.POST.get("document_id")
             from django.shortcuts import get_object_or_404

@@ -1,0 +1,7 @@
+<span class="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm
+    {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
+    {% elif file.status == 'closed' %}bg-slate-100 text-slate-600 border-slate-200
+    {% elif file.status == 'archived' %}bg-slate-900 text-white border-slate-800
+    {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+    {{ file.get_status_display }}
+</span>
