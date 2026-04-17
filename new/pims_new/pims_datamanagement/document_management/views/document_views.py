@@ -116,6 +116,8 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
     context_object_name = "document"
 
     def has_permission(self):
+        if not self.request.user.is_authenticated:
+            return False
         document = self.get_object()
         file_obj = document.file
         user = self.request.user
@@ -149,6 +151,11 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if document.shared_with.filter(id=user.id).exists():
             return True
 
+        # Allow current approver on the chain to view the document
+        active_chain = document.approval_chains.filter(status='active').first()
+        if active_chain and active_chain.steps.filter(approver=staff_user).exists():
+            return True
+
         return False
 
     def dispatch(self, request, *args, **kwargs):
@@ -171,40 +178,64 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             pass
         
         is_custodian = hasattr(self.request.user, 'staff') and file_obj.current_location == self.request.user.staff
-        
+        is_owner = hasattr(self.request.user, 'staff') and file_obj.owner == self.request.user.staff
+
         has_approved_access = FileAccessRequest.objects.filter(
-            file=file_obj,
-            requested_by=self.request.user,
-            status='approved'
-        ).filter(
-            Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
-        ).exists()
-        
+            file=file_obj, requested_by=self.request.user, status='approved'
+        ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+
         access_type = None
         if has_approved_access:
             active_access = FileAccessRequest.objects.filter(
-                file=file_obj,
-                requested_by=self.request.user,
-                status='approved'
-            ).filter(
-                Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
-            ).first()
+                file=file_obj, requested_by=self.request.user, status='approved'
+            ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).first()
             if active_access:
                 access_type = active_access.access_type
-        
-        context["can_add_minute"] = is_registry or is_custodian or (
-            has_approved_access and 
-            access_type == 'read_write' and 
-            file_obj.status == 'active'
+
+        context["can_add_minute"] = is_registry or is_custodian or is_owner or (
+            has_approved_access and access_type == 'read_write' and file_obj.status == 'active'
         )
-        
+
         can_send_file = False
-        if not is_registry and file_obj.status == 'active' and not file_obj.is_in_active_chain:
-            if hasattr(self.request.user, 'staff') and file_obj.current_location == self.request.user.staff:
+        is_latest_version = not document.next_versions.exists()
+        # Can only dispatch if: active file, no active chain, latest version, AND not already approved
+        if file_obj.status == 'active' and not file_obj.is_in_active_chain and is_latest_version and document.status != 'approved':
+            if is_owner or is_custodian or is_registry:
                 can_send_file = True
 
         context["can_send_file"] = can_send_file
+        context["is_latest_version"] = is_latest_version
         context["has_active_chain"] = file_obj.is_in_active_chain
+        context["document_is_approved"] = document.status == 'approved'
+
+        # Document chronicle — all versions + approval activity on this document's chain
+        root = document
+        while root.previous_version:
+            root = root.previous_version
+
+        doc_chronicle = []
+        def walk(doc):
+            doc_chronicle.append({'type': 'version', 'item': doc, 'timestamp': doc.uploaded_at})
+            for chain in doc.approval_chains.all():
+                for step in chain.steps.filter(status__in=['approved','rejected']).select_related('approver__user').order_by('actioned_at'):
+                    doc_chronicle.append({'type': 'approval', 'item': step, 'timestamp': step.actioned_at})
+            for nxt in doc.next_versions.all().order_by('version'):
+                walk(nxt)
+        walk(root)
+        doc_chronicle.sort(key=lambda x: x['timestamp'])
+        context['doc_chronicle'] = doc_chronicle
+
+        # All versions of this document (walk to root, then get all next_versions)
+        root = document
+        while root.previous_version:
+            root = root.previous_version
+        all_versions = [root]
+        def collect(doc):
+            for nxt in doc.next_versions.all().order_by('version'):
+                all_versions.append(nxt)
+                collect(nxt)
+        collect(root)
+        context["all_versions"] = all_versions
 
         # Chain templates available for dispatch
         from document_management.models import ChainTemplate, ApprovalChain as AC
@@ -213,9 +244,22 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         context["available_chain_templates"] = ChainTemplate.objects.filter(
             is_active=True
         ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
-        context["document_has_chain"] = hasattr(document, 'approval_chain')
+        active_chain = document.approval_chains.filter(status='active').first()
+        chain_is_active = active_chain is not None
+        context["document_has_chain"] = chain_is_active
+
+        # Chains for this document with prefetched steps for the panel
+        from document_management.models import ApprovalChain as AC
+        context["document_chains"] = AC.objects.filter(
+            document=document
+        ).prefetch_related('steps__approver__user').select_related('created_by').order_by('created_at')
 
         return context
+
+    def get_template_names(self):
+        if self.request.headers.get('HX-Request'):
+            return ["document_management/partials/_document_panel.html"]
+        return [self.template_name]
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -247,60 +291,47 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
 
 class DocumentShareView(LoginRequiredMixin, View):
     def post(self, request, pk):
-        User = get_user_model()
         document = get_object_or_404(Document, pk=pk)
-        
-        file = document.file
-        user = request.user
-        staff = None
-        try:
-             staff = user.staff
-        except AttributeError:
-             pass
+        user_ids = request.POST.getlist('user_ids')
+        document.shared_with.set(user_ids)
+        messages.success(request, "Document sharing updated.")
+        return redirect('document_management:document_detail', pk=pk)
 
-        is_registry = staff.is_registry if staff else False
-        is_owner = staff == file.owner if staff else False
-        is_custodian = staff == file.current_location if staff else False
-        
-        has_access = FileAccessRequest.objects.filter(
-            file=file, 
-            requested_by=user, 
-            status="approved",
-            access_type='read_write'
-        ).filter(
-            Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
-        ).exists()
 
-        if not (is_registry or is_owner or is_custodian or has_access):
-             messages.error(request, "You do not have permission to share this document.")
-             return redirect(file.get_absolute_url())
+class DocumentNewVersionView(LoginRequiredMixin, View):
+    """Create a new version of an existing document."""
 
-        recipient_id = request.POST.get('recipient_id')
-        if not recipient_id:
-            messages.error(request, "No recipient specified.")
-            return redirect(file.get_absolute_url())
+    def post(self, request, pk):
+        original = get_object_or_404(Document, pk=pk)
+        title = request.POST.get('title', original.title)
+        minute_content = request.POST.get('minute_content', '').strip()
+        attachment = request.FILES.get('attachment')
 
-        try:
-            recipient = User.objects.get(pk=recipient_id)
-            if recipient == user:
-                 messages.warning(request, "You cannot share a document with yourself.")
-            elif document.shared_with.filter(pk=recipient.pk).exists():
-                 messages.info(request, f"Document is already shared with {recipient.get_full_name()}.")
-            else:
-                document.shared_with.add(recipient)
-                
-                create_notification(
-                    user=recipient,
-                    message=f"{user.get_full_name()} shared a document with you: '{document.title or 'Minute/Signal'}' from file {file.file_number}",
-                    obj=document,
-                    link=file.get_absolute_url()
-                )
-                
-                messages.success(request, f"Document successfully shared with {recipient.get_full_name()}.")
-        except User.DoesNotExist:
-            messages.error(request, "Recipient user not found.")
+        # Walk to root then find the true latest version in this chain
+        root = original
+        while root.previous_version:
+            root = root.previous_version
 
-        return redirect(file.get_absolute_url())
+        latest_version = Document.objects.filter(
+            file=original.file, title=root.title
+        ).order_by('-version').first()
+
+        # New version always chains off the latest, not the restored-from version
+        new_doc = Document.objects.create(
+            file=original.file,
+            uploaded_by=request.user,
+            title=root.title,
+            minute_content=minute_content or original.minute_content,
+            previous_version=latest_version,
+            version=latest_version.version + 1,
+        )
+        if attachment:
+            new_doc.attachment = attachment
+            new_doc.save()
+
+        messages.success(request, f"Version {new_doc.version} created.")
+        return redirect('document_management:document_detail', pk=original.pk)
+
 
 class DocumentDownloadView(LoginRequiredMixin, View):
     """

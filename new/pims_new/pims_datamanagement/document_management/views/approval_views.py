@@ -11,13 +11,28 @@ from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
 from notifications.utils import create_notification
 
 
+def _make_review_token(step):
+    import hmac as _hmac, hashlib
+    from django.conf import settings
+    return _hmac.new(
+        settings.SECRET_KEY.encode(),
+        f"approval-review-{step.pk}".encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+
+
+
 def _notify_approver(step):
     """Notify the approver that it's their turn."""
+    from django.urls import reverse
+    token = _make_review_token(step)
+    review_url = reverse('document_management:step_review', kwargs={'step_pk': step.pk, 'token': token})
     create_notification(
         user=step.approver.user,
-        message=f"You have a pending approval for file '{step.chain.file.file_number} — {step.chain.file.title}' (Step {step.order}).",
-        obj=step.chain.file,
-        link=step.chain.file.get_absolute_url(),
+        message=f"You have a pending approval for '{step.chain._get_file().file_number}' (Step {step.order}). Click to review.",
+        obj=step.chain._get_file(),
+        link=review_url,
     )
 
 
@@ -31,6 +46,69 @@ def _notify_owner(chain, message):
     )
 
 
+class ApprovalReviewView(HTMXLoginRequiredMixin, View):
+    """Token-gated document review page for approvers. Token = HMAC of step_pk."""
+
+    def _valid_token(self, step, token):
+        import hmac, hashlib
+        from django.conf import settings
+        expected = hmac.new(
+            settings.SECRET_KEY.encode(),
+            f"approval-review-{step.pk}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(expected, token)
+
+    def get(self, request, step_pk, token):
+        step = get_object_or_404(ApprovalStep, pk=step_pk)
+        if not self._valid_token(step, token):
+            messages.error(request, "Invalid or expired review link.")
+            return redirect("document_management:my_chains")
+        if step.approver != getattr(request.user, 'staff', None):
+            messages.error(request, "This review link is not for your account.")
+            return redirect("document_management:my_chains")
+        chain = step.chain
+        file_obj = chain._get_file()
+
+        # Collect all versions of the dispatched document
+        from document_management.models import ApprovalChain as AC
+        dispatched_doc = chain.document
+        all_versions = []
+        if dispatched_doc:
+            root = dispatched_doc
+            while root.previous_version:
+                root = root.previous_version
+            def _collect(d):
+                all_versions.append(d)
+                for nxt in d.next_versions.all().order_by('version'):
+                    _collect(nxt)
+            _collect(root)
+
+        # Attach per-version conversation data (dispatches + approval steps)
+        from document_management.models import ApprovalChain as AC
+        for v in all_versions:
+            v_chains = AC.objects.filter(document=v).prefetch_related('steps__approver__user').select_related('created_by').order_by('created_at')
+            v.version_dispatches = list(v_chains)
+
+        return render(request, "document_management/approval_review.html", {
+            "step": step, "chain": chain,
+            "document": chain.document,
+            "token": token,
+            "file": file_obj,
+            "all_versions": all_versions,
+        })
+
+
+class AllActiveChainsView(RegistryRequiredMixin, ListView):
+    template_name = "document_management/all_chains.html"
+    context_object_name = "chains"
+
+    def get_queryset(self):
+        return ApprovalChain.objects.filter(
+            status='active'
+        ).select_related('file', 'file__owner__user', 'created_by').prefetch_related('steps__approver__user').order_by('-created_at')
+
+
 class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
     template_name = "document_management/my_chains.html"
     context_object_name = "chains"
@@ -42,11 +120,21 @@ class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
         from django.db.models import Q
         return ApprovalChain.objects.filter(
             Q(file__owner=staff) | Q(created_by=self.request.user) | Q(steps__approver=staff)
-        ).distinct().select_related('file', 'document').prefetch_related('steps')
+        ).distinct().select_related('file', 'document').prefetch_related('steps').order_by('-created_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['staff'] = getattr(self.request.user, 'staff', None)
+        staff = getattr(self.request.user, 'staff', None)
+        context['staff'] = staff
+        # Annotate each current step with its review URL
+        from django.urls import reverse
+        for chain in context['chains']:
+            for step in chain.steps.all():
+                if step.approver == staff and step.order == chain.current_step and chain.status == 'active':
+                    token = _make_review_token(step)
+                    step.review_url = reverse('document_management:step_review', kwargs={'step_pk': step.pk, 'token': token})
+                else:
+                    step.review_url = None
         return context
 
 
@@ -139,6 +227,11 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
         chain.current_step = first_step.order
         chain.save()
 
+        # Mark document as in_transit
+        if chain.document:
+            chain.document.status = 'in_transit'
+            chain.document.save(update_fields=['status'])
+
         # File goes to first approver in read-only mode (status unchanged)
         file_obj.current_location = first_step.approver
         file_obj.save()
@@ -197,7 +290,7 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
         else:
             messages.error(request, "Invalid action.")
 
-        return redirect(file_obj.get_absolute_url())
+        return redirect(reverse_lazy('document_management:my_chains'))
 
 
 class ApprovalChainDeleteView(HTMXLoginRequiredMixin, View):
@@ -344,13 +437,15 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
         tmpl = get_object_or_404(ChainTemplate, pk=template_id, is_active=True)
         document = get_object_or_404(Document, pk=document_id, file=file_obj)
 
-        if hasattr(document, 'approval_chain'):
-            messages.error(request, "This document already has an approval chain.")
+        if document.approval_chains.filter(status__in=['draft', 'active']).exists():
+            messages.error(request, "This document already has an active approval chain.")
             return redirect(file_obj.get_absolute_url())
 
+        dispatch_message = request.POST.get('dispatch_message', '').strip()
         chain = ApprovalChain.objects.create(
             document=document, file=file_obj,
-            created_by=request.user, status='draft'
+            created_by=request.user, status='draft',
+            dispatch_message=dispatch_message,
         )
         unresolved = []
         for step in tmpl.steps.all():
