@@ -174,7 +174,7 @@ class File(models.Model):
     @property
     def is_in_active_chain(self):
         """True if any document in this file has an active approval chain."""
-        return self.documents.filter(approval_chain__status='active').exists()
+        return self.documents.filter(approval_chains__status='active').exists()
 
 
 class Document(models.Model):
@@ -197,6 +197,14 @@ class Document(models.Model):
         blank=True, 
         related_name='replies'
     )
+    # Versioning — previous version of this document
+    previous_version = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='next_versions'
+    )
+    version = models.PositiveIntegerField(default=1)
 
     # A document can be either a text minute or an uploaded file
     minute_content = models.TextField(blank=True, null=True)
@@ -213,7 +221,9 @@ class Document(models.Model):
     # Document Status
     STATUS_CHOICES = (
         ('pending', 'Pending'),
+        ('in_transit', 'In Transit'),
         ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
         ('cancelled', 'Cancelled'),
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
@@ -314,11 +324,12 @@ class ApprovalChain(models.Model):
         ('rejected', 'Rejected'),
     ]
     # Chain is now attached to a Document, not a File
-    document = models.OneToOneField('Document', on_delete=models.CASCADE, related_name='approval_chain', null=True, blank=True)
+    document = models.ForeignKey('Document', on_delete=models.CASCADE, related_name='approval_chains', null=True, blank=True)
     # Keep file FK for backwards compat but nullable
     file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='approval_chains', null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_chains')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    dispatch_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     current_step = models.PositiveIntegerField(default=1)
 
@@ -356,6 +367,10 @@ class ApprovalChain(models.Model):
         else:
             self.status = 'closed'
             self.save()
+            # Mark the document as approved
+            if self.document:
+                self.document.status = 'approved'
+                self.document.save(update_fields=['status'])
             # Return file to registry
             registry = self._get_registry()
             file_obj.current_location = registry
@@ -372,6 +387,8 @@ class ApprovalChain(models.Model):
     def reject_to_previous(self, from_order):
         """Send back to previous approver, or back to sender if step 1."""
         file_obj = self._get_file()
+        # Reset the rejected step back to pending but keep the note so it's visible in conversation
+        self.steps.filter(order=from_order).update(status='pending', actioned_at=None)
         prev_step = self.steps.filter(order__lt=from_order).order_by('-order').first()
         if prev_step:
             prev_step.status = 'pending'
@@ -383,7 +400,10 @@ class ApprovalChain(models.Model):
         else:
             self.status = 'rejected'
             self.save()
-            # Return to sender
+            # Mark the document as rejected
+            if self.document:
+                self.document.status = 'rejected'
+                self.document.save(update_fields=['status'])
             from notifications.utils import create_notification
             create_notification(
                 user=self.created_by,
