@@ -420,3 +420,131 @@ class LeaveRequestChainTest(TestCase):
         chain.advance()
         self.file.refresh_from_db()
         self.assertFalse(self.file.is_in_active_chain)
+
+
+class DocumentVersionStatusTest(TestCase):
+    """
+    Tests for document status transitions:
+    pending → in_transit → approved/rejected
+    Each version is independent. Multiple chains per document allowed.
+    """
+
+    def setUp(self):
+        self.dept = Department.objects.create(name="Ops", code="OPS")
+        reg_user = make_user("reg_vs", "Registry")
+        reg_desig, _ = Designation.objects.get_or_create(name="Registry Officer", defaults={"level": 1})
+        self.registry = Staff.objects.create(user=reg_user, designation=reg_desig, department=self.dept)
+
+        owner_user = make_user("owner_vs", "Staff")
+        desig, _ = Designation.objects.get_or_create(name="Officer", defaults={"level": 5})
+        self.owner = Staff.objects.create(user=owner_user, designation=desig, department=self.dept)
+
+        approver_user = make_user("approver_vs", "Staff")
+        self.approver = Staff.objects.create(user=approver_user, designation=desig, department=self.dept)
+
+        from organization.models import StaffSignature
+        from django.core.files.base import ContentFile
+        sig = ContentFile(b"fake", name="sig.png")
+        self.sig = StaffSignature.objects.create(staff=self.approver, image=sig, is_active=True, is_verified=True)
+
+        self.file = File.objects.create(
+            title="VERSION STATUS FILE", file_type="personal",
+            owner=self.owner, current_location=self.registry,
+            created_by=owner_user, status="active",
+        )
+        self.doc = Document.objects.create(
+            file=self.file, uploaded_by=owner_user,
+            title="Policy Draft", minute_content="Initial draft.", version=1,
+        )
+
+    def _make_chain(self, doc):
+        chain = ApprovalChain.objects.create(
+            document=doc, file=self.file,
+            created_by=self.owner.user, status='active', current_step=1,
+        )
+        step = ApprovalStep.objects.create(chain=chain, approver=self.approver, order=1)
+        return chain, step
+
+    def test_new_document_is_pending(self):
+        self.assertEqual(self.doc.status, 'pending')
+
+    def test_dispatch_sets_in_transit(self):
+        chain, _ = self._make_chain(self.doc)
+        self.doc.status = 'in_transit'
+        self.doc.save()
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'in_transit')
+
+    def test_all_approve_sets_approved(self):
+        chain, step = self._make_chain(self.doc)
+        step.status = 'approved'
+        step.signature = self.sig
+        step.save()
+        chain.advance()
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'approved')
+
+    def test_reject_at_step1_sets_rejected(self):
+        chain, step = self._make_chain(self.doc)
+        chain.reject_to_previous(from_order=1)
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'rejected')
+
+    def test_new_version_starts_pending_independently(self):
+        """v2 starts pending regardless of v1 status."""
+        chain, step = self._make_chain(self.doc)
+        step.status = 'approved'
+        step.save()
+        chain.advance()
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'approved')
+
+        v2 = Document.objects.create(
+            file=self.file, uploaded_by=self.owner.user,
+            title="Policy Draft", minute_content="Revised draft.",
+            previous_version=self.doc, version=2,
+        )
+        self.assertEqual(v2.status, 'pending')
+
+    def test_multiple_chains_per_document(self):
+        """A document can have multiple chain runs (e.g. rejected then re-dispatched)."""
+        chain1, step1 = self._make_chain(self.doc)
+        chain1.reject_to_previous(from_order=1)
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'rejected')
+
+        # Re-dispatch: create a new chain on the same document
+        chain2, step2 = self._make_chain(self.doc)
+        self.doc.status = 'in_transit'
+        self.doc.save()
+
+        step2.status = 'approved'
+        step2.signature = self.sig
+        step2.save()
+        chain2.advance()
+
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'approved')
+        self.assertEqual(self.doc.approval_chains.count(), 2)
+
+    def test_v1_approved_v2_rejected_are_independent(self):
+        """v1 approved and v2 rejected — statuses don't bleed across versions."""
+        chain1, step1 = self._make_chain(self.doc)
+        step1.status = 'approved'
+        step1.save()
+        chain1.advance()
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, 'approved')
+
+        v2 = Document.objects.create(
+            file=self.file, uploaded_by=self.owner.user,
+            title="Policy Draft", minute_content="Revised.",
+            previous_version=self.doc, version=2,
+        )
+        chain2, step2 = self._make_chain(v2)
+        chain2.reject_to_previous(from_order=1)
+
+        v2.refresh_from_db()
+        self.doc.refresh_from_db()
+        self.assertEqual(v2.status, 'rejected')
+        self.assertEqual(self.doc.status, 'approved')  # v1 untouched
