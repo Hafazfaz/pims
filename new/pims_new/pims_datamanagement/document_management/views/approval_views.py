@@ -203,6 +203,22 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
         return redirect(file_obj.get_absolute_url())
 
 
+def _grant_chain_read_access(chain):
+    """Grant read-only FileAccessRequest to all approvers in the chain."""
+    from document_management.models import FileAccessRequest
+    file_obj = chain._get_file()
+    for step in chain.steps.all():
+        FileAccessRequest.objects.get_or_create(
+            file=file_obj,
+            requested_by=step.approver.user,
+            defaults={
+                'reason': f'Auto-granted: approval chain step {step.order}',
+                'access_type': 'read_only',
+                'status': 'approved',
+            }
+        )
+
+
 class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
     """Owner starts the chain — dispatches file to step 1 in read-only mode."""
 
@@ -232,6 +248,9 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
         if chain.document:
             chain.document.status = 'in_transit'
             chain.document.save(update_fields=['status'])
+
+        # Grant read-only access to all approvers in the chain
+        _grant_chain_read_access(chain)
 
         # File goes to first approver in read-only mode (status unchanged)
         file_obj.current_location = first_step.approver
