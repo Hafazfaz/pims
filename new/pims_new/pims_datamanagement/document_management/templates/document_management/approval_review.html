@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% block title %}Review: {{ document.title|default:"Document" }} | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-4">
+
+    <div>
+        <a href="{% url 'document_management:my_chains' %}" class="text-xs text-slate-400 hover:text-slate-600">← Back to My Chains</a>
+        <h2 class="text-2xl font-bold text-slate-900 tracking-tight mt-1">Document Review</h2>
+        <p class="text-sm text-slate-500">Step {{ step.order }} · {{ file.file_number }} — {{ file.title }}</p>
+    </div>
+
+    <div class="flex gap-6 items-start">
+
+        <!-- Left: document + chain + action -->
+        <div class="flex-1 space-y-5 min-w-0">
+
+            <!-- Dispatch message from sender -->
+            {% if chain.dispatch_message %}
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 flex gap-3">
+                <i class="fas fa-envelope text-blue-400 mt-0.5 shrink-0"></i>
+                <div>
+                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Message from {{ chain.created_by.get_full_name|default:chain.created_by.username }}</p>
+                    <p class="text-sm text-blue-800">{{ chain.dispatch_message }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Document content -->
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document</span>
+                        <h3 class="text-xl font-bold text-slate-900 mt-1">{{ document.title|default:"Minute/Signal" }}</h3>
+                        <p class="text-xs text-slate-400 mt-1">
+                            {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }}
+                            · {{ document.uploaded_at|date:"M d, Y @ H:i" }}
+                        </p>
+                    </div>
+                    <span class="shrink-0 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full
+                        {% if document.status == 'in_transit' %}bg-blue-50 text-blue-600 border border-blue-100
+                        {% elif document.status == 'approved' %}bg-green-50 text-green-600 border border-green-100
+                        {% elif document.status == 'rejected' %}bg-red-50 text-red-600 border border-red-100
+                        {% else %}bg-amber-50 text-amber-600 border border-amber-100{% endif %}">
+                        {{ document.get_status_display }}
+                    </span>
+                </div>
+
+                {% if document.minute_content %}
+                <div class="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Content</p>
+                    <div class="text-sm text-slate-700 leading-relaxed prose max-w-none">
+                        {{ document.minute_content|safe }}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if document.attachment %}
+                <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <i class="fas fa-paperclip text-slate-400"></i>
+                    <p class="text-xs font-bold text-slate-700 flex-1">Attachment</p>
+                    <a href="{% url 'document_management:document_download' pk=document.pk %}"
+                       class="text-[10px] font-bold text-nigeria-green hover:underline uppercase tracking-widest">Download</a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Action -->
+            {% if step.status == 'pending' and step.order == chain.current_step and chain.status == 'active' %}
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Your Decision</p>
+                <p class="text-xs text-slate-500 mb-4">Leave a comment — the next approver will see it before making their decision.</p>
+                <form method="post" action="{% url 'document_management:step_action' step_pk=step.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" id="action-input">
+                    <textarea name="note" placeholder="Add your comment for the next approver..." rows="3"
+                              class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-nigeria-green resize-none mb-4"></textarea>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="submitAction('approve')"
+                                class="px-6 py-3 bg-nigeria-green text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-nigeria-dark transition-colors">
+                            ✓ Approve
+                        </button>
+                        <button type="button" onclick="submitAction('reject')"
+                                class="px-6 py-3 bg-red-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-red-600 transition-colors">
+                            ✗ Reject
+                        </button>
+                    </div>
+                </form>
+                <script>
+                function submitAction(action) {
+                    document.getElementById('action-input').value = action;
+                    document.getElementById('action-input').closest('form').submit();
+                }
+                </script>
+            </div>
+            {% endif %}
+
+            <!-- Per-version Conversation Threads -->
+            {% for v in all_versions %}
+            <div id="vthread-{{ v.pk }}" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden {% if v.pk != document.pk %}hidden{% endif %}">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Version {{ v.version }} Conversation</p>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ v.title|default:"Untitled" }} · {{ v.uploaded_at|date:"M d, Y" }}</p>
+                    </div>
+                    <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full
+                        {% if v.status == 'in_transit' %}bg-blue-50 text-blue-600
+                        {% elif v.status == 'approved' %}bg-green-50 text-green-600
+                        {% elif v.status == 'rejected' %}bg-red-50 text-red-600
+                        {% else %}bg-amber-50 text-amber-600{% endif %}">
+                        {{ v.get_status_display }}
+                    </span>
+                </div>
+
+                <!-- Version document content -->
+                <div class="px-6 py-5 border-b border-slate-100 bg-slate-50">
+                    {% if v.minute_content %}
+                    <div class="text-sm text-slate-700 leading-relaxed prose max-w-none">{{ v.minute_content|safe }}</div>
+                    {% endif %}
+                    {% if v.attachment %}
+                    <a href="{% url 'document_management:document_download' pk=v.pk %}"
+                       class="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-nigeria-green hover:underline">
+                        <i class="fas fa-paperclip"></i> Download Attachment
+                    </a>
+                    {% endif %}
+                    {% if not v.minute_content and not v.attachment %}
+                    <p class="text-xs text-slate-400 italic">No content.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Dispatch + approval thread for this version -->
+                <div class="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+                    {% for ch in v.version_dispatches %}
+
+                    {% if ch.dispatch_message %}
+                    <div class="px-6 py-4 flex items-start gap-3 bg-blue-50">
+                        <span class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-black text-blue-600 shrink-0">
+                            {{ ch.created_by.get_full_name|default:ch.created_by.username|first }}
+                        </span>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-bold text-slate-800">{{ ch.created_by.get_full_name|default:ch.created_by.username }}</span>
+                                <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">dispatched</span>
+                                <span class="text-[9px] text-slate-400">{{ ch.created_at|date:"M d, H:i" }}</span>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-1">{{ ch.dispatch_message }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% for s in ch.steps.all %}
+                    {% if s.status != 'pending' %}
+                    <div class="px-6 py-4 flex items-start gap-3">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0
+                            {% if s.status == 'approved' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                            {{ s.approver.user.get_full_name|default:s.approver.user.username|first }}
+                        </span>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-bold text-slate-800">{{ s.approver }}</span>
+                                <span class="text-[9px] font-black uppercase tracking-widest {% if s.status == 'approved' %}text-green-600{% else %}text-red-600{% endif %}">
+                                    {% if s.status == 'approved' %}✓ Approved{% else %}✗ Rejected{% endif %}
+                                </span>
+                                {% if s.actioned_at %}<span class="text-[9px] text-slate-400">{{ s.actioned_at|date:"M d, H:i" }}</span>{% endif %}
+                            </div>
+                            {% if s.note %}<p class="text-xs text-slate-500 italic mt-1">"{{ s.note }}"</p>{% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% empty %}
+                    <div class="px-6 py-8 text-center text-xs text-slate-400 italic">No dispatch activity yet for this version.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <!-- Right: chain of command + versions (sticky) -->
+        <div class="w-72 shrink-0 space-y-5 sticky top-24">
+
+            <!-- All versions of this document -->
+            {% if all_versions %}
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Document Versions</p>
+                <ol class="space-y-2">
+                    {% for v in all_versions %}
+                    <li>
+                        <button onclick="showVersion({{ v.pk }})"
+                                id="vtab-{{ v.pk }}"
+                                class="w-full text-left flex items-start gap-3 px-3 py-2 rounded-xl transition-colors hover:bg-slate-50
+                                    {% if v.pk == document.pk %}bg-slate-100{% endif %}">
+                            <span class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0
+                                {% if v.pk == document.pk %}bg-blue-100 text-blue-700
+                                {% elif v.status == 'approved' %}bg-green-100 text-green-700
+                                {% elif v.status == 'rejected' %}bg-red-100 text-red-700
+                                {% else %}bg-slate-100 text-slate-400{% endif %}">
+                                v{{ v.version }}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-bold text-slate-800 truncate">{{ v.title|default:"Untitled" }}</p>
+                                <p class="text-[10px] font-bold uppercase tracking-widest
+                                    {% if v.status == 'approved' %}text-green-600
+                                    {% elif v.status == 'rejected' %}text-red-500
+                                    {% elif v.status == 'in_transit' %}text-blue-600
+                                    {% else %}text-slate-400{% endif %}">
+                                    {{ v.get_status_display }}
+                                </p>
+                                <p class="text-[10px] text-slate-400">{{ v.uploaded_at|date:"M d, Y" }}</p>
+                            </div>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Chain of Command</p>
+                <ol class="space-y-2">
+                    {% for s in chain.steps.all %}
+                    <li class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0
+                            {% if s.status == 'approved' %}bg-green-100 text-green-700
+                            {% elif s.status == 'rejected' %}bg-red-100 text-red-700
+                            {% elif s.order == chain.current_step %}bg-blue-100 text-blue-700
+                            {% else %}bg-slate-100 text-slate-400{% endif %}">
+                            {{ s.order }}
+                        </span>
+                        <div>
+                            <p class="text-xs font-bold text-slate-800">{{ s.approver }}</p>
+                            <p class="text-[10px] font-bold uppercase tracking-widest
+                                {% if s.status == 'approved' %}text-green-600
+                                {% elif s.status == 'rejected' %}text-red-500
+                                {% elif s.order == chain.current_step %}text-blue-600
+                                {% else %}text-slate-400{% endif %}">
+                                {% if s.status == 'approved' %}✓ Approved
+                                {% elif s.status == 'rejected' %}✗ Rejected
+                                {% elif s.order == chain.current_step %}⏳ Awaiting
+                                {% else %}Pending{% endif %}
+                            </p>
+                            {% if s.note %}
+                            <div class="mt-1 px-2 py-1.5 rounded-lg {% if s.status == 'approved' %}bg-green-50 border border-green-100{% else %}bg-red-50 border border-red-100{% endif %}">
+                                <p class="text-xs text-slate-600 italic">"{{ s.note }}"</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+
+    </div>
+</div>
+<script>
+function showVersion(pk) {
+    document.querySelectorAll('[id^="vthread-"]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[id^="vtab-"]').forEach(el => el.classList.remove('bg-slate-100'));
+    document.getElementById('vthread-' + pk).classList.remove('hidden');
+    document.getElementById('vtab-' + pk).classList.add('bg-slate-100');
+}
+</script>
+{% endblock %}

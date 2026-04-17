@@ -11,48 +11,113 @@
         <div class="space-y-4">
             {% for chain in chains %}
             <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                    <div>
-                        <a href="{{ chain.file.get_absolute_url }}" class="font-bold text-slate-900 hover:text-nigeria-green">
-                            {{ chain.file.file_number }} — {{ chain.file.title }}
-                        </a>
-                        <p class="text-xs text-slate-400 mt-0.5">Started {{ chain.created_at|date:"M d, Y" }}</p>
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-slate-100">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <a href="{{ chain.file.get_absolute_url }}" class="font-bold text-slate-900 hover:text-nigeria-green">
+                                {{ chain.file.file_number }} — {{ chain.file.title }}
+                            </a>
+                            {% if chain.document %}
+                            <p class="text-xs text-slate-500 mt-0.5">Document: <span class="font-semibold">{{ chain.document.title|default:"Minute/Signal" }}</span></p>
+                            {% endif %}
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                Initiated by {{ chain.created_by.get_full_name|default:chain.created_by.username }}
+                                · {{ chain.created_at|date:"M d, Y" }}
+                            </p>
+                        </div>
+                        <span class="shrink-0 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border
+                            {% if chain.status == 'active' %}bg-blue-50 text-blue-600 border-blue-100
+                            {% elif chain.status == 'closed' %}bg-green-50 text-green-600 border-green-100
+                            {% elif chain.status == 'rejected' %}bg-red-50 text-red-600 border-red-100
+                            {% else %}bg-amber-50 text-amber-600 border-amber-100{% endif %}">
+                            {{ chain.get_status_display }}
+                        </span>
                     </div>
-                    <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border
-                        {% if chain.status == 'active' %}bg-blue-50 text-blue-600 border-blue-100
-                        {% elif chain.status == 'closed' %}bg-green-50 text-green-600 border-green-100
-                        {% elif chain.status == 'rejected' %}bg-red-50 text-red-600 border-red-100
-                        {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
-                        {{ chain.get_status_display }}
-                    </span>
                 </div>
+
+                <!-- Chain of command -->
                 <div class="px-6 py-4">
-                    <ol class="flex flex-col gap-2">
+                    <ol class="space-y-2">
                         {% for step in chain.steps.all %}
-                        <li class="flex items-center gap-3 text-sm">
-                            <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black
-                                {% if step.status == 'approved' %}bg-green-100 text-green-600
-                                {% elif step.status == 'rejected' %}bg-red-100 text-red-600
-                                {% elif step.order == chain.current_step and chain.status == 'active' %}bg-blue-100 text-blue-600
+                        <li class="flex items-center gap-3">
+                            <span class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0
+                                {% if step.status == 'approved' %}bg-green-100 text-green-700
+                                {% elif step.status == 'rejected' %}bg-red-100 text-red-700
+                                {% elif step.order == chain.current_step and chain.status == 'active' %}bg-blue-100 text-blue-700
                                 {% else %}bg-slate-100 text-slate-400{% endif %}">
                                 {{ step.order }}
                             </span>
-                            <span class="font-medium text-slate-700">{{ step.approver }}</span>
-                            {% if step.status == 'approved' %}
-                                <span class="text-[10px] text-green-600 font-bold">Approved</span>
-                                {% if step.note %}<span class="text-xs text-slate-400 italic">"{{ step.note|truncatechars:60 }}"</span>{% endif %}
-                            {% elif step.status == 'rejected' %}
-                                <span class="text-[10px] text-red-600 font-bold">Rejected</span>
-                                {% if step.note %}<span class="text-xs text-slate-400 italic">"{{ step.note|truncatechars:60 }}"</span>{% endif %}
-                            {% elif step.order == chain.current_step and chain.status == 'active' %}
-                                <span class="text-[10px] text-blue-600 font-bold">Waiting</span>
-                            {% else %}
-                                <span class="text-[10px] text-slate-400">Pending</span>
-                            {% endif %}
+                            <div class="flex-1">
+                                <p class="text-xs font-bold text-slate-800">{{ step.approver }}</p>
+                                <p class="text-[10px] font-bold uppercase tracking-widest
+                                    {% if step.status == 'approved' %}text-green-600
+                                    {% elif step.status == 'rejected' %}text-red-500
+                                    {% elif step.order == chain.current_step and chain.status == 'active' %}text-blue-600
+                                    {% else %}text-slate-400{% endif %}">
+                                    {% if step.status == 'approved' %}✓ Approved
+                                    {% elif step.status == 'rejected' %}✗ Rejected
+                                    {% elif step.order == chain.current_step and chain.status == 'active' %}⏳ Awaiting
+                                    {% else %}Pending{% endif %}
+                                </p>
+                                {% if step.note %}<p class="text-[10px] text-slate-400 italic mt-0.5">"{{ step.note|truncatechars:80 }}"</p>{% endif %}
+                            </div>
                         </li>
+                        {% empty %}
+                        <li class="text-xs text-slate-400 italic">No steps defined.</li>
                         {% endfor %}
                     </ol>
                 </div>
+
+                {% if chain.status == 'draft' %}
+                <div class="px-6 py-3 border-t border-slate-100 flex gap-3">
+                    <form method="post" action="{% url 'document_management:chain_start' file_pk=chain.file.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="px-4 py-2 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors">
+                            Start Chain
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'document_management:chain_delete' file_pk=chain.file.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-widest py-2">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+                {% elif chain.status == 'active' %}
+                    {% for step in chain.steps.all %}
+                        {% if step.order == chain.current_step and step.approver == staff %}
+                        <div class="px-6 py-4 border-t border-slate-100 bg-blue-50">
+                            <p class="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-3">Your Action Required</p>
+                            {% if step.review_url %}
+                            <a href="{{ step.review_url }}"
+                               class="inline-flex items-center gap-2 text-xs font-bold text-nigeria-green hover:underline mb-3 block">
+                                <i class="fas fa-file-alt"></i> Review Document ↗
+                            </a>
+                            {% endif %}
+                            <form method="post" action="{% url 'document_management:step_action' step_pk=step.pk %}" id="action-form-{{ step.pk }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" id="action-{{ step.pk }}">
+                                <textarea name="note" placeholder="Add a note (optional)..."
+                                          rows="2"
+                                          class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-nigeria-green resize-none mb-3"></textarea>
+                                <div class="flex gap-2">
+                                    <button type="button"
+                                            onclick="document.getElementById('action-{{ step.pk }}').value='approve'; document.getElementById('action-form-{{ step.pk }}').submit()"
+                                            class="px-4 py-2 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors">
+                                        ✓ Approve
+                                    </button>
+                                    <button type="button"
+                                            onclick="document.getElementById('action-{{ step.pk }}').value='reject'; document.getElementById('action-form-{{ step.pk }}').submit()"
+                                            class="px-4 py-2 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-red-600 transition-colors">
+                                        ✗ Reject
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
             </div>
             {% endfor %}
         </div>

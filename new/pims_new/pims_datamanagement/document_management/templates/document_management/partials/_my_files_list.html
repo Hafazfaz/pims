@@ -44,49 +44,38 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
-                        {% for doc in folder.documents.all|slice:":5" %}
+                        {% for doc in folder.documents.all %}
+                        {% if not doc.next_versions.exists %}
                             <tr class="hover:bg-slate-50/50 transition-colors">
                                 <td class="px-8 py-5">
                                     <div class="flex items-center gap-3">
-                                        <svg class="w-4 h-4 text-slate-300"
-                                             fill="none"
-                                             stroke="currentColor"
-                                             viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z">
-                                            </path>
+                                        <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                         </svg>
                                         <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="font-bold text-slate-700 text-sm hover:text-nigeria-green hover:underline transition-colors">
                                             {% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}
                                         </a>
+                                        {% if doc.version > 1 %}<span class="text-[9px] font-black text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">v{{ doc.version }}</span>{% endif %}
                                     </div>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">
-                                        {% if doc.minute_content %}
-                                            Internal Minute
-                                        {% else %}
-                                            Attachment
-                                        {% endif %}
-                                    </span>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">{% if doc.minute_content %}Internal Minute{% else %}Attachment{% endif %}</span>
                                 </td>
                                 <td class="px-8 py-5">
                                     <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     {% if doc.attachment %}
-                                        <a href="{% url 'document_management:document_download' doc.pk %}"
-                                           class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
+                                        <a href="{% url 'document_management:document_download' doc.pk %}" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
                                     {% else %}
                                         <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
                                     {% endif %}
                                 </td>
                             </tr>
+                        {% endif %}
                         {% empty %}
                             <tr>
-                                <td colspan="4"
-                                    class="px-8 py-10 text-center text-slate-300 italic text-xs font-medium">
-                                    No official documents indexed in this folder.
-                                </td>
+                                <td colspan="4" class="px-8 py-10 text-center text-slate-300 italic text-xs font-medium">No official documents indexed in this folder.</td>
                             </tr>
                         {% endfor %}
                         {% if folder.documents.count > 5 %}
