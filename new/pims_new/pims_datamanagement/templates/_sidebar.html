@@ -97,6 +97,11 @@
                         <i class="fas fa-project-diagram w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Chain Templates</span>
                     </a>
+                    <a href="{% url 'document_management:all_active_chains' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'chains/all' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-stream w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Active Chains</span>
+                    </a>
                 </div>
             </div>
             {% endif %}

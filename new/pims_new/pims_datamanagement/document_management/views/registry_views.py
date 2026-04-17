@@ -279,7 +279,7 @@ class StaffFolderHubView(RegistryRequiredMixin, DetailView):
         personal_file = File.objects.filter(file_type='personal', owner=staff).first()
         context['personal_file'] = personal_file
         if personal_file:
-            context['documents'] = personal_file.documents.select_related('uploaded_by').order_by('-uploaded_at')
+            context['documents'] = personal_file.documents.filter(next_versions__isnull=True).select_related('uploaded_by').order_by('-uploaded_at')
             context['active_chain'] = ApprovalChain.objects.filter(file=personal_file, status='active').first()
             context['all_chains'] = ApprovalChain.objects.filter(file=personal_file).order_by('-created_at')
         return context

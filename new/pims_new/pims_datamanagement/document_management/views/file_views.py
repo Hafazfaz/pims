@@ -624,17 +624,27 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         ).select_related('document').prefetch_related('steps__approver__user').first()
 
         # Build unified chronicle
-        documents = list(file_obj.documents.select_related('uploaded_by').all())
+        documents = list(file_obj.documents.filter(next_versions__isnull=True).select_related('uploaded_by').all())
         audit_entries = list(AuditLogEntry.objects.filter(
             object_id=file_obj.pk,
             content_type__model='file'
         ).select_related('user').order_by('timestamp'))
+
+        # Chain step activity
+        from document_management.models import ApprovalStep
+        chain_steps = list(ApprovalStep.objects.filter(
+            chain__file=file_obj,
+            status__in=['approved', 'rejected'],
+            actioned_at__isnull=False,
+        ).select_related('approver__user', 'chain__document').order_by('actioned_at'))
 
         chronicle = []
         for doc in documents:
             chronicle.append({'type': 'document', 'item': doc, 'timestamp': doc.uploaded_at})
         for entry in audit_entries:
             chronicle.append({'type': 'audit', 'item': entry, 'timestamp': entry.timestamp})
+        for step in chain_steps:
+            chronicle.append({'type': 'chain_step', 'item': step, 'timestamp': step.actioned_at})
 
         chronicle.sort(key=lambda x: x['timestamp'])
         context["chronicle"] = chronicle
@@ -971,10 +981,11 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         if file_pk:
             try:
                 selected_file = File.objects.get(pk=file_pk)
-                documents = selected_file.documents.order_by('-uploaded_at')[:10]
+                latest_docs = selected_file.documents.filter(next_versions__isnull=True).order_by('-uploaded_at')
+                documents = latest_docs[:10]
                 context['selected_file'] = selected_file
                 context['documents'] = documents
-                context['has_more_documents'] = selected_file.documents.count() > 10
+                context['has_more_documents'] = latest_docs.count() > 10
             except File.DoesNotExist:
                 pass
 
