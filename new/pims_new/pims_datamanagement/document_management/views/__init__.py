@@ -27,6 +27,7 @@ from .document_views import (  # noqa: F401
     DocumentUploadView,
     DocumentDeleteView,
     DocumentDetailView,
+    DocumentNewVersionView,
     FileDocumentsView,
     DocumentShareView,
     DocumentDownloadView,
@@ -43,6 +44,8 @@ from .search_views import (  # noqa: F401
 )
 from .approval_views import (  # noqa: F401
     MyApprovalChainsView,
+    AllActiveChainsView,
+    ApprovalReviewView,
     ApprovalChainCreateView,
     ApprovalChainBuilderView,
     ApprovalChainStartView,
