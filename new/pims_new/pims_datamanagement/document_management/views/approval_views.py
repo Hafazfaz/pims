@@ -112,6 +112,7 @@ class AllActiveChainsView(RegistryRequiredMixin, ListView):
 class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
     template_name = "document_management/my_chains.html"
     context_object_name = "chains"
+    paginate_by = 10
 
     def get_queryset(self):
         staff = getattr(self.request.user, 'staff', None)
