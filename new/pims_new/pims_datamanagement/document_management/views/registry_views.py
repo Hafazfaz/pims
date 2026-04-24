@@ -10,7 +10,7 @@ from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from organization.models import Staff, Department, Unit
 from core.constants import FILE_TYPE_CHOICES
-from ..models import File, FileAccessRequest, ApprovalChain
+from ..models import File, FileAccessRequest, ApprovalChain, FileMovement, Document
 from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin, EXCLUDE_REGISTRY_Q
 
 class RegistryHubView(RegistryRequiredMixin, ListView):
@@ -308,3 +308,49 @@ class StaffFolderListView(RegistryRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['search_query'] = self.request.GET.get('q', '')
         return context
+
+
+class CloseMovementView(RegistryRequiredMixin, View):
+    """
+    Manually close a movement registry entry.
+    Requires either a version_reference (previous Document) or a file_reference (another File).
+    Also verifies no pending actions exist on the file before closing.
+    """
+
+    def post(self, request, pk):
+        movement = get_object_or_404(FileMovement, pk=pk)
+        file_obj = movement.file
+
+        if movement.action == 'closed':
+            messages.error(request, "This movement has already been closed.")
+            return redirect(file_obj.get_absolute_url())
+
+        # No pending actions allowed
+        if file_obj.access_requests.filter(status='pending').exists():
+            messages.error(request, "Cannot close movement: file has pending access requests.")
+            return redirect(file_obj.get_absolute_url())
+
+        if file_obj.is_in_active_chain:
+            messages.error(request, "Cannot close movement: file is in an active approval chain.")
+            return redirect(file_obj.get_absolute_url())
+
+        version_ref_id = request.POST.get('version_reference')
+        file_ref_id = request.POST.get('file_reference')
+
+        if not version_ref_id and not file_ref_id:
+            messages.error(request, "You must reference a previous document version or another file to close this movement.")
+            return redirect(file_obj.get_absolute_url())
+
+        if version_ref_id:
+            movement.version_reference = get_object_or_404(Document, pk=version_ref_id, file=file_obj)
+        if file_ref_id:
+            movement.file_reference = get_object_or_404(File, pk=file_ref_id)
+
+        movement.action = 'closed'
+        movement.closed_at = timezone.now()
+        movement.save(update_fields=['action', 'closed_at', 'version_reference', 'file_reference'])
+
+        log_action(request.user, "MOVEMENT_CLOSED", request=request, obj=file_obj,
+                   details={"movement_id": movement.pk})
+        messages.success(request, f"Movement for {file_obj.file_number} closed successfully.")
+        return redirect(file_obj.get_absolute_url())

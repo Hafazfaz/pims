@@ -307,7 +307,20 @@ class FileMovement(models.Model):
     note = models.TextField(blank=True, default='')
     attachment = models.FileField(upload_to='movement_attachments/', blank=True, null=True)
     moved_at = models.DateTimeField(auto_now_add=True)
-    action = models.CharField(max_length=20, default='sent')  # 'sent' or 'recalled'
+    action = models.CharField(max_length=20, default='sent')  # 'sent', 'recalled', 'closed'
+
+    # End-of-movement registry fields (required on close)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    version_reference = models.ForeignKey(
+        'Document', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='movement_version_refs',
+        help_text="Previous version of a document referenced at end of movement."
+    )
+    file_reference = models.ForeignKey(
+        File, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='movement_file_refs',
+        help_text="Another file referenced at end of movement."
+    )
 
     class Meta:
         ordering = ['-moved_at']

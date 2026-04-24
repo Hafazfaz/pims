@@ -52,4 +52,5 @@ urlpatterns = [
     path('approval-step/<int:step_pk>/review/<str:token>/', views.ApprovalReviewView.as_view(), name='step_review'),
     path('staff/<int:pk>/folder-hub/', views.StaffFolderHubView.as_view(), name='staff_folder_hub'),
     path('staff/folders/', views.StaffFolderListView.as_view(), name='staff_folder_list'),
+    path('movement/<int:pk>/close/', views.CloseMovementView.as_view(), name='movement_close'),
 ]

@@ -682,6 +682,11 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.error(request, "This file is locked in an approval chain and cannot be moved.")
                 return redirect(file_obj.get_absolute_url())
 
+            # Block if there are pending access requests on the file
+            if file_obj.access_requests.filter(status='pending').exists():
+                messages.error(request, "This file has pending access requests. Resolve them before sending.")
+                return redirect(file_obj.get_absolute_url())
+
             if file_obj.current_location != staff_user and not is_registry:
                 messages.error(request, "Only the current custodian or registry can send this file.")
                 return redirect(file_obj.get_absolute_url())
@@ -692,7 +697,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 old_location = file_obj.current_location
                 note = request.POST.get("movement_note", "")
                 file_obj.current_location = recipient
-                file_obj.status = 'active'
+                file_obj.status = 'in_transit'
                 file_obj.save()
 
                 FileMovement.objects.create(
@@ -719,6 +724,18 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 )
                 messages.success(request, f"File sent to {recipient.user.get_full_name()}.")
                 return redirect("document_management:my_files")
+
+        elif action == "acknowledge_receipt":
+            staff_user = getattr(request.user, 'staff', None)
+            if file_obj.current_location != staff_user:
+                messages.error(request, "You are not the current custodian of this file.")
+                return redirect(file_obj.get_absolute_url())
+            if file_obj.status == 'in_transit':
+                file_obj.status = 'active'
+                file_obj.save(update_fields=['status'])
+                log_action(request.user, "FILE_RECEIVED", request=request, obj=file_obj)
+                messages.success(request, f"Receipt of file {file_obj.file_number} acknowledged.")
+            return redirect(file_obj.get_absolute_url())
 
         elif action == "update_document_status":
             doc_id = request.POST.get("document_id")
