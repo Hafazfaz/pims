@@ -16,58 +16,11 @@
             <span class="text-slate-600 font-medium">Document View</span>
         </div>
 
-        <!-- Layout: top row (versions + content) | bottom row (chains) -->
+        <!-- Layout: document content | chains -->
         <div class="flex flex-col gap-4" style="height: calc(100vh - 12rem);">
 
-        <!-- Top row: versions strip + document content -->
+        <!-- Top row: document content -->
         <div class="flex gap-4 min-h-0" style="flex: 3;">
-
-            <!-- Versions strip -->
-            <div class="w-40 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
-                <div class="px-3 py-3 border-b border-slate-100 shrink-0">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Versions</p>
-                    <p class="text-[9px] text-slate-300 mt-0.5">{{ all_versions|length }} total</p>
-                </div>
-                <div class="overflow-y-auto flex-1 divide-y divide-slate-100">
-                    {% for v in all_versions %}
-                    <div id="vtab-{{ v.pk }}">
-                        <a href="{% url 'document_management:document_detail' pk=v.pk %}"
-                           hx-get="{% url 'document_management:document_detail' pk=v.pk %}"
-                           hx-target="#document-main-panel"
-                           hx-swap="innerHTML"
-                           hx-push-url="{% url 'document_management:document_detail' pk=v.pk %}"
-                           onclick="setActiveVersion({{ v.pk }})"
-                           class="flex items-center gap-2.5 px-3 py-3 hover:bg-slate-50 transition-colors {% if v.pk == document.pk %}bg-indigo-50{% endif %}">
-                            <span class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black shrink-0
-                                {% if v.pk == document.pk %}bg-indigo-600 text-white
-                                {% elif v.status == 'approved' %}bg-green-100 text-green-700
-                                {% elif v.status == 'rejected' %}bg-red-100 text-red-600
-                                {% elif v.status == 'in_transit' %}bg-blue-100 text-blue-600
-                                {% else %}bg-slate-100 text-slate-400{% endif %}">
-                                v{{ v.version }}
-                            </span>
-                            <div class="min-w-0">
-                                {% if not v.next_versions.exists %}<span class="text-[8px] text-nigeria-green font-black block">LATEST</span>{% endif %}
-                                <p class="text-[9px] font-bold uppercase tracking-widest
-                                    {% if v.status == 'approved' %}text-green-600
-                                    {% elif v.status == 'rejected' %}text-red-500
-                                    {% elif v.status == 'in_transit' %}text-blue-600
-                                    {% else %}text-slate-400{% endif %}">{{ v.get_status_display }}</p>
-                                <p class="text-[9px] text-slate-300">{{ v.uploaded_at|date:"M d" }}</p>
-                            </div>
-                        </a>
-                        {% if v.pk != document.pk and v.next_versions.exists and can_add_minute and not has_active_chain %}
-                        <div class="px-3 pb-2">
-                            <form method="post" action="{% url 'document_management:document_new_version' pk=v.pk %}">
-                                {% csrf_token %}
-                                <button type="submit" class="text-[8px] font-black text-amber-500 hover:text-amber-700 uppercase tracking-widest">↺ Restore</button>
-                            </form>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
 
             <!-- Document content (centre, scrollable) -->
             <div class="flex-1 min-w-0 overflow-y-auto">
@@ -85,18 +38,6 @@
                             <span class="uppercase tracking-wider text-[11px] font-bold">Uploaded by: {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }}</span>
                             <span>•</span>
                             <span class="uppercase tracking-wider text-[11px] font-bold">{{ document.uploaded_at|date:"M d, Y @ H:i" }}</span>
-                            {% if document.version > 1 %}
-                            <span>•</span>
-                            <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-bold">Version {{ document.version }}</span>
-                            {% endif %}
-                            {% if document.previous_version %}
-                            <a href="{% url 'document_management:document_detail' pk=document.previous_version.pk %}"
-                               class="text-[10px] font-bold text-slate-400 hover:text-slate-600">← v{{ document.previous_version.version }}</a>
-                            {% endif %}
-                            {% if document.next_versions.exists %}
-                            <a href="{% url 'document_management:document_detail' pk=document.next_versions.first.pk %}"
-                               class="text-[10px] font-bold text-nigeria-green hover:underline">v{{ document.next_versions.first.version }} →</a>
-                            {% endif %}
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -300,6 +241,17 @@
                         <textarea name="dispatch_message" rows="3" placeholder="Add a note for the approver..."
                                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-400 resize-none"></textarea>
                     </div>
+                    {% if reference_files %}
+                    <div>
+                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Reference File (optional)</label>
+                        <select name="reference_file" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                            <option value="">— None —</option>
+                            {% for rf in reference_files %}
+                            <option value="{{ rf.pk }}">{{ rf.file_number }} — {{ rf.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
                     <div class="flex gap-3 pt-2">
                         <button type="button" @click="showDispatchModal = false"
                                 class="flex-1 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all">

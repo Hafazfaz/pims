@@ -16,4 +16,11 @@ dependencies = [
     "django-widget-tweaks>=1.5.0",
     "python-dotenv>=1.2.1",
     "celery>=5.6.2",
+    "django-unfold",
+    "numpy>=2.0",
+    "django-summernote>=0.8.20.0",
+    "pypdf2>=3.0.1",
+    "bw2io[multifunctional]>=0.9.17",
+    "reportlab>=4.4.10",
+    "whitenoise",
 ]

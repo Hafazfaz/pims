@@ -73,18 +73,9 @@ class ApprovalReviewView(HTMXLoginRequiredMixin, View):
         # Collect all versions of the dispatched document
         from document_management.models import ApprovalChain as AC
         dispatched_doc = chain.document
-        all_versions = []
-        if dispatched_doc:
-            root = dispatched_doc
-            while root.previous_version:
-                root = root.previous_version
-            def _collect(d):
-                all_versions.append(d)
-                for nxt in d.next_versions.all().order_by('version'):
-                    _collect(nxt)
-            _collect(root)
+        all_versions = [dispatched_doc] if dispatched_doc else []
 
-        # Attach per-version conversation data (dispatches + approval steps)
+        # Attach per-document conversation data (dispatches + approval steps)
         from document_management.models import ApprovalChain as AC
         for v in all_versions:
             v_chains = AC.objects.filter(document=v).prefetch_related('steps__approver__user').select_related('created_by').order_by('created_at')
@@ -462,10 +453,17 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         dispatch_message = request.POST.get('dispatch_message', '').strip()
+        reference_file_id = request.POST.get('reference_file')
+        reference_file = None
+        if reference_file_id:
+            from document_management.models import File as FileModel
+            reference_file = FileModel.objects.filter(pk=reference_file_id).first()
+
         chain = ApprovalChain.objects.create(
             document=document, file=file_obj,
             created_by=request.user, status='draft',
             dispatch_message=dispatch_message,
+            reference_file=reference_file,
         )
         unresolved = []
         for step in tmpl.steps.all():

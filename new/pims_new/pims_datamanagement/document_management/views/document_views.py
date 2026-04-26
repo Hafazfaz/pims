@@ -197,45 +197,23 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         )
 
         can_send_file = False
-        is_latest_version = not document.next_versions.exists()
-        # Can only dispatch if: active file, no active chain, latest version, AND not already approved
-        if file_obj.status == 'active' and not file_obj.is_in_active_chain and is_latest_version and document.status != 'approved':
+        # Can only dispatch if: active file, no active chain, AND not already approved
+        if file_obj.status == 'active' and not file_obj.is_in_active_chain and document.status != 'approved':
             if is_owner or is_custodian or is_registry:
                 can_send_file = True
 
         context["can_send_file"] = can_send_file
-        context["is_latest_version"] = is_latest_version
         context["has_active_chain"] = file_obj.is_in_active_chain
         context["document_is_approved"] = document.status == 'approved'
 
-        # Document chronicle — all versions + approval activity on this document's chain
-        root = document
-        while root.previous_version:
-            root = root.previous_version
-
+        # Document chronicle — approval activity on this document
         doc_chronicle = []
-        def walk(doc):
-            doc_chronicle.append({'type': 'version', 'item': doc, 'timestamp': doc.uploaded_at})
-            for chain in doc.approval_chains.all():
-                for step in chain.steps.filter(status__in=['approved','rejected']).select_related('approver__user').order_by('actioned_at'):
-                    doc_chronicle.append({'type': 'approval', 'item': step, 'timestamp': step.actioned_at})
-            for nxt in doc.next_versions.all().order_by('version'):
-                walk(nxt)
-        walk(root)
+        doc_chronicle.append({'type': 'version', 'item': document, 'timestamp': document.uploaded_at})
+        for chain in document.approval_chains.all():
+            for step in chain.steps.filter(status__in=['approved', 'rejected']).select_related('approver__user').order_by('actioned_at'):
+                doc_chronicle.append({'type': 'approval', 'item': step, 'timestamp': step.actioned_at})
         doc_chronicle.sort(key=lambda x: x['timestamp'])
         context['doc_chronicle'] = doc_chronicle
-
-        # All versions of this document (walk to root, then get all next_versions)
-        root = document
-        while root.previous_version:
-            root = root.previous_version
-        all_versions = [root]
-        def collect(doc):
-            for nxt in doc.next_versions.all().order_by('version'):
-                all_versions.append(nxt)
-                collect(nxt)
-        collect(root)
-        context["all_versions"] = all_versions
 
         # Chain templates available for dispatch
         from document_management.models import ChainTemplate, ApprovalChain as AC
@@ -244,6 +222,8 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         context["available_chain_templates"] = ChainTemplate.objects.filter(
             is_active=True
         ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
+        # All active files except the current one — for reference file picker
+        context["reference_files"] = File.objects.filter(status='active').exclude(pk=document.file.pk).order_by('file_number')
         active_chain = document.approval_chains.filter(status='active').first()
         chain_is_active = active_chain is not None
         context["document_has_chain"] = chain_is_active

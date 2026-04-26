@@ -197,14 +197,6 @@ class Document(models.Model):
         blank=True, 
         related_name='replies'
     )
-    # Versioning — previous version of this document
-    previous_version = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='next_versions'
-    )
-    version = models.PositiveIntegerField(default=1)
 
     # A document can be either a text minute or an uploaded file
     minute_content = models.TextField(blank=True, null=True)
@@ -345,7 +337,11 @@ class ApprovalChain(models.Model):
     dispatch_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     current_step = models.PositiveIntegerField(default=1)
-
+    reference_file = models.ForeignKey(
+        File, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='referenced_in_chains',
+        help_text="Optional reference to a previously created or dispatched file."
+    )
     def __str__(self):
         if self.document:
             return f"Chain for doc '{self.document}' [{self.status}]"

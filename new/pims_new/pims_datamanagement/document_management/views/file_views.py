@@ -624,7 +624,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         ).select_related('document').prefetch_related('steps__approver__user').first()
 
         # Build unified chronicle
-        documents = list(file_obj.documents.filter(next_versions__isnull=True).select_related('uploaded_by').all())
+        documents = list(file_obj.documents.select_related('uploaded_by').all())
         audit_entries = list(AuditLogEntry.objects.filter(
             object_id=file_obj.pk,
             content_type__model='file'
@@ -867,6 +867,13 @@ class FileCloseView(LoginRequiredMixin, UserPassesTestMixin, View):
 
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
+
+        open_chains = file_obj.approval_chains.filter(status='active')
+        if open_chains.exists():
+            chain_list = ", ".join(str(c.pk) for c in open_chains)
+            messages.error(request, f"Cannot close file: {open_chains.count()} active chain(s) must be resolved first (chain IDs: {chain_list}).")
+            return redirect(file_obj.get_absolute_url())
+
         file_obj.status = 'closed'
         file_obj.save()
         log_action(request.user, "FILE_CLOSED", request=request, obj=file_obj)
@@ -1015,7 +1022,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         if file_pk:
             try:
                 selected_file = File.objects.get(pk=file_pk)
-                latest_docs = selected_file.documents.filter(next_versions__isnull=True).order_by('-uploaded_at')
+                latest_docs = selected_file.documents.order_by('-uploaded_at')
                 documents = latest_docs[:10]
                 context['selected_file'] = selected_file
                 context['documents'] = documents

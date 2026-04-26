@@ -99,7 +99,7 @@
             <div id="vthread-{{ v.pk }}" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden {% if v.pk != document.pk %}hidden{% endif %}">
                 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Version {{ v.version }} Conversation</p>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Conversation</p>
                         <p class="text-xs text-slate-500 mt-0.5">{{ v.title|default:"Untitled" }} · {{ v.uploaded_at|date:"M d, Y" }}</p>
                     </div>
                     <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full
@@ -196,7 +196,7 @@
                                 {% elif v.status == 'approved' %}bg-green-100 text-green-700
                                 {% elif v.status == 'rejected' %}bg-red-100 text-red-700
                                 {% else %}bg-slate-100 text-slate-400{% endif %}">
-                                v{{ v.version }}
+                                #
                             </span>
                             <div class="min-w-0">
                                 <p class="text-xs font-bold text-slate-800 truncate">{{ v.title|default:"Untitled" }}</p>

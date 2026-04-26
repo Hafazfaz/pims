@@ -256,9 +256,6 @@
                                                                             Minute / Signal
                                                                         {% endif %}
                                                                     </a>
-                                                                    {% if entry.item.version > 1 %}
-                                                                    <span class="ml-1 px-2 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">v{{ entry.item.version }}</span>
-                                                                    {% endif %}
                                                                     <span class="ml-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {% if entry.item.status == 'approved' %}bg-green-100 text-green-700 {% elif entry.item.status == 'cancelled' %}bg-red-100 text-red-700 line-through decoration-red-700 {% else %}bg-amber-100 text-amber-700{% endif %}">
                                                                         {{ entry.item.get_status_display }}
                                                                     </span>
@@ -518,14 +515,52 @@
                                 {% endif %}
                                 {% if file.status == 'active' %}
                                     {% if user.staff.is_registry or user.is_superuser %}
-                                        <form action="{% url 'document_management:file_close' pk=file.pk %}"
-                                              method="post">
-                                            {% csrf_token %}
-                                            <button type="submit"
+                                        {% with open_chains=file.approval_chains.all %}
+                                        <div x-data="{ showCloseModal: false }">
+                                            <button @click="showCloseModal = true"
                                                     class="w-full py-4 bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
                                                 Close File
                                             </button>
-                                        </form>
+                                            <!-- Close File Confirmation Modal -->
+                                            <div x-show="showCloseModal" x-cloak
+                                                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                                                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8 space-y-5">
+                                                    <h3 class="text-base font-black text-slate-900 uppercase tracking-widest">Close File?</h3>
+                                                    <p class="text-sm text-slate-600">Please confirm you have reviewed the file and it is ready to be closed. This action cannot be undone.</p>
+
+                                                    {% with active_chains=file.approval_chains.all %}
+                                                    {% if active_chains %}
+                                                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                                                        <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">⚠ Open Chains — Must Be Resolved</p>
+                                                        {% for chain in active_chains %}
+                                                        {% if chain.status == 'active' %}
+                                                        <div class="flex items-center justify-between text-xs text-amber-800">
+                                                            <span class="font-bold">Chain #{{ chain.pk }}{% if chain.document %} — {{ chain.document.title|default:"Untitled" }}{% endif %}</span>
+                                                            <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-800 font-black text-[9px] uppercase">{{ chain.get_status_display }}</span>
+                                                        </div>
+                                                        {% endif %}
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                    {% endwith %}
+
+                                                    <div class="flex gap-3 pt-2">
+                                                        <button @click="showCloseModal = false"
+                                                                class="flex-1 py-3 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
+                                                            Cancel
+                                                        </button>
+                                                        <form action="{% url 'document_management:file_close' pk=file.pk %}" method="post" class="flex-1">
+                                                            {% csrf_token %}
+                                                            <button type="submit"
+                                                                    class="w-full py-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all">
+                                                                Yes, Close File
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endwith %}
                                     {% endif %}
                                 {% endif %}
                                 {% if file.status == 'closed' and perms.document_management.archive_file %}

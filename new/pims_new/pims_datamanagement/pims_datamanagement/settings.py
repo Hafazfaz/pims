@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from pims_datamanagement.unfold_config import UNFOLD
+
 import os
 from pathlib import Path
 
@@ -26,11 +28,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq")
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY", "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq"
+)
 
 DEBUG = os.environ.get("DEBUG", "true").lower() in ["true", "1", "yes"]
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1"
+).split(",")
 
 
 # Application definition
@@ -58,8 +64,6 @@ INSTALLED_APPS = [
     # "axes",
 ]
 
-# Unfold Admin Configuration
-from pims_datamanagement.unfold_config import UNFOLD  # noqa: F401
 
 # TAILWIND_APP_NAME = "theme"
 
@@ -91,7 +95,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "notifications.context_processors.unread_notifications",
-                "notifications.context_processors.pending_activation_count",  # Added this line
+                "notifications.context_processors.pending_activation_count",
             ],
         },
     },
