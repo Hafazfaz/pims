@@ -12,15 +12,37 @@ class RecipientSearchView(LoginRequiredMixin, View):
         if not query or len(query) < 2:
             return HttpResponse("")
 
-        recipients = Staff.objects.filter(
-            Q(headed_department__isnull=False) | Q(headed_unit__isnull=False)
-        ).filter(
+        sender_staff = getattr(request.user, 'staff', None)
+        base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=request.user).select_related(
+            'user', 'designation', 'department', 'unit', 'headed_unit', 'headed_department'
+        )
+
+        if sender_staff:
+            if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
+                # Can send to anyone (non-registry)
+                eligible_qs = base_qs
+            elif sender_staff.is_effective_supervisor:
+                # Can send to any other supervisor
+                eligible_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
+                eligible_qs = base_qs.filter(pk__in=eligible_ids)
+            else:
+                # Regular staff — only direct head
+                allowed_pks = []
+                if sender_staff.unit and sender_staff.unit.head:
+                    allowed_pks.append(sender_staff.unit.head.pk)
+                elif sender_staff.department and sender_staff.department.head:
+                    allowed_pks.append(sender_staff.department.head.pk)
+                eligible_qs = base_qs.filter(pk__in=allowed_pks)
+        else:
+            eligible_qs = base_qs
+
+        recipients = eligible_qs.filter(
             Q(user__username__icontains=query) |
             Q(user__first_name__icontains=query) |
             Q(user__last_name__icontains=query) |
             Q(department__name__icontains=query) |
             Q(unit__name__icontains=query)
-        ).exclude(user=request.user).distinct()[:10]
+        ).distinct()[:10]
 
         html = '<div class="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto">'
         if recipients:
@@ -31,10 +53,10 @@ class RecipientSearchView(LoginRequiredMixin, View):
                 if staff.is_hod:
                     role_label = '<span class="ml-2 text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">HOD</span>'
                 elif staff.is_unit_manager:
-                     role_label = '<span class="ml-2 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">Manager</span>'
+                    role_label = '<span class="ml-2 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">Manager</span>'
 
                 dept_code = staff.department.code if staff.department else 'N/A'
-                
+
                 html += f"""
                 <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors"
                      @click="$dispatch('recipient-selected', {{ id: '{staff.user.id}', username: '{name}' }})">
@@ -44,15 +66,15 @@ class RecipientSearchView(LoginRequiredMixin, View):
                             <p class="text-[10px] text-slate-500 font-medium">{designation}</p>
                         </div>
                         <div class="text-right">
-                             <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{dept_code}</p>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{dept_code}</p>
                         </div>
                     </div>
                 </div>
                 """
         else:
-            html += '<div class="px-4 py-3 text-xs text-slate-500 italic text-center">No matching HODs or Managers found.</div>'
+            html += '<div class="px-4 py-3 text-xs text-slate-500 italic text-center">No eligible recipients found.</div>'
         html += '</div>'
-        
+
         return HttpResponse(html)
 
 class StaffSearchView(LoginRequiredMixin, View):

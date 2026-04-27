@@ -192,6 +192,19 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         self.object = form.save()
 
+        # Auto-grant R&W access to the file owner
+        owner = self.object.owner
+        if owner:
+            FileAccessRequest.objects.get_or_create(
+                file=self.object,
+                requested_by=owner.user,
+                defaults={
+                    'reason': 'Auto-granted on file creation.',
+                    'access_type': 'read_write',
+                    'status': 'approved',
+                }
+            )
+
         for f in self.request.FILES.getlist("attachments"):
             Document.objects.create(
                 file=self.object, attachment=f, uploaded_by=self.request.user
@@ -544,9 +557,32 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         )[:20]
         from organization.models import Staff as StaffModel
         from document_management.views.base import EXCLUDE_REGISTRY_Q
-        context["approver_choices"] = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(
-            user=user
-        ).select_related('user', 'designation').order_by('user__last_name')
+        sender_staff = getattr(user, 'staff', None)
+
+        # Build recipient list based on sender's role
+        base_qs = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=user).select_related('user', 'designation', 'department', 'unit')
+        if sender_staff:
+            if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
+                # HOD/MD/Executive → anyone
+                recipient_qs = base_qs
+            elif sender_staff.is_effective_supervisor:
+                # Supervisor/HOU → any supervisor
+                supervisor_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
+                recipient_qs = base_qs.filter(pk__in=supervisor_ids)
+            else:
+                # Regular staff → direct head only (HOU or HOD)
+                direct_heads = []
+                if sender_staff.unit and sender_staff.unit.head:
+                    direct_heads.append(sender_staff.unit.head.pk)
+                elif sender_staff.department and sender_staff.department.head:
+                    direct_heads.append(sender_staff.department.head.pk)
+                recipient_qs = base_qs.filter(pk__in=direct_heads)
+        else:
+            recipient_qs = base_qs
+
+        context["approver_choices"] = recipient_qs.order_by('user__last_name')
+        context["sender_is_hod_or_above"] = sender_staff and (sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive)
+        context["sender_is_supervisor"] = sender_staff and sender_staff.is_effective_supervisor
         from core.constants import STATUS_CHOICES
         context["status_choices"] = STATUS_CHOICES
 
@@ -634,7 +670,31 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
             form = SendFileForm(request.POST, request.FILES)
             if form.is_valid():
-                recipient = form.cleaned_data["recipient"]
+                recipient_user = form.cleaned_data["recipient"]
+                try:
+                    recipient = recipient_user.staff
+                except Staff.DoesNotExist:
+                    messages.error(request, "Selected recipient has no staff profile.")
+                    return redirect(file_obj.get_absolute_url())
+
+                # Enforce routing rules
+                if not is_registry and staff_user:
+                    if staff_user.is_hod or staff_user.is_md or staff_user.is_executive:
+                        pass  # can send to anyone
+                    elif staff_user.is_effective_supervisor:
+                        if not recipient.is_effective_supervisor:
+                            messages.error(request, "Supervisors can only send files to other supervisors.")
+                            return redirect(file_obj.get_absolute_url())
+                    else:
+                        # Regular staff — only direct head
+                        allowed = []
+                        if staff_user.unit and staff_user.unit.head:
+                            allowed.append(staff_user.unit.head.pk)
+                        elif staff_user.department and staff_user.department.head:
+                            allowed.append(staff_user.department.head.pk)
+                        if recipient.pk not in allowed:
+                            messages.error(request, "You can only send this file to your direct head.")
+                            return redirect(file_obj.get_absolute_url())
                 old_location = file_obj.current_location
                 note = request.POST.get("movement_note", "")
                 file_obj.current_location = recipient

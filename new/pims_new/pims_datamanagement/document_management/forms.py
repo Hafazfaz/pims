@@ -234,21 +234,12 @@ class SendFileForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         if self.user and self.user.is_authenticated:
-            is_unit_manager = Q(staff__headed_unit__isnull=False)
-            is_hod = Q(staff__headed_department__isnull=False)
-            
-            self.fields['recipient'].queryset = CustomUser.objects.filter(
-                is_unit_manager | is_hod
-            ).exclude(pk=self.user.pk).order_by("username").distinct()
+            # Keep queryset broad; enforcement happens in the view
+            self.fields['recipient'].queryset = CustomUser.objects.exclude(
+                pk=self.user.pk
+            ).order_by("username")
         else:
-            # For unauthenticated users, no recipients
             self.fields['recipient'].queryset = CustomUser.objects.none()
-
-    def clean_recipient(self):
-        recipient = self.cleaned_data.get('recipient')
-        if recipient not in self.fields['recipient'].queryset:
-            raise forms.ValidationError("Invalid recipient. Please select a valid user from the list.")
-        return recipient
 
 class FileUpdateForm(forms.ModelForm):
     class Meta:
