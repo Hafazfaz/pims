@@ -152,9 +152,14 @@ class HODDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
+        dept = staff_user.department
         return (
-            File.objects.filter(department=staff_user.department)
+            File.objects.filter(
+                Q(department=dept) |                    # policy files
+                Q(file_type='personal', owner__department=dept)  # personal files
+            )
             .exclude(status="archived")
+            .distinct()
             .order_by("-created_at")
         )
 
@@ -164,7 +169,10 @@ class HODDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
-        department_files = File.objects.filter(department=staff_user.department)
+        dept = staff_user.department
+        department_files = File.objects.filter(
+            Q(department=dept) | Q(file_type='personal', owner__department=dept)
+        ).distinct()
         context["all_files_count"] = department_files.count()
         context["active_files_count"] = department_files.filter(status="active").count()
         context["closed_files_count"] = department_files.filter(status="closed").count()
@@ -446,14 +454,23 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
             sent_to=None,
             action='recalled',
         )
+
+        # Revoke all approved read & write access on recall
+        revoked_count = FileAccessRequest.objects.filter(
+            file=file_obj, status='approved'
+        ).update(status='expired')
+
         log_action(
             request.user, 
             "FILE_RECALLED", 
             request=request, 
             obj=file_obj,
-            details={"from": old_location.user.get_full_name() if old_location else "Registry"}
+            details={
+                "from": old_location.user.get_full_name() if old_location else "Registry",
+                "access_revoked": revoked_count
+            }
         )
-        messages.success(request, f"File {file_obj.file_number} has been recalled to your custody.")
+        messages.success(request, f"File {file_obj.file_number} recalled. {revoked_count} access grant(s) revoked.")
         return redirect(file_obj.get_absolute_url())
 
     def get_staff_user(self):

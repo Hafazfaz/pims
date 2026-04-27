@@ -337,10 +337,10 @@ class ApprovalChain(models.Model):
     dispatch_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     current_step = models.PositiveIntegerField(default=1)
-    reference_file = models.ForeignKey(
-        File, on_delete=models.SET_NULL, null=True, blank=True,
+    reference_documents = models.ManyToManyField(
+        'Document', blank=True,
         related_name='referenced_in_chains',
-        help_text="Optional reference to a previously created or dispatched file."
+        help_text="Other documents from this file referenced at dispatch time."
     )
     def __str__(self):
         if self.document:

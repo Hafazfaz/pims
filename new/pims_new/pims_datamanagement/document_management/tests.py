@@ -465,11 +465,10 @@ class DocumentStatusTest(TestCase):
             title="Policy Draft", minute_content="Initial draft.",
         )
 
-    def _make_chain(self, doc, reference_file=None):
+    def _make_chain(self, doc):
         chain = ApprovalChain.objects.create(
             document=doc, file=self.file,
             created_by=self.owner.user, status='active', current_step=1,
-            reference_file=reference_file,
         )
         step = ApprovalStep.objects.create(chain=chain, approver=self.approver, order=1)
         return chain, step
@@ -518,20 +517,105 @@ class DocumentStatusTest(TestCase):
         self.assertEqual(self.doc.approval_chains.count(), 2)
 
     def test_chain_reference_file(self):
-        """Chain can optionally reference a previously dispatched file."""
-        other_owner_user = make_user("other_owner_vs", "Staff")
-        desig, _ = Designation.objects.get_or_create(name="Officer", defaults={"level": 5})
-        other_owner = Staff.objects.create(user=other_owner_user, designation=desig, department=self.dept)
-        other_file = File.objects.create(
-            title="REFERENCE FILE", file_type="personal",
-            owner=other_owner, current_location=self.registry,
-            created_by=other_owner_user, status="active",
+        """Chain can optionally reference other documents from the same file."""
+        other_doc = Document.objects.create(
+            file=self.file, uploaded_by=self.owner.user,
+            title="Supporting Doc", minute_content="Supporting content.",
         )
-        chain, _ = self._make_chain(self.doc, reference_file=other_file)
-        chain.refresh_from_db()
-        self.assertEqual(chain.reference_file, other_file)
+        chain, _ = self._make_chain(self.doc)
+        chain.reference_documents.set([other_doc])
+        self.assertIn(other_doc, chain.reference_documents.all())
 
     def test_chain_reference_file_is_optional(self):
-        """Chain can be dispatched without a reference file."""
+        """Chain can be dispatched without reference documents."""
         chain, _ = self._make_chain(self.doc)
-        self.assertIsNone(chain.reference_file)
+        self.assertEqual(chain.reference_documents.count(), 0)
+
+
+class DispatchPermissionTest(TestCase):
+    """Personal files: owner only. Policy files: HOD only. Recall revokes access."""
+
+    def setUp(self):
+        self.client = Client()
+        self.dept = Department.objects.create(name="Finance", code="FIN")
+
+        reg_user = make_user("reg_dp", "Registry")
+        desig_reg, _ = Designation.objects.get_or_create(name="Registry Officer", defaults={"level": 1})
+        self.registry = Staff.objects.create(user=reg_user, designation=desig_reg, department=self.dept)
+
+        owner_user = make_user("owner_dp", "Staff")
+        desig, _ = Designation.objects.get_or_create(name="Officer", defaults={"level": 5})
+        self.owner = Staff.objects.create(user=owner_user, designation=desig, department=self.dept)
+
+        other_user = make_user("other_dp", "Staff")
+        self.other = Staff.objects.create(user=other_user, designation=desig, department=self.dept)
+
+        hod_user = make_user("hod_dp", "Staff")
+        hod_desig, _ = Designation.objects.get_or_create(name="Head of Department", defaults={"level": 2})
+        self.hod = Staff.objects.create(user=hod_user, designation=hod_desig, department=self.dept)
+        self.dept.head = self.hod
+        self.dept.save()
+
+        self.personal_file = File.objects.create(
+            title="PERSONAL FILE", file_type="personal",
+            owner=self.owner, current_location=self.registry,
+            created_by=owner_user, status="active",
+        )
+        self.policy_file = File.objects.create(
+            title="POLICY FILE", file_type="policy",
+            department=self.dept, current_location=self.registry,
+            created_by=reg_user, status="active",
+        )
+        from document_management.models import ChainTemplate, ChainTemplateStep
+        self.tmpl = ChainTemplate.objects.create(name="Test Chain", created_by=reg_user, is_active=True)
+        ChainTemplateStep.objects.create(template=self.tmpl, order=1, role_type='specific_person', staff=self.hod)
+
+        self.doc_personal = Document.objects.create(file=self.personal_file, uploaded_by=owner_user, title="Leave App")
+        self.doc_policy = Document.objects.create(file=self.policy_file, uploaded_by=reg_user, title="Policy Doc")
+
+    def _dispatch(self, user, file_obj, doc):
+        self.client.login(username=user.username, password="Test1234!")
+        return self.client.post(
+            reverse("document_management:chain_apply_template", kwargs={"file_pk": file_obj.pk}),
+            {"template_id": self.tmpl.pk, "document_id": doc.pk}
+        )
+
+    def test_owner_can_dispatch_personal_file(self):
+        r = self._dispatch(self.owner.user, self.personal_file, self.doc_personal)
+        from document_management.models import ApprovalChain
+        self.assertTrue(ApprovalChain.objects.filter(document=self.doc_personal).exists())
+
+    def test_non_owner_cannot_dispatch_personal_file(self):
+        r = self._dispatch(self.other.user, self.personal_file, self.doc_personal)
+        from document_management.models import ApprovalChain
+        self.assertFalse(ApprovalChain.objects.filter(document=self.doc_personal).exists())
+
+    def test_hod_can_dispatch_policy_file(self):
+        r = self._dispatch(self.hod.user, self.policy_file, self.doc_policy)
+        from document_management.models import ApprovalChain
+        self.assertTrue(ApprovalChain.objects.filter(document=self.doc_policy).exists())
+
+    def test_non_hod_cannot_dispatch_policy_file(self):
+        r = self._dispatch(self.owner.user, self.policy_file, self.doc_policy)
+        from document_management.models import ApprovalChain
+        self.assertFalse(ApprovalChain.objects.filter(document=self.doc_policy).exists())
+
+    def test_recall_revokes_approved_access(self):
+        from document_management.models import FileAccessRequest
+        from django.contrib.auth.models import Permission
+        # Grant required permission
+        perm = Permission.objects.filter(codename='view_file').first()
+        if perm:
+            self.registry.user.user_permissions.add(perm)
+        # Move file to other staff so recall actually triggers
+        self.personal_file.current_location = self.other
+        self.personal_file.save()
+        FileAccessRequest.objects.create(
+            file=self.personal_file, requested_by=self.other.user,
+            reason="Need access", access_type='read_write', status='approved'
+        )
+        self.client.login(username="reg_dp", password="Test1234!")
+        self.client.post(reverse("document_management:file_recall", kwargs={"pk": self.personal_file.pk}))
+        self.assertFalse(
+            FileAccessRequest.objects.filter(file=self.personal_file, status='approved').exists()
+        )

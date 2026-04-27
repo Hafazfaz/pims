@@ -132,13 +132,16 @@
                     </div>
                     {% if reference_files %}
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Reference File (optional)</label>
-                        <select name="reference_file" class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-nigeria-green">
-                            <option value="">— None —</option>
-                            {% for rf in reference_files %}
-                            <option value="{{ rf.pk }}">{{ rf.file_number }} — {{ rf.title }}</option>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Reference Documents (optional)</label>
+                        <div class="border border-slate-200 rounded-lg max-h-32 overflow-y-auto divide-y divide-slate-100">
+                            {% for ref in reference_files %}
+                            <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" name="reference_documents" value="{{ ref.pk }}"
+                                       class="accent-indigo-600 shrink-0">
+                                <span class="text-[11px] text-slate-700 font-medium">{{ ref.title|default:"Untitled" }} <span class="text-slate-400">· {{ ref.uploaded_at|date:"M d, Y" }}</span></span>
+                            </label>
                             {% endfor %}
-                        </select>
+                        </div>
                     </div>
                     {% endif %}
                     <div class="flex gap-3 pt-2">

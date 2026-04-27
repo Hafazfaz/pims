@@ -222,8 +222,8 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         context["available_chain_templates"] = ChainTemplate.objects.filter(
             is_active=True
         ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
-        # All active files except the current one — for reference file picker
-        context["reference_files"] = File.objects.filter(status='active').exclude(pk=document.file.pk).order_by('file_number')
+        # Other documents in the same file — for reference document picker
+        context["reference_files"] = document.file.documents.exclude(pk=document.pk).order_by('-uploaded_at')
         active_chain = document.approval_chains.filter(status='active').first()
         chain_is_active = active_chain is not None
         context["document_has_chain"] = chain_is_active

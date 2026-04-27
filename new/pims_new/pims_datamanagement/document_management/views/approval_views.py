@@ -429,10 +429,26 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
             messages.error(request, "Staff profile not found.")
             return redirect(file_obj.get_absolute_url())
 
-        # Must have read+write access or be custodian/owner
+        # Permission check: personal files → owner only; policy files → HOD only
+        if file_obj.file_type == 'personal':
+            if file_obj.owner != staff:
+                messages.error(request, "Only the file owner can dispatch documents from a personal file.")
+                return redirect(file_obj.get_absolute_url())
+        elif file_obj.file_type == 'policy':
+            if not (staff.is_hod and staff.department == file_obj.department):
+                messages.error(request, "Only the HOD of the department can dispatch documents from a policy file.")
+                return redirect(file_obj.get_absolute_url())
+
+        # Must have read+write access
+        is_hod_of_policy = (
+            file_obj.file_type == 'policy' and
+            staff.is_hod and
+            staff.department == file_obj.department
+        )
         has_rw = (
             file_obj.owner == staff or
             file_obj.current_location == staff or
+            is_hod_of_policy or
             FileAccessRequest.objects.filter(
                 file=file_obj, requested_by=request.user,
                 status='approved', access_type='read_write'
@@ -453,18 +469,16 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         dispatch_message = request.POST.get('dispatch_message', '').strip()
-        reference_file_id = request.POST.get('reference_file')
-        reference_file = None
-        if reference_file_id:
-            from document_management.models import File as FileModel
-            reference_file = FileModel.objects.filter(pk=reference_file_id).first()
+        reference_doc_ids = request.POST.getlist('reference_documents')
 
         chain = ApprovalChain.objects.create(
             document=document, file=file_obj,
             created_by=request.user, status='draft',
             dispatch_message=dispatch_message,
-            reference_file=reference_file,
         )
+        if reference_doc_ids:
+            from document_management.models import Document as Doc
+            chain.reference_documents.set(Doc.objects.filter(pk__in=reference_doc_ids, file=file_obj))
         unresolved = []
         for step in tmpl.steps.all():
             approver = step.resolve(staff)
