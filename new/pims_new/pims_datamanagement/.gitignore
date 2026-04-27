@@ -38,4 +38,4 @@ celeryd.pid
 .env
 
 # Tests
-.pytest_cache
+.pytest_cachenode_modules/
