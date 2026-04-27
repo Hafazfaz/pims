@@ -26,7 +26,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
     def test_func(self):
         staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_executive)
+        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager or staff_user.is_executive or staff_user.is_md)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -40,7 +40,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
         today = timezone.now().date()
         
-        if self.request.user.is_superuser or staff_user.is_executive:
+        if self.request.user.is_superuser or staff_user.is_executive or staff_user.is_md:
             scope_filter = Q()
             context['scope_title'] = 'Organization-Wide'
         elif staff_user.is_hod:
@@ -135,91 +135,6 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
             return redirect("user_management:login")
         messages.error(
             self.request, "You do not have permission to access the executive dashboard."
-        )
-        return redirect("document_management:my_files")
-
-class HODDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    model = File
-    template_name = "document_management/hod_dashboard.html"
-    context_object_name = "files"
-
-    def test_func(self):
-        staff_user = self.get_staff_user()
-        return staff_user and (staff_user.is_hod or staff_user.is_unit_manager)
-
-    def get_queryset(self):
-        staff_user = self.get_staff_user()
-        if not staff_user:
-            raise Http404("Staff user not found or doesn't exist.")
-
-        dept = staff_user.department
-        return (
-            File.objects.filter(
-                Q(department=dept) |                    # policy files
-                Q(file_type='personal', owner__department=dept)  # personal files
-            )
-            .exclude(status="archived")
-            .distinct()
-            .order_by("-created_at")
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        staff_user = self.get_staff_user()
-        if not staff_user:
-            raise Http404("Staff user not found or doesn't exist.")
-
-        dept = staff_user.department
-        department_files = File.objects.filter(
-            Q(department=dept) | Q(file_type='personal', owner__department=dept)
-        ).distinct()
-        context["all_files_count"] = department_files.count()
-        context["active_files_count"] = department_files.filter(status="active").count()
-        context["closed_files_count"] = department_files.filter(status="closed").count()
-        context["archived_files_count"] = department_files.filter(status="archived").count()
-
-        if staff_user.is_unit_manager:
-            custody_files = File.objects.filter(
-                current_location__unit=staff_user.unit,
-                status='active'
-            ).exclude(current_location=None).select_related('current_location', 'owner').order_by('-created_at')
-        else:
-            custody_files = File.objects.filter(
-                current_location__department=staff_user.department,
-                status='active'
-            ).exclude(current_location=None).select_related('current_location', 'owner').order_by('-created_at')
-        
-        custody_list = []
-        overdue_count = 0
-        for file in custody_files:
-            custody_duration = file.get_custody_duration()
-            is_overdue = file.is_overdue()
-            custody_list.append({
-                'file': file,
-                'custody_duration': custody_duration,
-                'is_overdue': is_overdue
-            })
-            if is_overdue:
-                overdue_count += 1
-        
-        context["custody_files"] = custody_list
-        context["custody_files_count"] = len(custody_list)
-        context["overdue_files_count"] = overdue_count
-
-        return context
-
-    def get_staff_user(self):
-        user = self.request.user
-        try:
-            return Staff.objects.get(user=user)
-        except Staff.DoesNotExist:
-            return None
-
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
-        messages.error(
-            self.request, "You do not have permission to access the HOD dashboard."
         )
         return redirect("document_management:my_files")
 
@@ -500,10 +415,17 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if staff_user.is_registry:
             return True
 
+        if staff_user.is_md:
+            return True  # MD sees all files org-wide
+
         if file_obj.file_type == 'policy':
             if staff_user.is_hod and file_obj.department == staff_user.department:
                 return True
             if staff_user.is_unit_manager and file_obj.department == staff_user.department:
+                return True
+
+        if file_obj.file_type == 'personal':
+            if staff_user.is_hod and file_obj.owner and file_obj.owner.department == staff_user.department:
                 return True
 
         if file_obj.owner == staff_user:
@@ -601,7 +523,8 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         is_registry = hasattr(user, 'staff') and user.staff.is_registry
         
-        context["can_add_minute"] = (is_custodian or has_rw_access or is_registry) and not file_obj.is_in_active_chain
+        is_owner = hasattr(user, 'staff') and file_obj.owner == user.staff
+        context["can_add_minute"] = (is_registry or is_owner or has_rw_access) and not file_obj.is_in_active_chain
         context["can_add_minutes"] = context["can_add_minute"]
         context["can_send_file"] = (is_custodian or is_registry) and not file_obj.is_in_active_chain
         context["is_custodian"] = is_custodian
@@ -610,6 +533,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["access_type"] = 'read_write' if has_rw_access else ('read_only' if has_approved_access else None)
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
+        context["is_limited_view"] = not context["can_view_original"]
         context["send_file_form"] = SendFileForm()
         context["access_request_form"] = FileAccessRequestForm()
         context["pending_access_request"] = FileAccessRequest.objects.filter(
@@ -996,7 +920,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         if user.is_superuser:
             return True
         staff = getattr(user, 'staff', None)
-        return staff and (staff.is_registry or staff.is_hod or staff.is_unit_manager)
+        return staff and (staff.is_registry or staff.is_hod or staff.is_unit_manager or staff.is_md)
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -1005,8 +929,17 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         return redirect("document_management:my_files")
 
     def get_queryset(self):
+        staff = getattr(self.request.user, 'staff', None)
         queryset = File.objects.filter(status='active').order_by('file_number')
-        
+
+        # HODs see only their department's files (policy + personal), excluding their own
+        # MD sees everything
+        if staff and staff.is_hod and not staff.is_md and not staff.is_registry and not self.request.user.is_superuser:
+            dept = staff.department
+            queryset = queryset.filter(
+                Q(department=dept) | Q(file_type='personal', owner__department=dept)
+            ).exclude(file_type='personal', owner=staff).distinct()
+
         q = self.request.GET.get('q')
         if q:
             queryset = queryset.filter(
@@ -1014,11 +947,11 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
                 Q(title__icontains=q) |
                 Q(department__name__icontains=q)
             )
-            
-        dept = self.request.GET.get('department')
-        if dept:
-            queryset = queryset.filter(department_id=dept)
-            
+
+        dept_filter = self.request.GET.get('department')
+        if dept_filter:
+            queryset = queryset.filter(department_id=dept_filter)
+
         return queryset
 
     def get_template_names(self):

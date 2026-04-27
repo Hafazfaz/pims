@@ -44,13 +44,7 @@
                             {% for dept in all_departments %}
                                 <option
                                     value="{{ dept.pk }}"
-                                    {%
-                                    if
-                                    selected_department=""
-                                    ="dept.pk"
-                                    %}selected{%
-                                    endif
-                                    %}
+                                    {% if selected_department == dept.pk %}selected{% endif %}
                                     class="bg-slate-900"
                                     >{{ dept.name|upper }}</option>
                             {% endfor %}
@@ -64,13 +58,7 @@
                             {% for unit in all_units %}
                                 <option
                                     value="{{ unit.pk }}"
-                                    {%
-                                    if
-                                    selected_unit=""
-                                    ="unit.pk"
-                                    %}selected{%
-                                    endif
-                                    %}
+                                    {% if selected_unit == unit.pk %}selected{% endif %}
                                     class="bg-slate-900"
                                     >{{ unit.name|upper }}</option>
                             {% endfor %}
@@ -85,13 +73,7 @@
                             {% for desig in all_designations %}
                                 <option
                                     value="{{ desig.pk }}"
-                                    {%
-                                    if
-                                    selected_designation=""
-                                    ="desig.pk"
-                                    %}selected{%
-                                    endif
-                                    %}
+                                    {% if selected_designation == desig.pk %}selected{% endif %}
                                     class="bg-slate-900"
                                     >{{ desig.name|upper }}</option>
                             {% endfor %}
@@ -188,8 +170,7 @@
                                                 </button>
                                             </form>
                                         {% endif %}
-                                        {% if not user.is_superuser and user.is_active and
-                                            perms.auth.change_user %}
+                                        {% if not user.is_superuser and user.is_active and perms.auth.change_user %}
                                             <form action="{% url 'user_management:user_suspend' pk=user.pk %}"
                                                   method="post">
                                                 {% csrf_token %}
@@ -204,8 +185,7 @@
                                                 </button>
                                             </form>
                                         {% endif %}
-                                        {% if not user.is_superuser and
-                                            perms.auth.delete_user %}
+                                        {% if not user.is_superuser and perms.auth.delete_user %}
                                             <form action="{% url 'user_management:user_delete' pk=user.pk %}"
                                                   method="post">
                                                 {% csrf_token %}
@@ -251,8 +231,7 @@
                             </a>
                         {% endif %}
                         {% for i in paginator.page_range %}
-                            {% if i >=
-                                page_obj.number|add:-2 and i <= page_obj.number|add:2 %}
+                            {% if i >= page_obj.number|add:-2 and i <= page_obj.number|add:2 %}
                                 <a href="?page={{ i }}{{ query_params }}"
                                    class="px-3 py-1 text-[10px] font-bold transition-all rounded {% if page_obj.number == i %}bg-nigeria-green text-white shadow-sm{% else %}text-slate-500 hover:text-nigeria-green hover:bg-slate-50{% endif %}">
                                     {{ i }}

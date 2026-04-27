@@ -10,7 +10,6 @@ from .registry_views import (  # noqa: F401
 )
 from .file_views import (  # noqa: F401
     ExecutiveDashboardView,
-    HODDashboardView,
     FileCreateView,
     MyFilesView,
     MessagesView,

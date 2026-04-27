@@ -248,21 +248,24 @@
                                                                 </div>
                                                             {% elif entry.type == 'document' %}
                                                                 <div class="text-sm text-slate-900">
+                                                                    {% if can_view_original %}
                                                                     <a href="{% url 'document_management:document_detail' pk=entry.item.pk %}"
                                                                        class="font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
-                                                                        {% if entry.item.title %}
-                                                                            {{ entry.item.title }}
-                                                                        {% else %}
-                                                                            Minute / Signal
-                                                                        {% endif %}
+                                                                        {% if entry.item.title %}{{ entry.item.title }}{% else %}Minute / Signal{% endif %}
                                                                     </a>
+                                                                    {% else %}
+                                                                    <span class="font-bold text-slate-400 italic">
+                                                                        {% if entry.item.title %}{{ entry.item.title }}{% else %}Minute / Signal{% endif %}
+                                                                        <span class="ml-1 text-[9px] font-black text-amber-600 uppercase tracking-widest">[Request R&W access to view]</span>
+                                                                    </span>
+                                                                    {% endif %}
                                                                     <span class="ml-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {% if entry.item.status == 'approved' %}bg-green-100 text-green-700 {% elif entry.item.status == 'cancelled' %}bg-red-100 text-red-700 line-through decoration-red-700 {% else %}bg-amber-100 text-amber-700{% endif %}">
                                                                         {{ entry.item.get_status_display }}
                                                                     </span>
                                                                     {% if entry.item.status_reason %}
                                                                         <p class="text-[10px] text-slate-500 mt-1 italic w-full">Reason: {{ entry.item.status_reason }}</p>
                                                                     {% endif %}
-                                                                    {% if entry.item.minute_content %}
+                                                                    {% if entry.item.minute_content and can_view_original %}
                                                                         <div class="mt-2 prose prose-sm max-w-none text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-100 relative">
                                                                             {{ entry.item.minute_content|safe }}
                                                                             {% if entry.item.signatures.exists %}

@@ -81,7 +81,7 @@ class Staff(models.Model):
 
     @property
     def is_md(self):
-        return self.is_executive
+        return self.user.groups.filter(name__iexact="MD").exists()
 class StaffSignature(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='signatures')
     image = models.ImageField(upload_to='signatures/verified/')

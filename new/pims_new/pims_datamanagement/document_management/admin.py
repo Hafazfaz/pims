@@ -1,9 +1,10 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
 from .models import File, Document, FileMovement, FileAccessRequest, ChainTemplate, ChainTemplateStep
 
 
 @admin.register(File)
-class FileAdmin(admin.ModelAdmin):
+class FileAdmin(ModelAdmin):
     list_display = ('file_number', 'title', 'file_type', 'status', 'owner', 'department', 'created_at')
     list_filter = ('status', 'file_type', 'department')
     search_fields = ('file_number', 'title', 'owner__user__username')
@@ -12,7 +13,7 @@ class FileAdmin(admin.ModelAdmin):
 
 
 @admin.register(Document)
-class DocumentAdmin(admin.ModelAdmin):
+class DocumentAdmin(ModelAdmin):
     list_display = ('title', 'file', 'uploaded_by', 'status', 'uploaded_at')
     list_filter = ('status',)
     search_fields = ('title', 'file__file_number', 'uploaded_by__username')
@@ -21,7 +22,7 @@ class DocumentAdmin(admin.ModelAdmin):
 
 
 @admin.register(FileMovement)
-class FileMovementAdmin(admin.ModelAdmin):
+class FileMovementAdmin(ModelAdmin):
     list_display = ('file', 'sent_by', 'sent_to', 'action', 'moved_at')
     list_filter = ('action',)
     search_fields = ('file__file_number', 'sent_by__user__username', 'sent_to__user__username')
@@ -30,7 +31,7 @@ class FileMovementAdmin(admin.ModelAdmin):
 
 
 @admin.register(FileAccessRequest)
-class FileAccessRequestAdmin(admin.ModelAdmin):
+class FileAccessRequestAdmin(ModelAdmin):
     list_display = ('file', 'requested_by', 'access_type', 'status', 'created_at', 'expires_at')
     list_filter = ('status', 'access_type')
     search_fields = ('file__file_number', 'requested_by__username')
@@ -38,14 +39,14 @@ class FileAccessRequestAdmin(admin.ModelAdmin):
     autocomplete_fields = ('file', 'requested_by')
 
 
-class ChainTemplateStepInline(admin.TabularInline):
+class ChainTemplateStepInline(TabularInline):
     model = ChainTemplateStep
     extra = 1
     fields = ('order', 'role_type', 'department_scope', 'specific_department', 'designation', 'staff')
 
 
 @admin.register(ChainTemplate)
-class ChainTemplateAdmin(admin.ModelAdmin):
+class ChainTemplateAdmin(ModelAdmin):
     list_display = ('name', 'department', 'is_active', 'created_by', 'created_at')
     list_filter = ('is_active', 'department')
     search_fields = ('name',)

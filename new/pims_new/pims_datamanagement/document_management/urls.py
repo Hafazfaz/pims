@@ -7,7 +7,6 @@ urlpatterns = [
     path('registry/', views.RegistryDashboardView.as_view(), name='registry'),
     path('registry/hub/', views.RegistryHubView.as_view(), name='registry_hub'),
     path('executive/dashboard/', views.ExecutiveDashboardView.as_view(), name='executive_dashboard'),
-    path('hod/dashboard/', views.HODDashboardView.as_view(), name='hod_dashboard'),
     path('create/', views.FileCreateView.as_view(), name='file_create'),
     path('my-files/', views.MyFilesView.as_view(), name='my_files'),
     path('messages/', views.MessagesView.as_view(), name='messages'),

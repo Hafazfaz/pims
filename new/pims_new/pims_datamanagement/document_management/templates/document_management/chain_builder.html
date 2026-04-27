@@ -129,6 +129,7 @@ function chainBuilder() {
       this.editor = new Drawflow(container);
       this.editor.reroute = true;
       this.editor.start();
+      this.nodes = []; // always start fresh
       this.editor.on('nodeRemoved', (id) => {
         this.nodes = this.nodes.filter(n => n.nodeId != id);
         this._relabelNodes();
@@ -143,6 +144,14 @@ function chainBuilder() {
 
     onDrop(e) {
       if (!this.dragData) return;
+
+      // Prevent adding the same person twice
+      if (this.nodes.find(n => n.staffId === this.dragData.id)) {
+        alert(`${this.dragData.name} is already in the chain.`);
+        this.dragData = null;
+        return;
+      }
+
       const rect = document.getElementById('drawflow').getBoundingClientRect();
       const zoom = this.editor.zoom;
       const x = (e.clientX - rect.left - this.editor.canvas_x) / zoom - 95;
@@ -151,7 +160,7 @@ function chainBuilder() {
       const step = this.nodes.length + 1;
       const html = `
         <div class="node-inner">
-          <div class="node-step" id="step-label-NODEID">Step ${step}</div>
+          <div class="node-step">Step ${step}</div>
           <div class="node-name">${this.dragData.name}</div>
           <div class="node-role">${this.dragData.role}</div>
         </div>`;
@@ -160,12 +169,6 @@ function chainBuilder() {
         'approver', 1, 1, x, y, 'approver-node',
         { staffId: this.dragData.id }, html
       );
-
-      // Fix the step label id now we know nodeId
-      setTimeout(() => {
-        const el = document.querySelector(`#node-${nodeId} .node-step`);
-        if (el) el.id = `step-label-${nodeId}`;
-      }, 0);
 
       this.nodes.push({ nodeId, staffId: this.dragData.id, name: this.dragData.name });
       this.dragData = null;

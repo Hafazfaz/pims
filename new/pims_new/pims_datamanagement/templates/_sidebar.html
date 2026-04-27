@@ -27,7 +27,7 @@
                     {% with url_name=request.resolver_match.url_name %}
 
                     <!-- Dashboard -->
-                    <a href="{% if user.is_superuser %}{% url 'user_management:admin_dashboard_health' %}{% elif user.staff.is_registry %}{% url 'document_management:registry' %}{% elif user.staff.is_hod or user.staff.is_unit_manager %}{% url 'document_management:executive_dashboard' %}{% else %}{% url 'home' %}{% endif %}"
+                    <a href="{% if user.is_superuser %}{% url 'user_management:admin_dashboard_health' %}{% elif user.staff.is_registry %}{% url 'document_management:registry' %}{% elif user.staff.is_md %}{% url 'document_management:executive_dashboard' %}{% elif user.staff.is_hod or user.staff.is_unit_manager %}{% url 'document_management:executive_dashboard' %}{% else %}{% url 'home' %}{% endif %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'home' or url_name == 'registry' or url_name == 'executive_dashboard' or 'admin/dashboard/health' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-home w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Dashboard</span>
@@ -92,6 +92,11 @@
                             <span class="text-[9px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full">{{ pending_access_count }}</span>
                         {% endif %}
                     </a>
+                    <a href="{% url 'document_management:record_explorer' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-search w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Record Explorer</span>
+                    </a>
                     <a href="{% url 'document_management:chain_template_list' %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'chains/templates' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-project-diagram w-4 text-center"></i>
@@ -101,6 +106,39 @@
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'chains/all' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-stream w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Active Chains</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- HOD -->
+            {% if user.staff.is_hod and not user.staff.is_registry and not user.staff.is_md %}
+            <div>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Department</p>
+                <div class="space-y-0.5">
+                    <a href="{% url 'document_management:record_explorer' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-folder-open w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Department Files</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- MD -->
+            {% if user.staff.is_md %}
+            <div>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">MD Office</p>
+                <div class="space-y-0.5">
+                    <a href="{% url 'document_management:executive_dashboard' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'executive/dashboard' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-chart-line w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Overview</span>
+                    </a>
+                    <a href="{% url 'document_management:record_explorer' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-search w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">All Files</span>
                     </a>
                 </div>
             </div>
