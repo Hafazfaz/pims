@@ -1,0 +1,30 @@
+{% if entries %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ title }}</h3>
+        <span class="text-[9px] font-bold px-2 py-1 rounded-full
+            {% if color == 'green' %}bg-green-50 text-green-700
+            {% elif color == 'red' %}bg-red-50 text-red-700
+            {% elif color == 'blue' %}bg-blue-50 text-blue-700
+            {% elif color == 'amber' %}bg-amber-50 text-amber-700
+            {% else %}bg-indigo-50 text-indigo-700{% endif %}">
+            {{ entries|length }} entries
+        </span>
+    </div>
+    <div class="divide-y divide-slate-50">
+        {% for entry in entries %}
+        <div class="px-6 py-3 flex items-start justify-between gap-4">
+            <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-800">{{ entry.action|lower|title }}</p>
+                {% if entry.details %}
+                <p class="text-[10px] text-slate-400 truncate mt-0.5">
+                    {% for k, v in entry.details.items %}{{ k }}: {{ v }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                </p>
+                {% endif %}
+            </div>
+            <p class="text-[9px] text-slate-400 shrink-0">{{ entry.timestamp|date:"M d, Y H:i" }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

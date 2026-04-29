@@ -5,4 +5,5 @@ app_name = 'audit_log'
 
 urlpatterns = [
     path('logs/', views.AuditLogListView.as_view(), name='audit_log_list'),
+    path('my-activity/', views.MyActivityReportView.as_view(), name='my_activity_report'),
 ]
