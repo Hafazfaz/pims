@@ -159,7 +159,7 @@
                     {% endif %}
                     {% if user.is_superuser or user.is_staff or user.staff.is_executive %}
                     <a href="{% url 'audit_log:audit_log_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'audit' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'audit' in request.path and 'activity' not in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-shield-alt w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Audit Logs</span>
                     </a>
@@ -167,6 +167,18 @@
                 </div>
             </div>
             {% endif %}
+
+            <!-- ACTIVITY (visible to all) -->
+            <div>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Activity</p>
+                <div class="space-y-0.5">
+                    <a href="{% url 'audit_log:my_activity_report' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'my-activity' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-chart-bar w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Activity Report</span>
+                    </a>
+                </div>
+            </div>
 
         </nav>
     </div>

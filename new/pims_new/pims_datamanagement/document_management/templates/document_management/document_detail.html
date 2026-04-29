@@ -117,7 +117,7 @@
                             Send File
                         </button>
                     {% elif not is_latest_version %}
-                        <span class="px-4 py-3 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-lg">Older version — dispatch not allowed</span>
+                        <span class="px-4 py-3 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-lg">Dispatch not allowed</span>
                     {% endif %}
                     {% if can_add_minute %}
                     <div x-data="{ open: false }" class="relative">
@@ -202,7 +202,7 @@
                      selectedId: '',
                      selectedName: '',
                      init() { const all = window._docSendRecipients || []; if (all.length > 0) { this.selectedId = all[0].id; this.selectedName = all[0].name; } },
-                     get recipients() { const all = window._docSendRecipients || []; if (!this.search) return all; const q = this.search.toLowerCase(); return all.filter(r => r.name.toLowerCase().includes(q)); },
+                     get recipients() { const all = window._docSendRecipients || []; if (!this.search) return all; const q = this.search.toLowerCase(); return all.filter(r => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.dept.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q)); },
                      get totalPages() { return Math.ceil(this.recipients.length / this.perPage); },
                      get paged() { return this.recipients.slice((this.page-1)*this.perPage, this.page*this.perPage); },
                      select(id, name) { this.selectedId = id; this.selectedName = name; }
@@ -238,9 +238,11 @@
                                         :class="selectedId == r.id ? 'bg-nigeria-green/10 border-l-4 border-nigeria-green' : 'hover:bg-slate-50'"
                                         class="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-slate-100 last:border-0 transition-colors">
                                     <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 flex-shrink-0" x-text="r.name.charAt(0)"></div>
-                                    <div>
+                                    <div class="flex-1 min-w-0">
                                         <p class="text-xs font-bold text-slate-900" x-text="r.name"></p>
-                                        <p class="text-[10px] text-slate-400" x-text="r.role"></p>
+                                        <p class="text-[10px] text-slate-500 font-medium" x-text="r.role"></p>
+                                        <p class="text-[10px] text-slate-400 truncate" x-text="r.email"></p>
+                                        <p class="text-[9px] text-slate-400 truncate" x-text="[r.unit, r.dept].filter(Boolean).join(' · ')"></p>
                                     </div>
                                 </button>
                             </template>
@@ -290,7 +292,7 @@
                 <script>
                 window._docSendRecipients = [
                     {% for s in approver_choices %}
-                    { id: {{ s.user.pk }}, name: "{{ s.user.get_full_name|default:s.user.username|escapejs }}", role: "{{ s.designation.name|default:'Staff'|escapejs }}" }{% if not forloop.last %},{% endif %}
+                    { id: {{ s.user.pk }}, name: "{{ s.user.get_full_name|default:s.user.username|escapejs }}", role: "{{ s.designation.name|default:'Staff'|escapejs }}", email: "{{ s.user.email|escapejs }}", dept: "{{ s.department.name|default:''|escapejs }}", unit: "{{ s.unit.name|default:''|escapejs }}" }{% if not forloop.last %},{% endif %}
                     {% endfor %}
                 ];
                 </script>

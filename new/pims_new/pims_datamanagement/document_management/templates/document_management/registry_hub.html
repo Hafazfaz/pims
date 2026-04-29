@@ -9,8 +9,18 @@
                 <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Files</h2>
                 <p class="text-sm text-slate-500 font-medium">Manage all files</p>
             </div>
-            <div class="flex gap-4">
+            <div class="flex gap-4 flex-wrap">
                 {% if user.staff.is_registry %}
+                    <a href="{% url 'audit_log:my_activity_report' %}"
+                       class="inline-flex items-center px-6 py-2.5 bg-slate-700 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-slate-900 transition-colors">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        Activity Reports
+                    </a>
+                    <a href="{% url 'audit_log:audit_log_list' %}"
+                       class="inline-flex items-center px-6 py-2.5 bg-slate-200 text-slate-700 text-sm font-bold rounded-lg shadow-sm hover:bg-slate-300 transition-colors">
+                        <i class="fas fa-list mr-2"></i>
+                        Audit Log
+                    </a>
                     <a href="{% url 'document_management:access_request_list' %}"
                        class="inline-flex items-center px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-amber-600 transition-colors">
                         <i class="fas fa-key mr-2"></i>

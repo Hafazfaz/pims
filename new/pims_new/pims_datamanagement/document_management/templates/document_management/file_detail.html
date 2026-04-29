@@ -581,8 +581,12 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <p class="text-[10px] font-bold text-green-800 uppercase tracking-widest">Full Access Granted</p>
-                                        <p class="text-[9px] text-green-600">You can now view original documents.</p>
+                                        <p class="text-[10px] font-bold text-green-800 uppercase tracking-widest">
+                                            {% if has_rw_access %}Full Access Granted{% else %}Read-Only Access Granted{% endif %}
+                                        </p>
+                                        <p class="text-[9px] text-green-600">
+                                            {% if has_rw_access %}You can view and add documents.{% else %}You can view original documents.{% endif %}
+                                        </p>
                                     </div>
                                 </div>
                             {% endif %}
@@ -842,7 +846,6 @@
                     </div>
                 </div>
             </div>
-    </div>
     <!-- Document Preview Modal -->
     <div x-show="showPreviewModal"
          style="display: none"
@@ -887,7 +890,7 @@
                 <!-- Modal body (iframe) -->
                 <div class="relative w-full bg-slate-100 h-[80vh]">
                     <template x-if="previewUrl">
-                        <iframe :src="previewUrl"
+                        <iframe :src="previewUrl + '?inline=1'"
                                 class="w-full h-full border-0"
                                 title="Document Preview"
                                 sandbox="allow-same-origin allow-scripts"></iframe>
