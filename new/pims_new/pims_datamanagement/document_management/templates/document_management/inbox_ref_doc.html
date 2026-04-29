@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}{{ document.title|default:"Reference Document" }} | PIMS{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+
+    <a href="javascript:history.back()" class="text-sm text-slate-400 hover:text-nigeria-green transition-colors">← Back</a>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+        <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+                <div class="inline-flex items-center px-2.5 py-1 rounded bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-widest border border-amber-100 mb-2">Reference Document</div>
+                <h2 class="text-2xl font-bold text-slate-900">{{ document.title|default:"Untitled" }}</h2>
+                <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-wider">
+                    {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }} · {{ document.uploaded_at|date:"M d, Y @ H:i" }}
+                </p>
+            </div>
+        </div>
+
+        {% if document.minute_content %}
+        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-4">
+            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Content</h3>
+            <div class="prose prose-sm max-w-none text-slate-700">{{ document.minute_content|safe }}</div>
+        </div>
+        {% endif %}
+
+        {% if document.attachment %}
+        <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+            </svg>
+            <a href="{% url 'document_management:document_download' document.pk %}" class="text-sm font-bold text-indigo-600 hover:underline">Download Attachment</a>
+        </div>
+        {% endif %}
+
+        <div class="mt-6 pt-4 border-t border-slate-100">
+            <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                Filed under: <span class="font-bold text-slate-600">{{ document.file.title }} ({{ document.file.file_number }})</span>
+            </p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

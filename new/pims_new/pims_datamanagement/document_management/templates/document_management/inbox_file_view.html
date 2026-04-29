@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}{{ file.file_number }} | Inbox | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm">
+        <a href="{% url 'document_management:inbox_document_detail' pk=movement.pk %}" class="text-slate-400 hover:text-nigeria-green transition-colors">
+            ← Back to Document
+        </a>
+    </div>
+
+    <!-- File header -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <div class="inline-flex items-center px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest border border-slate-200 mb-2">
+                    {{ file.get_file_type_display }} File · Read Only
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">{{ file.title }}</h2>
+                <p class="text-sm font-bold text-nigeria-green mt-1">{{ file.file_number }}</p>
+                {% if file.owner %}
+                <p class="text-xs text-slate-400 mt-1">Owner: <span class="font-semibold text-slate-600">{{ file.owner_display }}</span></p>
+                {% endif %}
+            </div>
+            <span class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
+                {% elif file.status == 'in_transit' %}bg-blue-50 text-blue-700 border-blue-200
+                {% else %}bg-slate-100 text-slate-500 border-slate-200{% endif %}">
+                {{ file.get_status_display }}
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- LEFT: All documents -->
+        <div class="lg:col-span-2 space-y-4">
+
+            <!-- Sent document (highlighted) -->
+            {% if movement.document %}
+            <div class="bg-white rounded-xl shadow-sm border-2 border-nigeria-green p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="text-[9px] font-black bg-nigeria-green text-white px-2 py-1 rounded uppercase tracking-widest">Sent to you</span>
+                    <h3 class="text-sm font-bold text-slate-800">{{ movement.document.title|default:"Untitled" }}</h3>
+                </div>
+                {% if movement.document.minute_content %}
+                <div class="prose prose-sm max-w-none text-slate-700 mb-3">{{ movement.document.minute_content|safe }}</div>
+                {% endif %}
+                {% if movement.document.attachment %}
+                <a href="{% url 'document_management:document_download' movement.document.pk %}"
+                   class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all">
+                    ↓ Download Attachment
+                </a>
+                {% endif %}
+                <p class="text-[10px] text-slate-400 mt-3">{{ movement.document.uploaded_at|date:"M d, Y @ H:i" }} · {{ movement.document.uploaded_by.get_full_name|default:movement.document.uploaded_by.username }}</p>
+            </div>
+            {% endif %}
+
+            <!-- All other documents in the file -->
+            {% if all_documents %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">All Documents in File</h3>
+                <div class="divide-y divide-slate-100">
+                    {% for doc in all_documents %}
+                    {% if not movement.document or doc.pk != movement.document.pk %}
+                    <div class="py-3 flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-[9px] font-bold px-2 py-1 rounded-full border uppercase tracking-tighter
+                                {% if doc.status == 'approved' %}bg-green-50 text-green-600 border-green-100
+                                {% elif doc.status == 'rejected' %}bg-red-50 text-red-600 border-red-100
+                                {% elif doc.status == 'in_transit' %}bg-blue-50 text-blue-600 border-blue-100
+                                {% else %}bg-amber-50 text-amber-600 border-amber-100{% endif %}">
+                                {{ doc.get_status_display }}
+                            </span>
+                            {% if doc.attachment %}
+                            <a href="{% url 'document_management:document_download' doc.pk %}"
+                               class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all">
+                                ↓
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- RIGHT: Reference files + dispatch info -->
+        <div class="space-y-4">
+
+            <!-- Reference documents -->
+            {% if reference_docs %}
+            <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-6">
+                <h3 class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-4">Reference Documents</h3>
+                <div class="divide-y divide-slate-100">
+                    {% for doc in reference_docs %}
+                    <div class="py-3">
+                        <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_at|date:"M d, Y" }}</p>
+                        <div class="flex gap-2 mt-2">
+                            {% if doc.attachment %}
+                            <a href="{% url 'document_management:document_download' doc.pk %}"
+                               class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all">
+                                Download
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'document_management:inbox_ref_doc' doc.pk %}"
+                               class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold hover:bg-amber-100 transition-all">
+                                View
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Dispatch info -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sent By</h3>
+                <p class="text-sm font-bold text-slate-800">{{ movement.sent_by.get_full_name|default:movement.sent_by.username }}</p>
+                <p class="text-[10px] text-slate-400 mt-1">{{ movement.moved_at|date:"M d, Y @ H:i" }}</p>
+                {% if movement.note %}
+                <div class="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                    <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Note</p>
+                    <p class="text-sm text-slate-700">{{ movement.note }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

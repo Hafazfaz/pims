@@ -58,31 +58,12 @@
                                     <div class="text-[10px] text-slate-400 font-semibold uppercase">{{ movement.moved_at|date:"M d, Y @ P" }}</div>
                                 </td>
                                 <td class="px-8 py-6 text-right">
-                                    {% if movement.status == 'pending' %}
-                                    <div class="flex items-center justify-end gap-2">
-                                        {% if can_approve %}
-                                        <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="action" value="approve">
-                                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
-                                                Approve
-                                            </button>
-                                        </form>
-                                        {% endif %}
-                                        <button type="button"
-                                                onclick="document.getElementById('reject-modal-{{ movement.pk }}').classList.toggle('hidden')"
-                                                class="inline-flex items-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
-                                            Reject
-                                        </button>
-                                        <button type="button"
-                                                onclick="document.getElementById('forward-modal-{{ movement.pk }}').classList.toggle('hidden')"
-                                                class="inline-flex items-center px-4 py-2 bg-slate-700 text-white hover:bg-slate-900 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
-                                            Forward
-                                        </button>
-                                    </div>
-                                    {% else %}
-                                        <span class="text-[10px] text-slate-400 italic">Actioned</span>
-                                    {% endif %}
+                                      <div class="flex items-center justify-end gap-2">
+                                          <a href="{% url 'document_management:inbox_document_detail' pk=movement.pk %}"
+                                             class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">
+                                              View Doc
+                                          </a>
+                                      </div>
                                 </td>
                             </tr>
 
