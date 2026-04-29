@@ -48,7 +48,16 @@ class FileAccessRequestApproveView(RegistryRequiredMixin, View):
         except Exception:
             pass
 
-        log_action(request.user, "ACCESS_REQUEST_APPROVED", request=request, obj=access_req.file, details={'requested_by': access_req.requested_by.username})
+        log_action(
+            request.user, 
+            "ACCESS_REQUEST_APPROVED", 
+            request=request, 
+            obj=access_req.file, 
+            details={
+                'requested_by': access_req.requested_by.get_full_name() or access_req.requested_by.username,
+                'staff_id': getattr(getattr(access_req.requested_by, 'staff', None), 'staff_id', ''),
+            }
+        )
         
         create_notification(
             user=access_req.requested_by,
@@ -72,8 +81,13 @@ class FileAccessRequestRejectView(RegistryRequiredMixin, View):
             denial_reason = request.POST.get('denial_reason_other', 'Other').strip() or 'Other'
 
         log_action(request.user, "ACCESS_REQUEST_REJECTED", request=request, obj=access_req.file, details={
-            'requested_by': access_req.requested_by.username,
+            'requested_by': access_req.requested_by.get_full_name() or access_req.requested_by.username,
+            'requested_by_username': access_req.requested_by.username,
+            'staff_id': getattr(getattr(access_req.requested_by, 'staff', None), 'pk', ''),
             'denial_reason': denial_reason,
+            'denied_by': request.user.get_full_name() or request.user.username,
+            'file': access_req.file.file_number,
+            'file_title': access_req.file.title,
         })
         
         create_notification(
