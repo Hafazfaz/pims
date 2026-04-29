@@ -18,15 +18,28 @@ class RecipientSearchView(LoginRequiredMixin, View):
         )
 
         if sender_staff:
-            if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
-                # Can send to anyone (non-registry)
+            if sender_staff.is_md or sender_staff.is_executive:
                 eligible_qs = base_qs
-            elif sender_staff.is_effective_supervisor:
-                # Can send to any other supervisor
-                eligible_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
-                eligible_qs = base_qs.filter(pk__in=eligible_ids)
+            elif sender_staff.is_hod or sender_staff.is_head_of_unit:
+                from organization.models import Department as Dept, Unit
+                pks = set()
+                for d in Dept.objects.filter(head__isnull=False):
+                    pks.add(d.head.pk)
+                for u in Unit.objects.filter(head__isnull=False):
+                    pks.add(u.head.pk)
+                for s in base_qs.filter(is_supervisor=True):
+                    pks.add(s.pk)
+                pks.discard(sender_staff.pk)
+                eligible_qs = base_qs.filter(pk__in=pks)
+            elif sender_staff.is_supervisor:
+                from organization.models import Department as Dept, Unit
+                pks = set()
+                for d in Dept.objects.filter(head__isnull=False):
+                    pks.add(d.head.pk)
+                for u in Unit.objects.filter(head__isnull=False):
+                    pks.add(u.head.pk)
+                eligible_qs = base_qs.filter(pk__in=pks)
             else:
-                # Regular staff — only direct head
                 allowed_pks = []
                 if sender_staff.unit and sender_staff.unit.head:
                     allowed_pks.append(sender_staff.unit.head.pk)
@@ -101,42 +114,30 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
             'user', 'designation', 'department', 'unit'
         )
 
-        # Same routing rules as DocumentDetailView / file_views send handler
+        # Same routing rules as send handler
         if sender_staff:
             if sender_staff.is_md or sender_staff.is_executive:
                 eligible_qs = base_qs
-            elif sender_staff.is_hod:
-                dept = sender_staff.department
-                allowed_pks = set()
-                if dept:
-                    from organization.models import Department as Dept
-                    for d in Dept.objects.exclude(pk=dept.pk):
-                        if d.head:
-                            allowed_pks.add(d.head.pk)
-                    for u in dept.units.filter(head__isnull=False):
-                        allowed_pks.add(u.head.pk)
-                for s in base_qs.filter(is_supervisor=True):
-                    allowed_pks.add(s.pk)
-                eligible_qs = base_qs.filter(pk__in=allowed_pks)
-            elif sender_staff.is_head_of_unit:
-                dept = sender_staff.department
-                allowed_pks = set()
-                if dept and dept.head:
-                    allowed_pks.add(dept.head.pk)
-                if dept:
-                    for u in dept.units.filter(head__isnull=False).exclude(head=sender_staff):
-                        allowed_pks.add(u.head.pk)
-                for s in base_qs.filter(is_supervisor=True):
-                    allowed_pks.add(s.pk)
-                eligible_qs = base_qs.filter(pk__in=allowed_pks)
-            elif sender_staff.is_supervisor:
-                from organization.models import Department as Dept
-                allowed_pks = set()
+            elif sender_staff.is_hod or sender_staff.is_head_of_unit:
+                # Any HOD, any head of unit, any supervisor
+                from organization.models import Department as Dept, Unit
+                pks = set()
                 for d in Dept.objects.filter(head__isnull=False):
-                    allowed_pks.add(d.head.pk)
-                for s in base_qs.filter(is_head_of_unit=True):
-                    allowed_pks.add(s.pk)
-                eligible_qs = base_qs.filter(pk__in=allowed_pks)
+                    pks.add(d.head.pk)
+                for u in Unit.objects.filter(head__isnull=False):
+                    pks.add(u.head.pk)
+                for s in base_qs.filter(is_supervisor=True):
+                    pks.add(s.pk)
+                pks.discard(sender_staff.pk)
+                eligible_qs = base_qs.filter(pk__in=pks)
+            elif sender_staff.is_supervisor:
+                from organization.models import Department as Dept, Unit
+                pks = set()
+                for d in Dept.objects.filter(head__isnull=False):
+                    pks.add(d.head.pk)
+                for u in Unit.objects.filter(head__isnull=False):
+                    pks.add(u.head.pk)
+                eligible_qs = base_qs.filter(pk__in=pks)
             else:
                 allowed_pks = []
                 if sender_staff.unit and sender_staff.unit.head:

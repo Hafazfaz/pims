@@ -227,21 +227,29 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
         # Build recipient list (same logic as file_detail)
         from document_management.views.base import EXCLUDE_REGISTRY_Q
-        from django.db.models import Case, When, IntegerField
+        from organization.models import Department as Dept, Unit
         base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.request.user).select_related('user', 'designation', 'unit', 'department')
         if sender_staff:
-            if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
+            if sender_staff.is_md or sender_staff.is_executive:
                 recipient_qs = base_qs
-            elif sender_staff.is_effective_supervisor and file_obj.owner != sender_staff:
-                supervisor_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
-                direct_head_pks = []
-                if sender_staff.unit and sender_staff.unit.head:
-                    direct_head_pks.append(sender_staff.unit.head.pk)
-                if sender_staff.department and sender_staff.department.head:
-                    direct_head_pks.append(sender_staff.department.head.pk)
-                recipient_qs = base_qs.filter(pk__in=set(supervisor_ids + direct_head_pks))
+            elif sender_staff.is_hod or sender_staff.is_head_of_unit:
+                pks = set()
+                for d in Dept.objects.filter(head__isnull=False):
+                    pks.add(d.head.pk)
+                for u in Unit.objects.filter(head__isnull=False):
+                    pks.add(u.head.pk)
+                for s in base_qs.filter(is_supervisor=True):
+                    pks.add(s.pk)
+                pks.discard(sender_staff.pk)
+                recipient_qs = base_qs.filter(pk__in=pks)
+            elif sender_staff.is_supervisor:
+                pks = set()
+                for d in Dept.objects.filter(head__isnull=False):
+                    pks.add(d.head.pk)
+                for u in Unit.objects.filter(head__isnull=False):
+                    pks.add(u.head.pk)
+                recipient_qs = base_qs.filter(pk__in=pks)
             else:
-                # Regular staff OR supervisor sending their own file → unit manager if exists, else HOD
                 if sender_staff.unit and sender_staff.unit.head:
                     recipient_qs = base_qs.filter(pk=sender_staff.unit.head.pk)
                 elif sender_staff.department and sender_staff.department.head:
@@ -250,15 +258,7 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
                     recipient_qs = base_qs.none()
         else:
             recipient_qs = base_qs
-
-        hou_pk = sender_staff.unit.head.pk if sender_staff and sender_staff.unit and sender_staff.unit.head else None
-        if hou_pk and not (sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive):
-            recipient_qs = recipient_qs.annotate(
-                _order=Case(When(pk=hou_pk, then=0), default=1, output_field=IntegerField())
-            ).order_by('_order', 'user__last_name')
-        else:
-            recipient_qs = recipient_qs.order_by('user__last_name')
-        context["approver_choices"] = recipient_qs
+        context["approver_choices"] = recipient_qs.order_by('user__last_name')
 
         return context
 
@@ -295,40 +295,21 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if not is_registry and staff_user:
             if staff_user.is_md or staff_user.is_executive:
                 pass  # can send to anyone
-            elif staff_user.is_hod:
-                # HOD → other HODs, unit managers in own dept, supervisors
-                dept = staff_user.department
+            elif staff_user.is_hod or staff_user.is_head_of_unit:
+                # HOD / Head of Unit → any HOD, any head of unit, any supervisor
+                from organization.models import Department as Dept, Staff as StaffModel
                 allowed_pks = set()
-                if dept:
-                    # other HODs
-                    from organization.models import Department as Dept
-                    for d in Dept.objects.exclude(pk=dept.pk):
-                        if d.head:
-                            allowed_pks.add(d.head.pk)
-                    # unit managers in own dept
-                    for u in dept.units.filter(head__isnull=False):
-                        allowed_pks.add(u.head.pk)
-                # supervisors anywhere
-                from organization.models import Staff as StaffModel
+                for d in Dept.objects.filter(head__isnull=False):
+                    allowed_pks.add(d.head.pk)
                 for s in StaffModel.objects.filter(is_supervisor=True):
                     allowed_pks.add(s.pk)
+                # all heads of unit
+                from organization.models import Unit
+                for u in Unit.objects.filter(head__isnull=False):
+                    allowed_pks.add(u.head.pk)
+                allowed_pks.discard(staff_user.pk)
                 if recipient.pk not in allowed_pks:
-                    messages.error(request, "HODs can only send to other HODs, unit managers in their department, or supervisors.")
-                    return redirect(request.path)
-            elif staff_user.is_head_of_unit:
-                # Unit manager → HOD of own dept, other unit managers in own dept, supervisors
-                dept = staff_user.department
-                allowed_pks = set()
-                if dept and dept.head:
-                    allowed_pks.add(dept.head.pk)
-                if dept:
-                    for u in dept.units.filter(head__isnull=False).exclude(head=staff_user):
-                        allowed_pks.add(u.head.pk)
-                from organization.models import Staff as StaffModel
-                for s in StaffModel.objects.filter(is_supervisor=True):
-                    allowed_pks.add(s.pk)
-                if recipient.pk not in allowed_pks:
-                    messages.error(request, "Unit managers can only send to their HOD, other unit managers in their department, or supervisors.")
+                    messages.error(request, "You can only send to a HOD, head of unit, or supervisor.")
                     return redirect(request.path)
             elif staff_user.is_supervisor:
                 # Supervisor (non-HOD, non-unit-manager) → unit managers or HODs only

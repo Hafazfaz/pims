@@ -1031,41 +1031,29 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
 def _get_allowed_forward_pks(staff):
     """Return set of allowed recipient PKs for forwarding, mirroring send-file routing rules.
     Returns None for MD/Executive (unrestricted)."""
-    from organization.models import Department as Dept
+    from organization.models import Department as Dept, Unit
     base_qs = Staff.objects.exclude(
         Q(designation__name__icontains='registry') | Q(user__groups__name__iexact='Registry')
     )
     if staff.is_md or staff.is_executive:
         return None  # unrestricted
-    if staff.is_hod:
-        dept = staff.department
+    if staff.is_hod or staff.is_head_of_unit:
+        # Any HOD, any head of unit, any supervisor
         pks = set()
-        if dept:
-            for d in Dept.objects.exclude(pk=dept.pk):
-                if d.head:
-                    pks.add(d.head.pk)
-            for u in dept.units.filter(head__isnull=False):
-                pks.add(u.head.pk)
+        for d in Dept.objects.filter(head__isnull=False):
+            pks.add(d.head.pk)
+        for u in Unit.objects.filter(head__isnull=False):
+            pks.add(u.head.pk)
         for s in base_qs.filter(is_supervisor=True):
             pks.add(s.pk)
-        return pks
-    if staff.is_head_of_unit:
-        dept = staff.department
-        pks = set()
-        if dept and dept.head:
-            pks.add(dept.head.pk)
-        if dept:
-            for u in dept.units.filter(head__isnull=False).exclude(head=staff):
-                pks.add(u.head.pk)
-        for s in base_qs.filter(is_supervisor=True):
-            pks.add(s.pk)
+        pks.discard(staff.pk)
         return pks
     if staff.is_supervisor:
         pks = set()
         for d in Dept.objects.filter(head__isnull=False):
             pks.add(d.head.pk)
-        for s in base_qs.filter(is_head_of_unit=True):
-            pks.add(s.pk)
+        for u in Unit.objects.filter(head__isnull=False):
+            pks.add(u.head.pk)
         return pks
     # Regular staff
     pks = set()
@@ -1165,12 +1153,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
             'movement_history': movement_history,
             'file_movement_history': file_movement_history,
             'can_approve': bool(staff and (staff.is_hod or staff.is_effective_supervisor)),
-            'prefilled_recipient': (
-                staff.department.head
-                if staff and staff.is_head_of_unit and not (staff.is_hod or staff.is_md or staff.is_executive)
-                   and staff.department and staff.department.head
-                else None
-            ),
+            'prefilled_recipient': None,
         })
 
 
@@ -1202,6 +1185,10 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             if movement.document:
                 movement.document.status = 'approved'
                 movement.document.save(update_fields=['status'])
+            # Transfer custody to the approving HOD and mark file active
+            movement.file.current_location = staff
+            movement.file.status = 'active'
+            movement.file.save(update_fields=['current_location', 'status'])
             create_notification(
                 user=movement.sent_by,
                 message=f"{request.user.get_full_name() or request.user.username} approved document '{movement.document or movement.file.file_number}'.",
