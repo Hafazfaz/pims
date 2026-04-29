@@ -25,6 +25,8 @@ from .file_views import (  # noqa: F401
     InboxView,
     DocumentActionView,
     InboxDocumentDetailView,
+    InboxFileView,
+    InboxRefDocView,
 )
 from .document_views import (  # noqa: F401
     DocumentUploadView,

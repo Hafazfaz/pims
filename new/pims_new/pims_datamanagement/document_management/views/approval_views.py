@@ -9,6 +9,7 @@ import json
 from ..models import File, ApprovalChain, ApprovalStep, ChainTemplate, ChainTemplateStep
 from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
 from notifications.utils import create_notification
+from audit_log.utils import log_action
 
 
 def _make_review_token(step):
@@ -191,6 +192,8 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
             ApprovalStep.objects.create(chain=chain, approver=approver, order=order)
 
         messages.success(request, "Approval chain created. You can now start it.")
+        log_action(request.user, 'CHAIN_CREATED', request=request, obj=file_obj,
+                   details={'chain_id': chain.pk, 'steps': len(approver_ids)})
         return redirect(file_obj.get_absolute_url())
 
 
@@ -249,6 +252,8 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
 
         _notify_approver(first_step)
         messages.success(request, f"Chain started. File dispatched to {first_step.approver} in read-only mode.")
+        log_action(request.user, 'CHAIN_STARTED', request=request, obj=file_obj,
+                   details={'chain_id': chain.pk, 'first_approver': str(first_step.approver)})
         return redirect(file_obj.get_absolute_url())
 
 
@@ -291,12 +296,16 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
                     _notify_approver(next_step)
             elif chain.status == 'closed':
                 _notify_owner(chain, f"Approval chain for '{chain.document or chain._get_file().file_number}' has been completed. File returned to registry.")
+            log_action(request.user, 'CHAIN_STEP_APPROVED', request=request, obj=file_obj,
+                       details={'chain_id': chain.pk, 'step': step.order})
             messages.success(request, "Step approved.")
         elif action == 'reject':
             step.status = 'rejected'
             step.save()
             chain.reject_to_previous(step.order)
             _notify_owner(chain, f"Step {step.order} was rejected. Note: {step.note or 'No reason given'}")
+            log_action(request.user, 'CHAIN_STEP_REJECTED', request=request, obj=file_obj,
+                       details={'chain_id': chain.pk, 'step': step.order, 'note': note})
             messages.warning(request, "Step rejected. File sent back.")
         else:
             messages.error(request, "Invalid action.")
@@ -321,6 +330,7 @@ class ApprovalChainDeleteView(HTMXLoginRequiredMixin, View):
 
         chain.delete()
         messages.success(request, "Approval chain deleted.")
+        log_action(request.user, 'CHAIN_DELETED', request=request, obj=file_obj)
         return redirect(file_obj.get_absolute_url())
 
 
@@ -405,12 +415,16 @@ class ChainTemplateBuilderView(RegistryRequiredMixin, View):
             )
 
         messages.success(request, f"Chain template '{tmpl.name}' saved.")
+        log_action(request.user, 'CHAIN_TEMPLATE_SAVED', request=request,
+                   details={'template': tmpl.name, 'template_id': tmpl.pk})
         return redirect(reverse_lazy('document_management:chain_template_list'))
 
 
 class ChainTemplateDeleteView(RegistryRequiredMixin, View):
     def post(self, request, pk):
         tmpl = get_object_or_404(ChainTemplate, pk=pk)
+        log_action(request.user, 'CHAIN_TEMPLATE_DELETED', request=request,
+                   details={'template': tmpl.name})
         tmpl.delete()
         messages.success(request, "Template deleted.")
         return redirect(reverse_lazy('document_management:chain_template_list'))
@@ -501,4 +515,6 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
         else:
             messages.success(request, f"Chain '{tmpl.name}' applied to document. Start it to dispatch.")
 
+        log_action(request.user, 'CHAIN_APPLIED', request=request, obj=file_obj,
+                   details={'template': tmpl.name, 'document': str(document)})
         return redirect(file_obj.get_absolute_url())

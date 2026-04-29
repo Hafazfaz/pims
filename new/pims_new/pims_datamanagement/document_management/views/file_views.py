@@ -411,6 +411,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 return True
 
         if file_obj.owner == staff_user:
+            # Owner can see the file page but needs an access request to view content
             return True
 
         if file_obj.current_location == staff_user:
@@ -461,24 +462,17 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             
         if staff.is_registry:
             return True
-            
-        if file.owner == staff:
-            return True
-            
+
         if file.current_location == staff:
             return True
-            
-        has_rw_access = FileAccessRequest.objects.filter(
+
+        has_access = FileAccessRequest.objects.filter(
             file=file,
             requested_by=user,
-            status='approved',
-            access_type='read_write'
+            status='approved'
         ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
-        
-        if has_rw_access:
-            return True
-            
-        return False
+
+        return has_access
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -506,7 +500,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         is_registry = hasattr(user, 'staff') and user.staff.is_registry
         
         is_owner = hasattr(user, 'staff') and file_obj.owner == user.staff
-        context["can_add_minute"] = (is_registry or is_owner or has_rw_access) and not file_obj.is_in_active_chain
+        context["can_add_minute"] = (is_registry or (is_custodian and has_rw_access)) and not file_obj.is_in_active_chain
         context["can_add_minutes"] = context["can_add_minute"]
         context["can_send_file"] = (is_custodian or is_registry) and not file_obj.is_in_active_chain
         context["is_custodian"] = is_custodian
@@ -1097,6 +1091,49 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         return context
 
 
+class InboxRefDocView(HTMXLoginRequiredMixin, View):
+    """Read-only view of a single reference document shared with the inbox recipient."""
+
+    def get(self, request, pk):
+        from document_management.models import Document
+        doc = get_object_or_404(Document, pk=pk)
+        # Must be shared with this user
+        if not doc.shared_with.filter(pk=request.user.pk).exists():
+            messages.error(request, "You do not have access to this document.")
+            return redirect('document_management:inbox')
+        return render(request, 'document_management/inbox_ref_doc.html', {'document': doc})
+
+
+class InboxFileView(HTMXLoginRequiredMixin, View):
+    """Read-only view of the file sent via a movement — shows all documents and reference files."""
+
+    def get(self, request, pk):
+        movement = get_object_or_404(FileMovement, pk=pk)
+        staff = getattr(request.user, 'staff', None)
+
+        if movement.sent_to != staff:
+            messages.error(request, "You do not have access to this file.")
+            return redirect('document_management:inbox')
+
+        file_obj = movement.file
+        all_documents = file_obj.documents.order_by('-uploaded_at')
+
+        # Reference documents shared with this user for this movement
+        reference_docs = (
+            file_obj.documents
+            .filter(shared_with=request.user)
+            .exclude(pk=movement.document.pk if movement.document else None)
+            .order_by('-uploaded_at')
+        )
+
+        return render(request, 'document_management/inbox_file_view.html', {
+            'movement': movement,
+            'file': file_obj,
+            'all_documents': all_documents,
+            'reference_docs': reference_docs,
+        })
+
+
 class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
     """Detail view for a document received via FileMovement — shows movement context, sender info, references, other docs."""
 
@@ -1185,8 +1222,13 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             if movement.document:
                 movement.document.status = 'approved'
                 movement.document.save(update_fields=['status'])
-            # Transfer custody to the approving HOD and mark file active
-            movement.file.current_location = staff
+            # Transfer custody back to registry and mark file active
+            from organization.models import Staff as StaffModel
+            from django.db.models import Q as DQ
+            registry = StaffModel.objects.filter(
+                DQ(designation__name__icontains='registry') | DQ(user__groups__name__iexact='Registry')
+            ).first()
+            movement.file.current_location = registry
             movement.file.status = 'active'
             movement.file.save(update_fields=['current_location', 'status'])
             create_notification(
@@ -1195,6 +1237,8 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 obj=movement.file,
                 link=movement.file.get_absolute_url(),
             )
+            log_action(request.user, 'DOCUMENT_APPROVED', request=request, obj=movement.file,
+                       details={'document': str(movement.document), 'file': movement.file.file_number})
             messages.success(request, "Document approved.")
 
         elif action == 'reject':
@@ -1216,6 +1260,8 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 obj=movement.file,
                 link=movement.file.get_absolute_url(),
             )
+            log_action(request.user, 'DOCUMENT_REJECTED', request=request, obj=movement.file,
+                       details={'document': str(movement.document), 'file': movement.file.file_number, 'note': note})
             messages.warning(request, "Document rejected and returned to sender.")
 
         elif action == 'forward':
@@ -1255,6 +1301,8 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 obj=movement.file,
                 link=reverse_lazy('document_management:inbox'),
             )
+            log_action(request.user, 'DOCUMENT_FORWARDED', request=request, obj=movement.file,
+                       details={'document': str(movement.document), 'file': movement.file.file_number, 'to': recipient.user.get_full_name()})
             messages.success(request, f"Document forwarded to {recipient.user.get_full_name()}.")
 
         else:

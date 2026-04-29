@@ -52,7 +52,22 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         document = form.save(commit=False)
-        document.uploaded_by = self.request.user
+        file_obj = document.file
+        user = self.request.user
+        staff = getattr(user, 'staff', None)
+
+        is_owner = staff and file_obj.owner == staff
+        is_registry = staff and staff.is_registry
+        is_custodian = staff and file_obj.current_location == staff
+        has_rw = is_custodian and FileAccessRequest.objects.filter(
+            file=file_obj, requested_by=user, status='approved', access_type='read_write'
+        ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+
+        if not (is_registry or has_rw):
+            messages.error(self.request, "You do not have permission to add documents to this file.")
+            return redirect(file_obj.get_absolute_url())
+
+        document.uploaded_by = user
         document.save()
         messages.success(self.request, "Document uploaded successfully.")
         return redirect(self.get_success_url())
@@ -127,21 +142,16 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         except Staff.DoesNotExist:
             return False
 
-        if (staff_user == file_obj.owner or staff_user == file_obj.current_location):
+        if staff_user == file_obj.current_location:
             return True
 
         if staff_user and staff_user.is_registry:
             return True
 
-        if staff_user and staff_user.is_hod and staff_user.department:
-            if (file_obj.owner and file_obj.owner.department == staff_user.department):
-                return True
-
         active_request = FileAccessRequest.objects.filter(
             file=file_obj,
             requested_by=user,
             status='approved',
-            access_type='read_write'
         ).filter(
             Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)
         ).exists()
@@ -196,9 +206,7 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             if active_access:
                 access_type = active_access.access_type
 
-        context["can_add_minute"] = is_registry or is_custodian or is_owner or (
-            has_approved_access and access_type == 'read_write' and file_obj.status == 'active'
-        )
+        context["can_add_minute"] = (is_registry or (is_custodian and access_type == 'read_write')) and file_obj.status == 'active'
 
         can_send_file = False
         # Can only dispatch if: active file, no active chain, AND not already approved
@@ -364,6 +372,16 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
                 'status': 'approved',
             }
         )
+        # Auto-grant read-only access for the sender so they can still view after sending
+        FileAccessRequest.objects.get_or_create(
+            file=file_obj,
+            requested_by=request.user,
+            defaults={
+                'reason': 'Auto-granted: sender retains read-only access',
+                'access_type': 'read_only',
+                'status': 'approved',
+            }
+        )
 
         document.status = 'in_transit'
         document.save(update_fields=['status'])
@@ -503,8 +521,12 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         from django.http import FileResponse
         file_path = document.attachment.path
         mime_type, _ = mimetypes.guess_type(file_path)
+        inline = request.GET.get('inline') == '1'
+        disposition = 'inline' if inline else f'attachment; filename="{document.attachment.name.split("/")[-1]}"'
         response = FileResponse(open(file_path, 'rb'), content_type=mime_type or 'application/octet-stream')
-        response['Content-Disposition'] = f'attachment; filename="{document.attachment.name.split("/")[-1]}"'
+        response['Content-Disposition'] = disposition
+        if inline:
+            response['X-Frame-Options'] = 'SAMEORIGIN'
         log_action(user, "DOCUMENT_DOWNLOADED", request=request, obj=document)
         return response
     model = Document
