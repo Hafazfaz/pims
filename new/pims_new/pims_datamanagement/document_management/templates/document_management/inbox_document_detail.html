@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% block title %}{{ document.title|default:"Document" }} | Inbox | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm">
+        <a href="{% url 'document_management:inbox' %}" class="text-slate-400 hover:text-nigeria-green transition-colors">
+            ← Back to Inbox
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- LEFT: Document content (2/3) -->
+        <div class="lg:col-span-2 space-y-4">
+
+            <!-- Document card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                <div class="flex items-start justify-between gap-4 mb-6">
+                    <div>
+                        <div class="inline-flex items-center px-2.5 py-1 rounded bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-widest border border-indigo-100 mb-2">Document</div>
+                        <h2 class="text-2xl font-bold text-slate-900">{{ document.title|default:"Untitled Document" }}</h2>
+                        <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-wider">
+                            Uploaded by {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }} · {{ document.uploaded_at|date:"M d, Y @ H:i" }}
+                        </p>
+                    </div>
+                    <span class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                        {% if document.status == 'approved' %}bg-green-50 text-green-700 border-green-200
+                        {% elif document.status == 'rejected' %}bg-red-50 text-red-700 border-red-200
+                        {% elif document.status == 'in_transit' %}bg-blue-50 text-blue-700 border-blue-200
+                        {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+                        {{ document.get_status_display }}
+                    </span>
+                </div>
+
+                {% if document.minute_content %}
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-4">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Content</h3>
+                    <div class="prose prose-sm max-w-none text-slate-700">{{ document.minute_content|safe }}</div>
+                </div>
+                {% endif %}
+
+                {% if document.attachment %}
+                <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                    </svg>
+                    <a href="{% url 'document_management:document_download' document.pk %}" class="text-sm font-bold text-indigo-600 hover:underline">Download Attachment</a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Reference documents -->
+            {% if reference_docs %}
+            <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-6">
+                <h3 class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-4">Reference Documents</h3>
+                <div class="divide-y divide-slate-100">
+                    {% for doc in reference_docs %}
+                    <div class="py-3 flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            {% if doc.attachment %}
+                            <a href="{% url 'document_management:document_download' doc.pk %}"
+                               class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">
+                                Download
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'document_management:document_detail' doc.pk %}"
+                               class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-amber-100 transition-all">
+                                View
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Dispatch note / movement context -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Dispatch Context</h3>
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-black text-slate-600 shrink-0">
+                        {{ movement.sent_by.get_full_name|default:movement.sent_by.username|slice:":1" }}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-slate-900">{{ movement.sent_by.get_full_name|default:movement.sent_by.username }}</p>
+                        {% if sender_staff %}
+                        <p class="text-[10px] text-slate-500 font-medium">
+                            {{ sender_staff.designation.name|default:"" }}
+                            {% if sender_staff.unit %} · {{ sender_staff.unit.name }}{% endif %}
+                            {% if sender_staff.department %} · {{ sender_staff.department.name }}{% endif %}
+                        </p>
+                        <p class="text-[10px] text-slate-400">{{ movement.sent_by.email }}</p>
+                        {% endif %}
+                        {% if movement.note %}
+                        <div class="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                            <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Note</p>
+                            <p class="text-sm text-slate-700">{{ movement.note }}</p>
+                        </div>
+                        {% endif %}
+                        <p class="text-[10px] text-slate-400 mt-2 uppercase tracking-wider">Sent {{ movement.moved_at|date:"M d, Y @ H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other documents in this file -->
+            {% if other_docs %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Other Documents in {{ file.file_number }}</h3>
+                <div class="divide-y divide-slate-100">
+                    {% for doc in other_docs %}
+                    <div class="py-3 flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
+                        </div>
+                        <span class="text-[9px] font-bold px-2 py-1 rounded-full border uppercase tracking-tighter
+                            {% if doc.status == 'approved' %}bg-green-50 text-green-600 border-green-100
+                            {% elif doc.status == 'rejected' %}bg-red-50 text-red-600 border-red-100
+                            {% elif doc.status == 'in_transit' %}bg-blue-50 text-blue-600 border-blue-100
+                            {% else %}bg-amber-50 text-amber-600 border-amber-100{% endif %}">
+                            {{ doc.get_status_display }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- RIGHT: Sidebar (1/3) -->
+        <div class="space-y-4">
+
+            <!-- Actions -->
+            {% if movement.status == 'pending' %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-3">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</h3>
+
+                {% if can_approve %}
+                <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="w-full py-2.5 bg-green-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-all">
+                        ✓ Approve
+                    </button>
+                </form>
+                {% endif %}
+
+                <!-- Reject -->
+                <div x-data="{ open: false }">
+                    <button @click="open = !open" class="w-full py-2.5 bg-red-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition-all">
+                        ✕ Reject
+                    </button>
+                    <div x-show="open" x-cloak class="mt-2 space-y-2">
+                        <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="reject">
+                            <input type="text" name="note" placeholder="Reason (optional)"
+                                   class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm mb-2 focus:ring-1 focus:ring-red-400">
+                            <button type="submit" class="w-full py-2 bg-red-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-800">Confirm Reject</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Forward -->
+                <div x-data="{ open: false }">
+                    <button @click="open = !open" class="w-full py-2.5 bg-slate-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-900 transition-all">
+                        → Forward
+                    </button>
+                    <div x-show="open" x-cloak class="mt-2">
+                        <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="forward">
+
+                            {% if prefilled_recipient %}
+                                <input type="hidden" name="recipient" value="{{ prefilled_recipient.pk }}">
+                                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800">
+                                    {{ prefilled_recipient.user.get_full_name|default:prefilled_recipient.user.username }}
+                                    <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase ml-1">HOD</span>
+                                </div>
+                            {% else %}
+                                <input type="hidden" name="recipient" id="detail-recipient-id">
+                                <div class="relative">
+                                    <input type="text" id="detail-forward-search" placeholder="Search recipient…"
+                                           autocomplete="off"
+                                           class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-slate-400"
+                                           hx-get="{% url 'document_management:inbox_recipient_search' %}"
+                                           hx-trigger="input changed delay:300ms"
+                                           hx-target="#detail-forward-results"
+                                           name="q">
+                                    <div id="detail-forward-results" class="absolute z-50 w-full"></div>
+                                </div>
+                            {% endif %}
+
+                            <input type="text" name="note" placeholder="Note (optional)"
+                                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-slate-400">
+                            <button type="submit"
+                                    id="detail-forward-submit"
+                                    {% if not prefilled_recipient %}disabled{% endif %}
+                                    class="w-full py-2 bg-slate-800 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed">
+                                Forward
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4 text-center">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Already actioned — {{ movement.get_status_display }}</span>
+            </div>
+            {% endif %}
+
+            <!-- File info -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Folder</h3>
+                <p class="text-sm font-bold text-nigeria-green">{{ file.file_number }}</p>
+                <p class="text-xs font-semibold text-slate-700 mt-0.5">{{ file.title }}</p>
+                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{{ file.get_file_type_display }}</p>
+                {% if file.owner %}
+                <div class="mt-3 pt-3 border-t border-slate-100">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Owner</p>
+                    <p class="text-xs font-semibold text-slate-700">{{ file.owner_display }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Chat thread -->
+            {% if movement_history %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Conversation</h3>
+                <div class="space-y-4">
+                    {% for m in movement_history %}
+                    <div class="flex gap-3 {% if m.sent_by == request.user %}flex-row-reverse{% endif %}">
+                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600 shrink-0">
+                            {{ m.sent_by.get_full_name|default:m.sent_by.username|slice:":1" }}
+                        </div>
+                        <div class="max-w-[80%] {% if m.sent_by == request.user %}items-end{% endif %} flex flex-col gap-1">
+                            <div class="flex items-center gap-2 {% if m.sent_by == request.user %}flex-row-reverse{% endif %}">
+                                <span class="text-[10px] font-bold text-slate-700">{{ m.sent_by.get_full_name|default:m.sent_by.username }}</span>
+                                <span class="text-[9px] text-slate-400">→ {{ m.sent_to.user.get_full_name|default:m.sent_to }}</span>
+                            </div>
+                            <div class="px-4 py-2.5 rounded-2xl text-sm
+                                {% if m.sent_by == request.user %}
+                                    bg-nigeria-green text-white rounded-tr-none
+                                {% else %}
+                                    bg-slate-100 text-slate-800 rounded-tl-none
+                                {% endif %}">
+                                {% if m.note %}
+                                    {{ m.note }}
+                                {% else %}
+                                    <span class="italic opacity-60">No note</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center gap-2 {% if m.sent_by == request.user %}flex-row-reverse{% endif %}">
+                                <span class="text-[9px] text-slate-400">{{ m.moved_at|date:"M d @ H:i" }}</span>
+                                {% if m.status != 'pending' %}
+                                <span class="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase
+                                    {% if m.status == 'approved' %}bg-green-100 text-green-700
+                                    {% elif m.status == 'rejected' %}bg-red-100 text-red-700
+                                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                    {{ m.get_status_display }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- File movement history -->
+            {% if file_movement_history %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">File Movement History</h3>
+                <ol class="relative border-l border-slate-200 space-y-4 ml-2">
+                    {% for m in file_movement_history %}
+                    <li class="ml-4">
+                        <div class="absolute -left-1.5 w-3 h-3 rounded-full border-2 border-white
+                            {% if m.status == 'approved' %}bg-green-400
+                            {% elif m.status == 'rejected' %}bg-red-400
+                            {% elif m.status == 'forwarded' %}bg-blue-400
+                            {% else %}bg-slate-300{% endif %}">
+                        </div>
+                        <p class="text-xs font-bold text-slate-800">
+                            {{ m.sent_by.get_full_name|default:m.sent_by.username }}
+                            {% if m.sent_to %}
+                            <span class="font-normal text-slate-400">→ {{ m.sent_to.user.get_full_name|default:m.sent_to }}</span>
+                            {% endif %}
+                        </p>
+                        {% if m.document %}
+                        <p class="text-[10px] text-slate-500 italic">re: {{ m.document.title|default:"Untitled" }}</p>
+                        {% endif %}
+                        {% if m.note %}
+                        <p class="text-[10px] text-slate-500 mt-0.5">"{{ m.note|truncatechars:80 }}"</p>
+                        {% endif %}
+                        <p class="text-[9px] text-slate-400 mt-0.5">{{ m.moved_at|date:"M d, Y @ H:i" }}</p>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<script>
+// Wire up live search result clicks for the detail forward form
+document.addEventListener('click', function(e) {
+    const option = e.target.closest('.inbox-recipient-option');
+    if (!option) return;
+    const resultsDiv = document.getElementById('detail-forward-results');
+    if (!resultsDiv || !resultsDiv.contains(option)) return;
+    const idInput = document.getElementById('detail-recipient-id');
+    const searchInput = document.getElementById('detail-forward-search');
+    const submitBtn = document.getElementById('detail-forward-submit');
+    if (idInput) idInput.value = option.dataset.id;
+    if (searchInput) searchInput.value = option.dataset.name;
+    if (submitBtn) submitBtn.disabled = false;
+    resultsDiv.innerHTML = '';
+});
+</script>
+{% endblock %}
