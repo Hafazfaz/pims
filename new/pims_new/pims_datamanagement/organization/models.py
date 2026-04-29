@@ -70,11 +70,17 @@ class Staff(models.Model):
     def is_hod(self):
         if self.designation and any(role in self.designation.name.lower() for role in ["head of department", "hod", "director"]):
             return True
-        return hasattr(self, 'headed_department') and self.headed_department is not None
+        try:
+            return self.headed_department is not None
+        except Exception:
+            return False
 
     @property
     def is_head_of_unit(self):
-        return hasattr(self, 'headed_unit') and self.headed_unit is not None
+        try:
+            return self.headed_unit is not None
+        except Exception:
+            return False
 
     # Keep backwards-compat alias
     @property
