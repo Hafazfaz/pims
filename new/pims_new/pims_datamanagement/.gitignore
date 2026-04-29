@@ -39,3 +39,4 @@ celeryd.pid
 
 # Tests
 .pytest_cachenode_modules/
+kiro.json
