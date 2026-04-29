@@ -296,10 +296,20 @@ class FileMovement(models.Model):
     from_location = models.ForeignKey(
         Staff, on_delete=models.SET_NULL, null=True, blank=True, related_name='outgoing_movements'
     )
+    document = models.ForeignKey(
+        'Document', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='movements',
+        help_text="The specific document being sent in this movement."
+    )
     note = models.TextField(blank=True, default='')
     attachment = models.FileField(upload_to='movement_attachments/', blank=True, null=True)
     moved_at = models.DateTimeField(auto_now_add=True)
     action = models.CharField(max_length=20, default='sent')  # 'sent', 'recalled', 'closed'
+    status = models.CharField(
+        max_length=20,
+        choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('forwarded', 'Forwarded')],
+        default='pending',
+    )
 
     # End-of-movement registry fields (required on close)
     closed_at = models.DateTimeField(null=True, blank=True)

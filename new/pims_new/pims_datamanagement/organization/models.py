@@ -49,7 +49,8 @@ class Staff(models.Model):
     staff_type = models.CharField(max_length=20, choices=STAFF_TYPE_CHOICES, default='permanent')
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    signature = models.ImageField(upload_to='signatures/', blank=True, null=True) # Legacy signature field
+    signature = models.ImageField(upload_to='signatures/', blank=True, null=True)
+    is_supervisor = models.BooleanField(default=False, help_text="Designates this staff member as a supervisor.")
 
     def __str__(self):
         try:
@@ -72,8 +73,18 @@ class Staff(models.Model):
         return hasattr(self, 'headed_department') and self.headed_department is not None
 
     @property
-    def is_unit_manager(self):
+    def is_head_of_unit(self):
         return hasattr(self, 'headed_unit') and self.headed_unit is not None
+
+    # Keep backwards-compat alias
+    @property
+    def is_unit_manager(self):
+        return self.is_head_of_unit
+
+    @property
+    def is_effective_supervisor(self):
+        """True if this staff acts as a supervisor — either flagged, HOU, or HOD."""
+        return self.is_supervisor or self.is_head_of_unit or self.is_hod or self.is_executive or self.is_md
 
     @property
     def is_executive(self):
