@@ -1,30 +1,204 @@
 {% if entries %}
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ title }}</h3>
-        <span class="text-[9px] font-bold px-2 py-1 rounded-full
-            {% if color == 'green' %}bg-green-50 text-green-700
-            {% elif color == 'red' %}bg-red-50 text-red-700
-            {% elif color == 'blue' %}bg-blue-50 text-blue-700
-            {% elif color == 'amber' %}bg-amber-50 text-amber-700
-            {% else %}bg-indigo-50 text-indigo-700{% endif %}">
-            {{ entries|length }} entries
-        </span>
-    </div>
-    <div class="divide-y divide-slate-50">
-        {% for entry in entries %}
-        <div class="px-6 py-3 flex items-start justify-between gap-4">
-            <div class="min-w-0">
-                <p class="text-xs font-bold text-slate-800">{{ entry.action|lower|title }}</p>
-                {% if entry.details %}
-                <p class="text-[10px] text-slate-400 truncate mt-0.5">
-                    {% for k, v in entry.details.items %}{{ k }}: {{ v }}{% if not forloop.last %} · {% endif %}{% endfor %}
-                </p>
-                {% endif %}
+<div x-data="{ showModal: false }" class="contents">
+    <!-- Compact Section Card -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full hover:border-nigeria-green transition-colors group cursor-pointer"
+         @click="showModal = true">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 group-hover:bg-white transition-colors">
+            <div class="flex items-center gap-3">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-nigeria-green">{{ title }}</h3>
+                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full
+                    {% if color == 'green' %}bg-green-100 text-green-700
+                    {% elif color == 'red' %}bg-red-100 text-red-700
+                    {% elif color == 'blue' %}bg-blue-100 text-blue-700
+                    {% elif color == 'amber' %}bg-amber-100 text-amber-700
+                    {% else %}bg-indigo-100 text-indigo-700{% endif %}">
+                    {{ entries|length }}
+                </span>
             </div>
-            <p class="text-[9px] text-slate-400 shrink-0">{{ entry.timestamp|date:"M d, Y H:i" }}</p>
+            
+            <div class="flex items-center gap-2">
+                <!-- Mini Export Buttons -->
+                <div class="hidden group-hover:flex items-center gap-1.5 border-r border-slate-200 pr-3 mr-1">
+                    <a href="{% url 'audit_log:export_full_activity' %}?days={{ days }}{% if viewed_user %}&user_id={{ viewed_user.pk }}{% endif %}&format=csv&section={{ section }}"
+                       @click.stop
+                       class="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-colors" title="Export CSV">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </a>
+                    <a href="{% url 'audit_log:export_full_activity' %}?days={{ days }}{% if viewed_user %}&user_id={{ viewed_user.pk }}{% endif %}&format=excel&section={{ section }}"
+                       @click.stop
+                       class="p-1 hover:bg-green-100 rounded text-slate-500 hover:text-green-700 transition-colors" title="Export Excel">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </a>
+                </div>
+                <svg class="w-4 h-4 text-slate-300 group-hover:text-nigeria-green transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+            </div>
         </div>
-        {% endfor %}
+        
+        <div class="divide-y divide-slate-50 flex-1">
+            {% for entry in entries|slice:":5" %}
+            <div class="px-6 py-2.5 hover:bg-slate-50/50 transition-colors">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                            <p class="text-[11px] font-bold text-slate-800">{{ entry.action|lower|title }}</p>
+                            <span class="text-[9px] font-bold text-nigeria-green opacity-70">{{ entry.user.get_full_name|default:entry.user.username|default:"System" }}</span>
+                        </div>
+                        {% if entry.details.file %}
+                        <p class="text-[9px] text-slate-500 truncate mt-0.5 font-medium">
+                             {{ entry.details.file }}{% if entry.details.file_title %} · {{ entry.details.file_title }}{% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <p class="text-[9px] text-slate-400 shrink-0 font-medium">{{ entry.timestamp|date:"d M, H:i" }}</p>
+                </div>
+            </div>
+            {% endfor %}
+            {% if entries|length > 5 %}
+            <div class="px-6 py-3 bg-slate-50/30 text-center">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">View {{ entries|length|add:"-5" }} more entries...</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
+
+    <!-- Full Details Modal -->
+    <template x-teleport="body">
+        <div x-show="showModal" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+             style="display: none;">
+            
+            <!-- Overlay -->
+            <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" @click="showModal = false"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-white w-full max-w-5xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+                 x-show="showModal"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="scale-98 opacity-0"
+                 x-transition:enter-end="scale-100 opacity-100">
+                
+                <!-- Modal Header: Compacted -->
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                             <h2 class="text-sm font-black text-slate-900 uppercase tracking-widest">{{ title }}</h2>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-slate-50 p-1 rounded-md border border-slate-100">
+                            <a href="{% url 'audit_log:export_full_activity' %}?days={{ days }}{% if viewed_user %}&user_id={{ viewed_user.pk }}{% endif %}&format=csv&section={{ section }}"
+                               class="px-2 py-1 bg-slate-700 text-white rounded text-[9px] font-bold uppercase tracking-widest hover:bg-slate-900 transition-all">
+                                ↓ CSV
+                            </a>
+                            <a href="{% url 'audit_log:export_full_activity' %}?days={{ days }}{% if viewed_user %}&user_id={{ viewed_user.pk }}{% endif %}&format=excel&section={{ section }}"
+                               class="px-2 py-1 bg-green-700 text-white rounded text-[9px] font-bold uppercase tracking-widest hover:bg-green-800 transition-all">
+                                ↓ Excel
+                            </a>
+                        </div>
+                    </div>
+                    <button @click="showModal = false" class="p-1.5 hover:bg-slate-100 rounded-full transition-colors">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body: Compacted Table -->
+                <div class="flex-1 overflow-auto bg-white px-6 py-2">
+                    <table class="w-full text-left table-fixed">
+                        <thead>
+                            <tr class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                                <th class="py-3 w-28">Timestamp</th>
+                                <th class="py-3 w-36">Operation</th>
+                                <th class="py-3 w-40">Actor</th>
+                                <th class="py-3 w-48">Asset</th>
+                                <th class="py-3">Metadata</th>
+                                <th class="py-3 w-24 text-right">Node</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            {% for entry in entries %}
+                            <tr class="group hover:bg-slate-50/50 transition-colors">
+                                <td class="py-3 align-top whitespace-nowrap pr-2">
+                                    <p class="text-[10px] font-bold text-slate-900">{{ entry.timestamp|date:"d M, Y" }}</p>
+                                    <p class="text-[9px] text-slate-400 font-mono">{{ entry.timestamp|date:"H:i:s" }}</p>
+                                </td>
+                                <td class="py-3 align-top pr-2">
+                                    <span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[8px] font-black uppercase tracking-tighter border border-slate-200">
+                                        {{ entry.action }}
+                                    </span>
+                                </td>
+                                <td class="py-3 align-top pr-2">
+                                    <p class="text-[10px] font-black text-slate-800 leading-tight">{{ entry.user.get_full_name|default:entry.user.username|default:"System" }}</p>
+                                    {% if entry.user.staff %}
+                                    <p class="text-[8px] font-bold text-nigeria-green uppercase tracking-tighter mt-0.5">
+                                        {{ entry.user.staff.designation.name|default:"" }}
+                                        {% if entry.user.staff.department %}
+                                        <span class="text-slate-300">·</span> {{ entry.user.staff.department.name }}
+                                        {% endif %}
+                                    </p>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 align-top pr-2">
+                                    {% if entry.details.file %}
+                                    <div class="max-w-full overflow-hidden">
+                                        <p class="text-[10px] font-black text-slate-700 uppercase truncate">{{ entry.details.file }}</p>
+                                        <p class="text-[9px] text-slate-400 font-medium italic truncate">{{ entry.details.file_title|default:"No Title" }}</p>
+                                    </div>
+                                    {% elif entry.content_object %}
+                                    <div class="max-w-full overflow-hidden">
+                                        {% if entry.content_type.model == 'file' %}
+                                        <p class="text-[10px] font-black text-slate-700 uppercase truncate">{{ entry.content_object.file_number }}</p>
+                                        <p class="text-[9px] text-slate-400 font-medium italic truncate">{{ entry.content_object.title }}</p>
+                                        {% elif entry.content_type.model == 'document' %}
+                                        <p class="text-[10px] font-black text-slate-700 uppercase truncate">{{ entry.content_object.file.file_number }}</p>
+                                        <p class="text-[9px] text-nigeria-green font-bold truncate">DOC: {{ entry.content_object.title|default:"Untitled" }}</p>
+                                        {% else %}
+                                        <p class="text-[10px] font-black text-slate-700 uppercase truncate">{{ entry.content_object }}</p>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <p class="text-[9px] text-slate-300 italic">System</p>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 align-top">
+                                    <div class="grid grid-cols-1 gap-1">
+                                        {% for k, v in entry.details.items %}
+                                            {% if k != 'file' and k != 'file_title' %}
+                                            <div class="flex items-center gap-1.5 group/meta">
+                                                <span class="text-[7px] font-black text-slate-300 uppercase group-hover/meta:text-slate-400 transition-colors">{{ k }}:</span>
+                                                <span class="text-[9px] text-slate-600 font-medium leading-tight line-clamp-1 group-hover/meta:line-clamp-none">{{ v }}</span>
+                                            </div>
+                                            {% endif %}
+                                        {% empty %}
+                                        <p class="text-[8px] text-slate-300 italic">None</p>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="py-3 align-top text-right font-mono text-[9px] text-slate-400">
+                                    {{ entry.ip_address|default:"-" }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Modal Footer: Compacted -->
+                <div class="px-6 py-3 bg-white border-t border-slate-100 flex items-center justify-between">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{{ entries|length }} signatures</p>
+                    <button @click="showModal = false" class="px-4 py-1.5 bg-slate-900 text-white rounded text-[10px] font-bold hover:bg-slate-800 transition-all">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
 </div>
 {% endif %}

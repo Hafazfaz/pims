@@ -4,43 +4,105 @@
 <div class="space-y-8">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
             <h2 class="text-2xl font-bold text-slate-900 uppercase tracking-widest">
                 {% if viewed_user %}{{ viewed_user.get_full_name|default:viewed_user.username }}'s Activity
                 {% elif is_registry %}All Activity Log
                 {% else %}My Activity Report{% endif %}
             </h2>
-            <p class="text-sm text-slate-500 italic">Last {{ days }} days</p>
-        </div>
-        <div class="flex items-center gap-3 flex-wrap">
-            <!-- Days filter -->
-            <form method="get" class="flex items-center gap-2">
-                {% if viewed_user %}<input type="hidden" name="user_id" value="{{ viewed_user.pk }}">{% endif %}
-                <select name="days" onchange="this.form.submit()"
-                        class="border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 focus:ring-1 focus:ring-nigeria-green">
-                    <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
-                    <option value="14" {% if days == 14 %}selected{% endif %}>Last 14 days</option>
-                    <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
-                    <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
-                </select>
-            </form>
-            <!-- Registry: user search -->
-            {% if is_registry %}
-            <form method="get" class="flex items-center gap-2">
-                <input type="hidden" name="days" value="{{ days }}">
-                <input type="text" name="q" value="{{ search_q|default:'' }}"
-                       placeholder="Search user by name or email…"
-                       class="border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 focus:ring-1 focus:ring-nigeria-green min-w-[220px]">
-                <button type="submit" class="px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900">Search</button>
-                {% if viewed_user %}
-                <a href="{% url 'audit_log:my_activity_report' %}?days={{ days }}" class="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-300">Clear</a>
+            <p class="text-sm text-slate-500 italic">
+                {% if start_date or end_date %}
+                    From {{ start_date|default:"Beginning" }} to {{ end_date|default:"Today" }}
+                {% else %}
+                    Last {{ days }} days
                 {% endif %}
+            </p>
+        </div>
+
+        <!-- Professional Filter Deck -->
+        <div class="flex flex-wrap items-center gap-4">
+            
+            <!-- Date Range Form -->
+            <form method="get" class="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                {% if viewed_user %}<input type="hidden" name="user_id" value="{{ viewed_user.pk }}">{% endif %}
+                
+                <div class="flex items-center gap-2 px-2">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Temporal Range</span>
+                    <input type="date" name="start_date" value="{{ start_date }}" 
+                           class="border-0 bg-slate-50 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-700 focus:ring-1 focus:ring-nigeria-green">
+                    <span class="text-slate-300">to</span>
+                    <input type="date" name="end_date" value="{{ end_date }}"
+                           class="border-0 bg-slate-50 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-700 focus:ring-1 focus:ring-nigeria-green">
+                </div>
+
+                <div class="h-6 w-px bg-slate-200"></div>
+
+                <div class="flex items-center gap-2 px-2">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Quick Select</span>
+                    <select name="days" onchange="this.form.submit()"
+                            class="border-0 bg-slate-50 rounded-lg px-3 py-1.5 text-[10px] font-bold text-slate-700 focus:ring-1 focus:ring-nigeria-green">
+                        <option value="7" {% if days == 7 %}selected{% endif %}>7 Days</option>
+                        <option value="14" {% if days == 14 %}selected{% endif %}>14 Days</option>
+                        <option value="30" {% if days == 30 %}selected{% endif %}>30 Days</option>
+                        <option value="90" {% if days == 90 %}selected{% endif %}>90 Days</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="bg-slate-900 text-white px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all">
+                    Apply
+                </button>
             </form>
+
+            <!-- Registry: User Search -->
+            {% if is_registry %}
+            <div x-data="{
+                    query: '{% if viewed_user %}{{ viewed_user.get_full_name|default:viewed_user.username|escapejs }}{% endif %}',
+                    showResults: false,
+                    loading: false
+                 }"
+                 class="relative min-w-[300px]"
+                 @click.outside="showResults = false">
+                <div class="flex items-center gap-2">
+                    <div class="relative flex-1 group">
+                        <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 group-hover:text-nigeria-green transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </span>
+                        <input type="text"
+                               x-model="query"
+                               @focus="showResults = true"
+                               @input="showResults = true"
+                               placeholder="Audit user by name or email…"
+                               class="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-[10px] font-bold text-slate-700 focus:ring-2 focus:ring-nigeria-green transition-all shadow-sm"
+                               hx-get="{% url 'audit_log:activity_user_search' %}"
+                               hx-trigger="input changed delay:300ms"
+                               hx-target="#user-search-results"
+                               hx-include="[name='start_date'], [name='end_date'], [name='days']"
+                               name="q">
+                        <!-- Loading spinner -->
+                        <div x-show="loading" class="absolute right-3 top-2.5">
+                            <svg class="w-3.5 h-3.5 animate-spin text-nigeria-green" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                        </div>
+                        <div id="user-search-results" x-show="showResults" class="absolute w-full z-50"></div>
+                    </div>
+                    {% if viewed_user %}
+                    <a href="{% url 'audit_log:my_activity_report' %}"
+                       class="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 hover:text-slate-900 transition-all shadow-sm" title="Clear Filter">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
         </div>
-    </div>
+    </div><!-- end header -->
 
+    <div id="activity-content" class="space-y-6 transition-opacity duration-200 htmx-request:opacity-40 htmx-request:pointer-events-none"
+         hx-on::after-swap="document.dispatchEvent(new CustomEvent('activity-loaded'))">
+    
     <!-- User profile card (registry viewing another user) -->
     {% if viewed_user_staff %}
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex items-center gap-6">
@@ -64,46 +126,40 @@
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</p>
                 <p class="text-xs text-slate-600">{{ viewed_user_staff.department.name|default:"—" }}</p>
             </div>
-            {% if viewed_user_staff.unit %}
-            <div>
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit</p>
-                <p class="text-xs text-slate-600">{{ viewed_user_staff.unit.name }}</p>
-            </div>
-            {% endif %}
         </div>
     </div>
     {% endif %}
 
     <!-- Summary cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         {% with cards=summary %}
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Approvals</p>
-            <p class="text-3xl font-black text-green-600">{{ summary.approvals }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Approvals</p>
+            <p class="text-2xl font-black text-green-600">{{ summary.approvals }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rejections</p>
-            <p class="text-3xl font-black text-red-500">{{ summary.rejections }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Rejections</p>
+            <p class="text-2xl font-black text-red-500">{{ summary.rejections }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Access Granted</p>
-            <p class="text-3xl font-black text-blue-600">{{ summary.access_granted }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Access Granted</p>
+            <p class="text-2xl font-black text-blue-600">{{ summary.access_granted }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Access Denied</p>
-            <p class="text-3xl font-black text-amber-500">{{ summary.access_denied }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Access Denied</p>
+            <p class="text-2xl font-black text-amber-500">{{ summary.access_denied }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Files Moved</p>
-            <p class="text-3xl font-black text-indigo-600">{{ summary.files_moved }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Files Moved</p>
+            <p class="text-2xl font-black text-indigo-600">{{ summary.files_moved }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">File Actions</p>
-            <p class="text-3xl font-black text-slate-700">{{ summary.file_actions }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">File Actions</p>
+            <p class="text-2xl font-black text-slate-700">{{ summary.file_actions }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm col-span-2">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Actions</p>
-            <p class="text-3xl font-black text-nigeria-green">{{ summary.total }}</p>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
+            <p class="text-2xl font-black text-nigeria-green">{{ summary.total }}</p>
         </div>
         {% endwith %}
     </div>
@@ -114,12 +170,21 @@
         <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Action Breakdown</h3>
         <div class="space-y-2">
             {% for row in breakdown %}
-            <div class="flex items-center gap-3">
-                <span class="text-xs font-bold text-slate-700 w-48 truncate">{{ row.action|lower|title }}</span>
-                <div class="flex-1 bg-slate-100 rounded-full h-2">
-                    <div class="bg-nigeria-green h-2 rounded-full" style="width: {% widthratio row.count summary.total 100 %}%"></div>
+            <div class="space-y-1">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-700 w-48 truncate">{{ row.action|lower|title }}</span>
+                    <div class="flex-1 bg-slate-100 rounded-full h-2">
+                        {% if summary.total > 0 %}
+                        <div class="bg-nigeria-green h-2 rounded-full" style="width: {% widthratio row.count summary.total 100 %}%"></div>
+                        {% else %}
+                        <div class="bg-slate-200 h-2 rounded-full" style="width: 0%"></div>
+                        {% endif %}
+                    </div>
+                    <span class="text-xs font-black text-slate-500 w-8 text-right">{{ row.count }}</span>
                 </div>
-                <span class="text-xs font-black text-slate-500 w-8 text-right">{{ row.count }}</span>
+                {% if row.top_users %}
+                <p class="text-[9px] text-slate-400 pl-48 italic">Top Contributions: {{ row.top_users }}</p>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -128,13 +193,26 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {% include "audit_log/partials/_activity_section.html" with title="Approvals" entries=approvals color="green" %}
-        {% include "audit_log/partials/_activity_section.html" with title="Rejections" entries=rejections color="red" %}
-        {% include "audit_log/partials/_activity_section.html" with title="Access Granted" entries=access_granted color="blue" %}
-        {% include "audit_log/partials/_activity_section.html" with title="Access Denied" entries=access_denied color="amber" %}
-        {% include "audit_log/partials/_activity_section.html" with title="File Movements" entries=file_movements color="indigo" %}
+        {% include "audit_log/partials/_activity_section.html" with title="Approvals" entries=approvals color="green" section="approvals" %}
+        {% include "audit_log/partials/_activity_section.html" with title="Rejections" entries=rejections color="red" section="rejections" %}
+        {% include "audit_log/partials/_activity_section.html" with title="Access Granted" entries=access_granted color="blue" section="access_granted" %}
+        {% include "audit_log/partials/_activity_section.html" with title="Access Denied" entries=access_denied color="amber" section="access_denied" %}
+        {% include "audit_log/partials/_activity_section.html" with title="File Movements" entries=file_movements color="indigo" section="file_movements" %}
+        {% include "audit_log/partials/_activity_section.html" with title="File & Document Actions" entries=file_actions color="slate" section="file_actions" %}
 
     </div>
 
+    </div><!-- end activity-content -->
+
 </div>
+<script>
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'activity-content') {
+        const searchDiv = document.querySelector('[x-data*="loading"]');
+        if (searchDiv && searchDiv._x_dataStack) {
+            searchDiv._x_dataStack[0].loading = false;
+        }
+    }
+});
+</script>
 {% endblock %}

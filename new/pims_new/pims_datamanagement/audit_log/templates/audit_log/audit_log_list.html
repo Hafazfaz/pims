@@ -118,11 +118,16 @@
                                             <div>
                                                 <div class="text-xs font-bold text-slate-900 uppercase">
                                                     {% if entry.user %}
-                                                        {{ entry.user.username }}
+                                                        {{ entry.user.get_full_name|default:entry.user.username }}
                                                     {% else %}
                                                         Public Node
                                                     {% endif %}
                                                 </div>
+                                                {% if entry.user.staff %}
+                                                <div class="text-[9px] text-nigeria-green font-bold uppercase tracking-tight">
+                                                    {{ entry.user.staff.designation.name|default:"" }} {% if entry.user.staff.department %}· {{ entry.user.staff.department.name }}{% endif %}
+                                                </div>
+                                                {% endif %}
                                                 <div class="text-[10px] text-slate-400 font-mono">{{ entry.ip_address|default:"-" }}</div>
                                             </div>
                                         </div>

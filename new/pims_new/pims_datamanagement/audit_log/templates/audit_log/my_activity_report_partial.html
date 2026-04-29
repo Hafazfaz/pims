@@ -1,0 +1,104 @@
+{% load static %}
+<!-- User profile card -->
+{% if viewed_user_staff %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex items-center gap-6">
+    <div class="w-14 h-14 rounded-full bg-nigeria-green flex items-center justify-center text-white text-xl font-black shrink-0">
+        {{ viewed_user.get_full_name|default:viewed_user.username|slice:":1" }}
+    </div>
+    <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</p>
+            <p class="text-sm font-bold text-slate-900">{{ viewed_user.get_full_name|default:viewed_user.username }}</p>
+        </div>
+        <div>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email</p>
+            <p class="text-xs text-slate-600">{{ viewed_user.email|default:"—" }}</p>
+        </div>
+        <div>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Designation</p>
+            <p class="text-xs text-slate-600">{{ viewed_user_staff.designation.name|default:"—" }}</p>
+        </div>
+        <div>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</p>
+            <p class="text-xs text-slate-600">{{ viewed_user_staff.department.name|default:"—" }}</p>
+        </div>
+        {% if viewed_user_staff.unit %}
+        <div>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit</p>
+            <p class="text-xs text-slate-600">{{ viewed_user_staff.unit.name }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Summary cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Approvals</p>
+        <p class="text-3xl font-black text-green-600">{{ summary.approvals }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rejections</p>
+        <p class="text-3xl font-black text-red-500">{{ summary.rejections }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Access Granted</p>
+        <p class="text-3xl font-black text-blue-600">{{ summary.access_granted }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Access Denied</p>
+        <p class="text-3xl font-black text-amber-500">{{ summary.access_denied }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Files Moved</p>
+        <p class="text-3xl font-black text-indigo-600">{{ summary.files_moved }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">File Actions</p>
+        <p class="text-3xl font-black text-slate-700">{{ summary.file_actions }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm col-span-2">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Actions</p>
+        <p class="text-3xl font-black text-nigeria-green">{{ summary.total }}</p>
+    </div>
+</div>
+
+{% if breakdown %}
+<div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Action Breakdown</h3>
+    <div class="space-y-2">
+        {% for row in breakdown %}
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-slate-700 w-48 truncate">{{ row.action|lower|title }}</span>
+            <div class="flex-1 bg-slate-100 rounded-full h-2">
+                <div class="bg-nigeria-green h-2 rounded-full" style="width: {% widthratio row.count summary.total 100 %}%"></div>
+            </div>
+            <span class="text-xs font-black text-slate-500 w-8 text-right">{{ row.count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {% include "audit_log/partials/_activity_section.html" with title="Approvals" entries=approvals color="green" %}
+    {% include "audit_log/partials/_activity_section.html" with title="Rejections" entries=rejections color="red" %}
+    {% include "audit_log/partials/_activity_section.html" with title="Access Granted" entries=access_granted color="blue" %}
+    {% include "audit_log/partials/_activity_section.html" with title="Access Denied" entries=access_denied color="amber" %}
+    {% include "audit_log/partials/_activity_section.html" with title="File Movements" entries=file_movements color="indigo" %}
+</div>
+
+{% if access_denied %}
+<div class="flex items-center gap-3">
+    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Export Access Denied:</p>
+    <a href="{% url 'audit_log:export_access_denied' %}?days={{ days }}{% if viewed_user %}&user_id={{ viewed_user.pk }}{% endif %}&format=csv"
+       class="px-4 py-2 bg-slate-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-900 transition-all">
+        ↓ CSV
+    </a>
+    <a href="{% url 'audit_log:export_access_denied' %}?days={{ days }}{% if viewed_user %}&user_id={{ viewed_user.pk }}{% endif %}&format=excel"
+       class="px-4 py-2 bg-green-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-800 transition-all">
+        ↓ Excel
+    </a>
+</div>
+{% endif %}
