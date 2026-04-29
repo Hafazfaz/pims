@@ -217,29 +217,70 @@ class DocumentForm(forms.ModelForm):
 
 class SendFileForm(forms.Form):
     recipient = forms.ModelChoiceField(
-        queryset=CustomUser.objects.all().order_by("username"),
+        queryset=CustomUser.objects.none(),
         empty_label="Select Recipient",
         widget=forms.Select(attrs={"class": "form-select"}),
         label="Send to",
     )
-    document_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    note = forms.CharField(
+        required=False,
+        label="Covering Note",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
     movement_attachment = forms.FileField(
         required=False,
         label="Covering Memo / Dispatch Note",
         widget=forms.FileInput(attrs={"class": "form-control"}),
     )
+    reference_documents = forms.ModelMultipleChoiceField(
+        queryset=Document.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Reference Documents",
+    )
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
+        file_obj = kwargs.pop("file_obj", None)
+        document = kwargs.pop("document", None)
+        staff = kwargs.pop("staff", None)
         super().__init__(*args, **kwargs)
 
         if self.user and self.user.is_authenticated:
-            # Keep queryset broad; enforcement happens in the view
-            self.fields['recipient'].queryset = CustomUser.objects.exclude(
-                pk=self.user.pk
-            ).order_by("username")
+            from document_management.views.base import EXCLUDE_REGISTRY_Q
+            base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.user).select_related('user')
+
+            if staff:
+                if staff.is_hod or staff.is_md or staff.is_executive:
+                    eligible = base_qs
+                elif staff.is_effective_supervisor and (not file_obj or file_obj.owner != staff):
+                    # Supervisor sending someone else's file → other supervisors + direct heads
+                    supervisor_pks = [s.pk for s in base_qs if s.is_effective_supervisor]
+                    direct_head_pks = []
+                    if staff.unit and staff.unit.head:
+                        direct_head_pks.append(staff.unit.head.pk)
+                    if staff.department and staff.department.head:
+                        direct_head_pks.append(staff.department.head.pk)
+                    eligible = base_qs.filter(pk__in=set(supervisor_pks + direct_head_pks))
+                else:
+                    # Regular staff OR supervisor sending their own file → unit manager if exists, else HOD
+                    if staff.unit and staff.unit.head:
+                        eligible = base_qs.filter(pk=staff.unit.head.pk)
+                    elif staff.department and staff.department.head:
+                        eligible = base_qs.filter(pk=staff.department.head.pk)
+                    else:
+                        eligible = base_qs.none()
+            else:
+                eligible = base_qs
+
+            self.fields['recipient'].queryset = CustomUser.objects.filter(
+                staff__in=eligible
+            ).order_by('last_name', 'first_name')
         else:
             self.fields['recipient'].queryset = CustomUser.objects.none()
+
+        if file_obj and document:
+            self.fields['reference_documents'].queryset = file_obj.documents.exclude(pk=document.pk).order_by('-uploaded_at')
 
 class FileUpdateForm(forms.ModelForm):
     class Meta:

@@ -108,6 +108,18 @@
             {% endblock %}
             <!-- Page Content -->
             {% block content_wrapper %}<div class="p-8 lg:py-4 mx-auto w-full flex-1">
+                {% if messages %}
+                    <div class="mb-4 space-y-2">
+                        {% for message in messages %}
+                            <div class="px-4 py-3 rounded-lg text-sm font-medium border
+                                {% if message.tags == 'error' %}bg-red-50 text-red-700 border-red-200
+                                {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border-yellow-200
+                                {% else %}bg-green-50 text-green-700 border-green-200{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
                 {% block content %}{% endblock %}
             </div>{% endblock %}
             <!-- Footer -->

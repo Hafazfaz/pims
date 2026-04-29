@@ -13,6 +13,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.hashers import make_password  # Import make_password
 from django.contrib.auth.views import LoginView
 from django.core.mail import send_mail
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
@@ -822,8 +823,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         
         with transaction.atomic():
             user = form.save(commit=False)
-            temp_password = get_random_string(length=12)
-            user.set_password(temp_password)
+            user.set_password(form.cleaned_data['password'])
             user.must_change_password = True
             user.save()
 
@@ -838,6 +838,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 unit=unit,
                 designation=designation,
                 staff_type=staff_type,
+                is_supervisor=form.cleaned_data['is_supervisor'],
             )
 
             log_action(
@@ -868,7 +869,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 )
             except Exception as mail_err:
                 logger.error(f"Failed to send welcome email to {user.email}: {mail_err}")
-                messages.warning(self.request, f"User created but failed to send welcome email.")
+                messages.warning(self.request, f"User {user.username} created but failed to send welcome email.")
             else:
                 messages.success(self.request, f"User {user.username} created successfully and welcome email sent.")
 

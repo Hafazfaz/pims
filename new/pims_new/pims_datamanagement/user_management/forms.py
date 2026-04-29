@@ -13,9 +13,11 @@ class SignatureUploadForm(forms.ModelForm):
 
 class UserCreateForm(forms.ModelForm):
     department = forms.ModelChoiceField(queryset=Department.objects.all(), required=True)
-    unit = forms.ModelChoiceField(queryset=Unit.objects.none(), required=False) # Unit could be dependent on Department
+    unit = forms.ModelChoiceField(queryset=Unit.objects.none(), required=False)
     designation = forms.ModelChoiceField(queryset=Designation.objects.all(), required=True)
     staff_type = forms.ChoiceField(choices=[('permanent', 'Permanent'), ('contract', 'Contract')], required=True)
+    is_supervisor = forms.BooleanField(required=False)
+    password = forms.CharField(widget=forms.PasswordInput, required=True)
 
     class Meta:
         model = CustomUser

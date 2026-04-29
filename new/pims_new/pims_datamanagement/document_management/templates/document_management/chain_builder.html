@@ -105,7 +105,7 @@
 
     <div id="drawflow" class="flex-1"
          @dragover.prevent
-         @drop="onDrop($event)">
+         @drop.stop="onDrop($event)">
     </div>
   </div>
 
@@ -123,6 +123,7 @@ function chainBuilder() {
     editor: null,
     nodes: [],
     dragData: null,
+    _dropping: false,
 
     init() {
       const container = document.getElementById('drawflow');
@@ -143,7 +144,10 @@ function chainBuilder() {
     },
 
     onDrop(e) {
-      if (!this.dragData) return;
+      if (!this.dragData || this._dropping) return;
+      this._dropping = true;
+      e.stopPropagation();
+      e.preventDefault();
 
       // Prevent adding the same person twice
       if (this.nodes.find(n => n.staffId === this.dragData.id)) {
@@ -172,6 +176,7 @@ function chainBuilder() {
 
       this.nodes.push({ nodeId, staffId: this.dragData.id, name: this.dragData.name });
       this.dragData = null;
+      this._dropping = false;
     },
 
     _relabelNodes() {

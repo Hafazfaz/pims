@@ -105,12 +105,16 @@
 
                 {% if chain.status == 'draft' %}
                 <div class="px-6 py-3 border-t border-slate-100 flex gap-3">
+                    {% if chain.steps.exists %}
                     <form method="post" action="{% url 'document_management:chain_start' file_pk=chain.file.pk %}">
                         {% csrf_token %}
                         <button type="submit" class="px-4 py-2 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors">
                             Start Chain
                         </button>
                     </form>
+                    {% else %}
+                    <span class="px-4 py-2 bg-red-50 text-red-500 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-red-100">No steps — delete and re-dispatch with a valid template</span>
+                    {% endif %}
                     <form method="post" action="{% url 'document_management:chain_delete' file_pk=chain.file.pk %}">
                         {% csrf_token %}
                         <button type="submit" class="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-widest py-2">
