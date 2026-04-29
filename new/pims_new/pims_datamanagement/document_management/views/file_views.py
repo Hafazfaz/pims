@@ -1,6 +1,6 @@
 from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, TemplateView, View
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.http import Http404, HttpResponse
 from django.core.exceptions import PermissionDenied
@@ -288,41 +288,10 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         except Staff.DoesNotExist:
             return None
 
-class MessagesView(HTMXLoginRequiredMixin, ListView):
-    """Inbox for incoming folder dispatches."""
-    model = File
-    template_name = "document_management/messages.html"
-    context_object_name = "inbox_files"
-    paginate_by = 10
-
-    def get_queryset(self):
-        staff_user = self.get_staff_user()
-        if not staff_user:
-            raise Http404("Staff user profile not found.")
-        
-        queryset = File.objects.filter(
-            current_location=staff_user,
-            status='active'
-        ).exclude(owner=staff_user).order_by("-created_at")
-
-        search_query = self.request.GET.get("q")
-        if search_query:
-            queryset = queryset.filter(
-                Q(title__icontains=search_query) | Q(file_number__icontains=search_query)
-            )
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["selected_search_query"] = self.request.GET.get("q", "")
-        return context
-
-    def get_staff_user(self):
-        user = self.request.user
-        try:
-            return Staff.objects.get(user=user)
-        except Staff.DoesNotExist:
-            return None
+class MessagesView(HTMXLoginRequiredMixin, View):
+    """Redirects to the new document inbox."""
+    def get(self, request, *args, **kwargs):
+        return redirect('document_management:inbox')
 
 class FileRequestActivationView(LoginRequiredMixin, View):
     def get_staff_user(self):
@@ -547,7 +516,8 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
         context["is_limited_view"] = not context["can_view_original"]
-        context["send_file_form"] = SendFileForm()
+        sender_staff = getattr(user, 'staff', None)
+        context["send_file_form"] = SendFileForm(user=user, staff=sender_staff, file_obj=file_obj)
         context["access_request_form"] = FileAccessRequestForm()
         context["pending_access_request"] = FileAccessRequest.objects.filter(
             file=file_obj, requested_by=user, status='pending'
@@ -557,26 +527,29 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         )[:20]
         from organization.models import Staff as StaffModel
         from document_management.views.base import EXCLUDE_REGISTRY_Q
-        sender_staff = getattr(user, 'staff', None)
 
         # Build recipient list based on sender's role
         base_qs = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=user).select_related('user', 'designation', 'department', 'unit')
         if sender_staff:
             if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
-                # HOD/MD/Executive → anyone
                 recipient_qs = base_qs
-            elif sender_staff.is_effective_supervisor:
-                # Supervisor/HOU → any supervisor
+            elif sender_staff.is_effective_supervisor and file_obj.owner != sender_staff:
+                # Supervisor sending someone else's file → any other supervisor + their own direct heads
                 supervisor_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
-                recipient_qs = base_qs.filter(pk__in=supervisor_ids)
-            else:
-                # Regular staff → direct head only (HOU or HOD)
-                direct_heads = []
+                direct_head_pks = []
                 if sender_staff.unit and sender_staff.unit.head:
-                    direct_heads.append(sender_staff.unit.head.pk)
+                    direct_head_pks.append(sender_staff.unit.head.pk)
+                if sender_staff.department and sender_staff.department.head:
+                    direct_head_pks.append(sender_staff.department.head.pk)
+                recipient_qs = base_qs.filter(pk__in=set(supervisor_ids + direct_head_pks))
+            else:
+                # Regular staff OR supervisor sending their own file → unit manager if exists, else HOD
+                if sender_staff.unit and sender_staff.unit.head:
+                    recipient_qs = base_qs.filter(pk=sender_staff.unit.head.pk)
                 elif sender_staff.department and sender_staff.department.head:
-                    direct_heads.append(sender_staff.department.head.pk)
-                recipient_qs = base_qs.filter(pk__in=direct_heads)
+                    recipient_qs = base_qs.filter(pk=sender_staff.department.head.pk)
+                else:
+                    recipient_qs = base_qs.none()
         else:
             recipient_qs = base_qs
 
@@ -668,7 +641,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.error(request, "Only the current custodian or registry can send this file.")
                 return redirect(file_obj.get_absolute_url())
 
-            form = SendFileForm(request.POST, request.FILES)
+            form = SendFileForm(request.POST, request.FILES, user=request.user, staff=staff_user, file_obj=file_obj)
             if form.is_valid():
                 recipient_user = form.cleaned_data["recipient"]
                 try:
@@ -723,6 +696,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     obj=file_obj,
                     link=file_obj.get_absolute_url()
                 )
+                # Revoke sender's access to the file
+                FileAccessRequest.objects.filter(
+                    file=file_obj,
+                    requested_by=request.user,
+                    status='approved'
+                ).update(status='expired')
                 messages.success(request, f"File sent to {recipient.user.get_full_name()}.")
                 return redirect("document_management:my_files")
 
@@ -1047,3 +1026,251 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
             return Staff.objects.get(user=self.request.user)
         except Staff.DoesNotExist:
             return None
+
+
+def _get_allowed_forward_pks(staff):
+    """Return set of allowed recipient PKs for forwarding, mirroring send-file routing rules.
+    Returns None for MD/Executive (unrestricted)."""
+    from organization.models import Department as Dept
+    base_qs = Staff.objects.exclude(
+        Q(designation__name__icontains='registry') | Q(user__groups__name__iexact='Registry')
+    )
+    if staff.is_md or staff.is_executive:
+        return None  # unrestricted
+    if staff.is_hod:
+        dept = staff.department
+        pks = set()
+        if dept:
+            for d in Dept.objects.exclude(pk=dept.pk):
+                if d.head:
+                    pks.add(d.head.pk)
+            for u in dept.units.filter(head__isnull=False):
+                pks.add(u.head.pk)
+        for s in base_qs.filter(is_supervisor=True):
+            pks.add(s.pk)
+        return pks
+    if staff.is_head_of_unit:
+        dept = staff.department
+        pks = set()
+        if dept and dept.head:
+            pks.add(dept.head.pk)
+        if dept:
+            for u in dept.units.filter(head__isnull=False).exclude(head=staff):
+                pks.add(u.head.pk)
+        for s in base_qs.filter(is_supervisor=True):
+            pks.add(s.pk)
+        return pks
+    if staff.is_supervisor:
+        pks = set()
+        for d in Dept.objects.filter(head__isnull=False):
+            pks.add(d.head.pk)
+        for s in base_qs.filter(is_head_of_unit=True):
+            pks.add(s.pk)
+        return pks
+    # Regular staff
+    pks = set()
+    if staff.unit and staff.unit.head:
+        pks.add(staff.unit.head.pk)
+    elif staff.department and staff.department.head:
+        pks.add(staff.department.head.pk)
+    return pks
+
+
+class InboxView(HTMXLoginRequiredMixin, ListView):
+    """Shows all pending FileMovements sent to the current staff member."""
+    model = FileMovement
+    template_name = "document_management/inbox.html"
+    context_object_name = "movements"
+    paginate_by = 15
+
+    def get_queryset(self):
+        staff = getattr(self.request.user, 'staff', None)
+        if not staff:
+            return FileMovement.objects.none()
+        return (
+            FileMovement.objects
+            .filter(sent_to=staff, action='sent')
+            .select_related('file', 'document', 'sent_by', 'from_location__user')
+            .order_by('-moved_at')
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        staff = getattr(self.request.user, 'staff', None)
+        context['can_approve'] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
+
+        # For unit managers: pre-fill their HOD as the only forward recipient
+        prefilled_recipient = None
+        if staff and staff.is_head_of_unit and not (staff.is_hod or staff.is_md or staff.is_executive):
+            dept = staff.department
+            if dept and dept.head:
+                prefilled_recipient = dept.head
+        context['prefilled_recipient'] = prefilled_recipient
+        return context
+
+
+class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
+    """Detail view for a document received via FileMovement — shows movement context, sender info, references, other docs."""
+
+    def get(self, request, pk):
+        movement = get_object_or_404(FileMovement, pk=pk)
+        staff = getattr(request.user, 'staff', None)
+
+        if movement.sent_to != staff:
+            messages.error(request, "You do not have access to this document.")
+            return redirect('document_management:inbox')
+
+        file_obj = movement.file
+        document = movement.document
+
+        # Sender staff profile
+        try:
+            sender_staff = movement.sent_by.staff
+        except Exception:
+            sender_staff = None
+
+        # Other documents in the same file (excluding the current one)
+        other_docs = file_obj.documents.exclude(pk=document.pk).order_by('-uploaded_at')[:10] if document else []
+
+        # Reference documents shared with the recipient for this movement
+        reference_docs = (
+            file_obj.documents
+            .filter(shared_with=request.user)
+            .exclude(pk=document.pk)
+            .order_by('-uploaded_at')
+        ) if document else []
+
+        # All movements for this specific document, oldest first — for chat thread
+        movement_history = (
+            FileMovement.objects
+            .filter(document=document)
+            .select_related('sent_by', 'sent_to__user', 'from_location__user')
+            .order_by('moved_at')
+        ) if document else []
+
+        # Full file movement history (all documents), newest first
+        file_movement_history = (
+            file_obj.movements
+            .select_related('sent_by', 'sent_to__user', 'from_location__user', 'document')
+            .order_by('-moved_at')
+        )
+
+        return render(request, 'document_management/inbox_document_detail.html', {
+            'movement': movement,
+            'document': document,
+            'file': file_obj,
+            'sender_staff': sender_staff,
+            'other_docs': other_docs,
+            'reference_docs': reference_docs,
+            'movement_history': movement_history,
+            'file_movement_history': file_movement_history,
+            'can_approve': bool(staff and (staff.is_hod or staff.is_effective_supervisor)),
+            'prefilled_recipient': (
+                staff.department.head
+                if staff and staff.is_head_of_unit and not (staff.is_hod or staff.is_md or staff.is_executive)
+                   and staff.department and staff.department.head
+                else None
+            ),
+        })
+
+
+class DocumentActionView(HTMXLoginRequiredMixin, View):
+    """Approve, reject, or forward a document received via FileMovement."""
+
+    def post(self, request, pk):
+        movement = get_object_or_404(FileMovement, pk=pk)
+        staff = getattr(request.user, 'staff', None)
+
+        if movement.sent_to != staff:
+            messages.error(request, "This document was not sent to you.")
+            return redirect('document_management:inbox')
+
+        if movement.status != 'pending':
+            messages.error(request, "This document has already been actioned.")
+            return redirect('document_management:inbox')
+
+        action = request.POST.get('action')
+        note = request.POST.get('note', '').strip()
+
+        if action == 'approve':
+            # Only HODs and supervisors can approve
+            if not staff or not (staff.is_hod or staff.is_effective_supervisor):
+                messages.error(request, "Only HODs and supervisors can approve documents.")
+                return redirect('document_management:inbox')
+            movement.status = 'approved'
+            movement.save(update_fields=['status'])
+            if movement.document:
+                movement.document.status = 'approved'
+                movement.document.save(update_fields=['status'])
+            create_notification(
+                user=movement.sent_by,
+                message=f"{request.user.get_full_name() or request.user.username} approved document '{movement.document or movement.file.file_number}'.",
+                obj=movement.file,
+                link=movement.file.get_absolute_url(),
+            )
+            messages.success(request, "Document approved.")
+
+        elif action == 'reject':
+            movement.status = 'rejected'
+            movement.save(update_fields=['status'])
+            if movement.document:
+                movement.document.status = 'rejected'
+                movement.document.save(update_fields=['status'])
+            try:
+                sender_staff = movement.sent_by.staff
+                movement.file.current_location = sender_staff
+                movement.file.status = 'active'
+                movement.file.save(update_fields=['current_location', 'status'])
+            except Exception:
+                pass
+            create_notification(
+                user=movement.sent_by,
+                message=f"{request.user.get_full_name() or request.user.username} rejected document '{movement.document or movement.file.file_number}'. Note: {note or 'No reason given'}",
+                obj=movement.file,
+                link=movement.file.get_absolute_url(),
+            )
+            messages.warning(request, "Document rejected and returned to sender.")
+
+        elif action == 'forward':
+            recipient_id = request.POST.get('recipient')
+            if not recipient_id:
+                messages.error(request, "Please select a recipient to forward to.")
+                return redirect('document_management:inbox')
+            try:
+                recipient = Staff.objects.get(pk=recipient_id)
+            except Staff.DoesNotExist:
+                messages.error(request, "Recipient not found.")
+                return redirect('document_management:inbox')
+
+            # Enforce same routing rules as send file
+            if staff:
+                allowed_pks = _get_allowed_forward_pks(staff)
+                if allowed_pks is not None and recipient.pk not in allowed_pks:
+                    messages.error(request, "You are not permitted to forward to this recipient.")
+                    return redirect('document_management:inbox')
+
+            movement.status = 'forwarded'
+            movement.save(update_fields=['status'])
+            FileMovement.objects.create(
+                file=movement.file,
+                document=movement.document,
+                sent_by=request.user,
+                from_location=staff,
+                sent_to=recipient,
+                note=note,
+                action='sent',
+            )
+            movement.file.current_location = recipient
+            movement.file.save(update_fields=['current_location'])
+            create_notification(
+                user=recipient.user,
+                message=f"{request.user.get_full_name() or request.user.username} forwarded document '{movement.document or movement.file.file_number}' to you.",
+                obj=movement.file,
+                link=reverse_lazy('document_management:inbox'),
+            )
+            messages.success(request, f"Document forwarded to {recipient.user.get_full_name()}.")
+
+        else:
+            messages.error(request, "Invalid action.")
+
+        return redirect('document_management:inbox')

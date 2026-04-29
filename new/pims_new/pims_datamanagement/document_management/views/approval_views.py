@@ -464,6 +464,10 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
         tmpl = get_object_or_404(ChainTemplate, pk=template_id, is_active=True)
         document = get_object_or_404(Document, pk=document_id, file=file_obj)
 
+        if not tmpl.steps.exists():
+            messages.error(request, f"Chain template '{tmpl.name}' has no steps defined.")
+            return redirect(file_obj.get_absolute_url())
+
         if document.approval_chains.filter(status__in=['draft', 'active']).exists():
             messages.error(request, "This document already has an active approval chain.")
             return redirect(file_obj.get_absolute_url())
@@ -487,8 +491,13 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
                 continue
             ApprovalStep.objects.create(chain=chain, approver=approver, order=step.order)
 
+        if chain.steps.count() == 0:
+            chain.delete()
+            messages.error(request, "No approvers could be resolved for this chain template. Check that the required staff (HOD, unit manager, etc.) are assigned.")
+            return redirect(file_obj.get_absolute_url())
+
         if unresolved:
-            messages.warning(request, f"Chain applied but could not resolve: {', '.join(unresolved)}")
+            messages.warning(request, f"Chain applied. Could not resolve: {', '.join(unresolved)}")
         else:
             messages.success(request, f"Chain '{tmpl.name}' applied to document. Start it to dispatch.")
 

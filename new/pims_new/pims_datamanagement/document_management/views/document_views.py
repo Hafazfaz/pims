@@ -9,8 +9,8 @@ from django.contrib.auth import get_user_model
 from audit_log.utils import log_action
 from notifications.utils import create_notification
 from organization.models import Staff
-from ..models import File, Document, FileAccessRequest
-from ..forms import DocumentForm, DocumentUploadForm
+from ..models import File, Document, FileAccessRequest, FileMovement
+from ..forms import DocumentForm, DocumentUploadForm, SendFileForm
 from .base import HTMXLoginRequiredMixin
 
 class DocumentUploadView(LoginRequiredMixin, CreateView):
@@ -151,6 +151,10 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if document.shared_with.filter(id=user.id).exists():
             return True
 
+        # Allow recipient of a pending movement to view the document
+        if FileMovement.objects.filter(document=document, sent_to=staff_user, status='pending').exists():
+            return True
+
         # Allow current approver on the chain to view the document
         active_chain = document.approval_chains.filter(status='active').first()
         if active_chain and active_chain.steps.filter(approver=staff_user).exists():
@@ -206,35 +210,197 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         context["has_active_chain"] = file_obj.is_in_active_chain
         context["document_is_approved"] = document.status == 'approved'
 
-        # Document chronicle — approval activity on this document
+        # Document chronicle
         doc_chronicle = []
         doc_chronicle.append({'type': 'version', 'item': document, 'timestamp': document.uploaded_at})
-        for chain in document.approval_chains.all():
-            for step in chain.steps.filter(status__in=['approved', 'rejected']).select_related('approver__user').order_by('actioned_at'):
-                doc_chronicle.append({'type': 'approval', 'item': step, 'timestamp': step.actioned_at})
         doc_chronicle.sort(key=lambda x: x['timestamp'])
         context['doc_chronicle'] = doc_chronicle
 
-        # Chain templates available for dispatch
-        from document_management.models import ChainTemplate, ApprovalChain as AC
-        from django.db.models import Q as DQ
-        staff_dept = getattr(getattr(self.request.user, 'staff', None), 'department', None)
-        context["available_chain_templates"] = ChainTemplate.objects.filter(
-            is_active=True
-        ).filter(DQ(department=staff_dept) | DQ(department__isnull=True))
-        # Other documents in the same file — for reference document picker
-        context["reference_files"] = document.file.documents.exclude(pk=document.pk).order_by('-uploaded_at')
-        active_chain = document.approval_chains.filter(status='active').first()
-        chain_is_active = active_chain is not None
-        context["document_has_chain"] = chain_is_active
+        # Send file form
+        sender_staff = getattr(self.request.user, 'staff', None)
+        context["send_file_form"] = SendFileForm(
+            user=self.request.user,
+            file_obj=file_obj,
+            document=document,
+            staff=sender_staff,
+        )
 
-        # Chains for this document with prefetched steps for the panel
-        from document_management.models import ApprovalChain as AC
-        context["document_chains"] = AC.objects.filter(
-            document=document
-        ).prefetch_related('steps__approver__user').select_related('created_by').order_by('created_at')
+        # Build recipient list (same logic as file_detail)
+        from document_management.views.base import EXCLUDE_REGISTRY_Q
+        from django.db.models import Case, When, IntegerField
+        base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.request.user).select_related('user', 'designation', 'unit', 'department')
+        if sender_staff:
+            if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
+                recipient_qs = base_qs
+            elif sender_staff.is_effective_supervisor and file_obj.owner != sender_staff:
+                supervisor_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
+                direct_head_pks = []
+                if sender_staff.unit and sender_staff.unit.head:
+                    direct_head_pks.append(sender_staff.unit.head.pk)
+                if sender_staff.department and sender_staff.department.head:
+                    direct_head_pks.append(sender_staff.department.head.pk)
+                recipient_qs = base_qs.filter(pk__in=set(supervisor_ids + direct_head_pks))
+            else:
+                # Regular staff OR supervisor sending their own file → unit manager if exists, else HOD
+                if sender_staff.unit and sender_staff.unit.head:
+                    recipient_qs = base_qs.filter(pk=sender_staff.unit.head.pk)
+                elif sender_staff.department and sender_staff.department.head:
+                    recipient_qs = base_qs.filter(pk=sender_staff.department.head.pk)
+                else:
+                    recipient_qs = base_qs.none()
+        else:
+            recipient_qs = base_qs
+
+        hou_pk = sender_staff.unit.head.pk if sender_staff and sender_staff.unit and sender_staff.unit.head else None
+        if hou_pk and not (sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive):
+            recipient_qs = recipient_qs.annotate(
+                _order=Case(When(pk=hou_pk, then=0), default=1, output_field=IntegerField())
+            ).order_by('_order', 'user__last_name')
+        else:
+            recipient_qs = recipient_qs.order_by('user__last_name')
+        context["approver_choices"] = recipient_qs
 
         return context
+
+    def post(self, request, *args, **kwargs):
+        document = self.get_object()
+        file_obj = document.file
+        staff_user = getattr(request.user, 'staff', None)
+        is_registry = staff_user and staff_user.is_registry
+
+        is_custodian = staff_user and file_obj.current_location == staff_user
+        is_owner = staff_user and file_obj.owner == staff_user
+
+        if not (is_owner or is_custodian or is_registry):
+            messages.error(request, "You do not have permission to send this file.")
+            return redirect(request.path)
+
+        if file_obj.status != 'active':
+            messages.error(request, "Only active files can be sent.")
+            return redirect(request.path)
+
+        form = SendFileForm(request.POST, request.FILES, user=request.user, file_obj=file_obj, document=document, staff=staff_user)
+        if not form.is_valid():
+            messages.error(request, "Please correct the form errors.")
+            return redirect(request.path)
+
+        recipient_user = form.cleaned_data['recipient']
+        try:
+            recipient = recipient_user.staff
+        except Staff.DoesNotExist:
+            messages.error(request, "Selected recipient has no staff profile.")
+            return redirect(request.path)
+
+        # Routing rules
+        if not is_registry and staff_user:
+            if staff_user.is_md or staff_user.is_executive:
+                pass  # can send to anyone
+            elif staff_user.is_hod:
+                # HOD → other HODs, unit managers in own dept, supervisors
+                dept = staff_user.department
+                allowed_pks = set()
+                if dept:
+                    # other HODs
+                    from organization.models import Department as Dept
+                    for d in Dept.objects.exclude(pk=dept.pk):
+                        if d.head:
+                            allowed_pks.add(d.head.pk)
+                    # unit managers in own dept
+                    for u in dept.units.filter(head__isnull=False):
+                        allowed_pks.add(u.head.pk)
+                # supervisors anywhere
+                from organization.models import Staff as StaffModel
+                for s in StaffModel.objects.filter(is_supervisor=True):
+                    allowed_pks.add(s.pk)
+                if recipient.pk not in allowed_pks:
+                    messages.error(request, "HODs can only send to other HODs, unit managers in their department, or supervisors.")
+                    return redirect(request.path)
+            elif staff_user.is_head_of_unit:
+                # Unit manager → HOD of own dept, other unit managers in own dept, supervisors
+                dept = staff_user.department
+                allowed_pks = set()
+                if dept and dept.head:
+                    allowed_pks.add(dept.head.pk)
+                if dept:
+                    for u in dept.units.filter(head__isnull=False).exclude(head=staff_user):
+                        allowed_pks.add(u.head.pk)
+                from organization.models import Staff as StaffModel
+                for s in StaffModel.objects.filter(is_supervisor=True):
+                    allowed_pks.add(s.pk)
+                if recipient.pk not in allowed_pks:
+                    messages.error(request, "Unit managers can only send to their HOD, other unit managers in their department, or supervisors.")
+                    return redirect(request.path)
+            elif staff_user.is_supervisor:
+                # Supervisor (non-HOD, non-unit-manager) → unit managers or HODs only
+                from organization.models import Staff as StaffModel, Department as Dept
+                allowed_pks = set()
+                for d in Dept.objects.filter(head__isnull=False):
+                    allowed_pks.add(d.head.pk)
+                for s in StaffModel.objects.filter(is_head_of_unit=True):
+                    allowed_pks.add(s.pk)
+                if recipient.pk not in allowed_pks:
+                    messages.error(request, "Supervisors can only send to unit managers or HODs.")
+                    return redirect(request.path)
+            else:
+                # Regular staff → unit manager if exists, else HOD
+                allowed_pks = set()
+                if staff_user.unit and staff_user.unit.head:
+                    allowed_pks.add(staff_user.unit.head.pk)
+                elif staff_user.department and staff_user.department.head:
+                    allowed_pks.add(staff_user.department.head.pk)
+                if recipient.pk not in allowed_pks:
+                    messages.error(request, "You can only send this file to your unit manager, or your HOD if there is no unit manager.")
+                    return redirect(request.path)
+
+        old_location = file_obj.current_location
+        movement = FileMovement.objects.create(
+            file=file_obj,
+            document=document,
+            sent_by=request.user,
+            from_location=old_location,
+            sent_to=recipient,
+            note=form.cleaned_data.get('note', ''),
+            attachment=form.cleaned_data.get('movement_attachment'),
+            action='sent',
+        )
+
+        # Attach reference documents to the movement's version_reference (first one) or store via M2M on chain
+        # Since we're not using chains, store them on the document's shared_with or just log them
+        ref_docs = form.cleaned_data.get('reference_documents')
+        if ref_docs:
+            # Tag the document as shared with the recipient so they can see the refs
+            document.shared_with.add(recipient_user)
+            for ref in ref_docs:
+                ref.shared_with.add(recipient_user)
+
+        # Auto-grant read-only access to the file for the recipient
+        FileAccessRequest.objects.get_or_create(
+            file=file_obj,
+            requested_by=recipient_user,
+            defaults={
+                'reason': f'Auto-granted: file sent by {request.user.get_full_name() or request.user.username}',
+                'access_type': 'read_only',
+                'status': 'approved',
+            }
+        )
+
+        document.status = 'in_transit'
+        document.save(update_fields=['status'])
+
+        file_obj.current_location = recipient
+        file_obj.status = 'in_transit'
+        file_obj.save()
+
+        log_action(request.user, "FILE_SENT", request=request, obj=file_obj,
+                   details={"to": recipient.user.get_full_name(), "document_id": document.pk})
+        create_notification(
+            user=recipient_user,
+            message=f"{request.user.get_full_name() or request.user.username} sent you file {file_obj.file_number} with document: {document.title or 'Untitled'}.",
+            obj=file_obj,
+            link=reverse_lazy('document_management:inbox'),
+        )
+        messages.success(request, f"File sent to {recipient.user.get_full_name() or recipient_user.username}.")
+        return redirect(file_obj.get_absolute_url())
 
     def get_template_names(self):
         if self.request.headers.get('HX-Request'):

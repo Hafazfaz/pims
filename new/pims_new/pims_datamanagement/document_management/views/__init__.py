@@ -22,6 +22,9 @@ from .file_views import (  # noqa: F401
     DirectorAdminDashboardView,
     FileDeleteView,
     RecordExplorerView,
+    InboxView,
+    DocumentActionView,
+    InboxDocumentDetailView,
 )
 from .document_views import (  # noqa: F401
     DocumentUploadView,
@@ -41,6 +44,7 @@ from .access_views import (  # noqa: F401
 from .search_views import (  # noqa: F401
     RecipientSearchView,
     StaffSearchView,
+    InboxRecipientSearchView,
 )
 from .approval_views import (  # noqa: F401
     MyApprovalChainsView,
