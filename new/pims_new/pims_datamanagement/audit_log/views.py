@@ -276,12 +276,13 @@ class ActivityUserSearchView(LoginRequiredMixin, View):
                 s.designation.name if s and s.designation else '',
                 s.department.name if s and s.department else '',
             ]))
+            safe_name = name.replace("'", "\\'")
             html += f'''<div class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0"
                              hx-get="/audit/my-activity/?user_id={u.pk}&days={request.GET.get('days', 30)}"
                              hx-target="#activity-content"
                              hx-push-url="true"
                              hx-indicator="#activity-content"
-                             @click="query='{name.replace("'", "\\'")}'; loading=true; showResults=false">
+                             @click="query='{safe_name}'; loading=true; showResults=false">
                 <p class="text-xs font-bold text-slate-900">{name}</p>
                 <p class="text-[10px] text-slate-400">{u.email}{f" · {sub}" if sub else ""}</p>
             </div>'''
