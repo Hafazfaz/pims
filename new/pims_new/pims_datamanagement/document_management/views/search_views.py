@@ -78,9 +78,10 @@ class RecipientSearchView(LoginRequiredMixin, View):
                 location_parts = [p for p in [unit, dept] if p]
                 location = ' · '.join(location_parts)
 
+                safe_name = name.replace("'", "\\'")
                 html += f"""
                 <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors"
-                     @click="recipientId = '{staff.user.id}'; recipientLabel = '{name.replace("'", "\\'")}'; showResults = false">
+                     @click="recipientId = '{staff.user.id}'; recipientLabel = '{safe_name}'; showResults = false">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
