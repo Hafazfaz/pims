@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Designations | PIMS Administration{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Designations</h2>
+            <p class="text-sm text-slate-500 font-medium">Manage staff designation levels</p>
+        </div>
+        <a href="{% url 'organization:designation_create' %}"
+           class="inline-flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-indigo-600 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all uppercase tracking-widest">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span>Add Designation</span>
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-800">
+                        <th class="px-8 py-5">Designation</th>
+                        <th class="px-8 py-5 text-center">Level</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for d in designations %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-8 py-5">
+                            <span class="font-bold text-slate-900">{{ d.name }}</span>
+                        </td>
+                        <td class="px-8 py-5 text-center">
+                            <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black">{{ d.level }}</span>
+                        </td>
+                        <td class="px-8 py-5 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{% url 'organization:designation_edit' pk=d.pk %}"
+                                   class="px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-600 text-[10px] font-bold rounded transition-all uppercase tracking-widest">
+                                    Edit
+                                </a>
+                                <a href="{% url 'organization:designation_delete' pk=d.pk %}"
+                                   class="px-3 py-1.5 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 text-[10px] font-bold rounded transition-all uppercase tracking-widest">
+                                    Delete
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="px-8 py-16 text-center text-slate-400 font-medium italic">
+                            No designations defined.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

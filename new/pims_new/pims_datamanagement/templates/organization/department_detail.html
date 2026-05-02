@@ -29,6 +29,18 @@
                         <div class="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Personnel count</div>
                         <div class="text-lg font-black text-white">{{ department.staff_members.count }} STAFF</div>
                     </div>
+                    {% if user.is_superuser %}
+                    <div class="flex flex-col gap-2">
+                        <a href="{% url 'organization:department_edit' pk=department.pk %}"
+                           class="px-4 py-2 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 text-[10px] font-bold rounded-lg transition-all uppercase tracking-widest text-center">
+                            Edit
+                        </a>
+                        <a href="{% url 'organization:department_delete' pk=department.pk %}"
+                           class="px-4 py-2 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 text-[10px] font-bold rounded-lg transition-all uppercase tracking-widest text-center">
+                            Delete
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -8,8 +8,19 @@
                 <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Active Operational Units</h2>
                 <p class="text-sm text-slate-500 font-medium">Baseline Command Structure Oversight</p>
             </div>
-            <div class="bg-blue-50 border border-blue-100 px-4 py-2 rounded-lg">
-                <span class="text-sm font-bold text-blue-600">{{ paginator.count }} Total Units</span>
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-50 border border-blue-100 px-4 py-2 rounded-lg">
+                    <span class="text-sm font-bold text-blue-600">{{ paginator.count }} Total Units</span>
+                </div>
+                {% if user.is_superuser %}
+                <a href="{% url 'organization:unit_create' %}"
+                   class="inline-flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-indigo-600 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all uppercase tracking-widest">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span>Add Unit</span>
+                </a>
+                {% endif %}
             </div>
         </div>
         <!-- Table -->
@@ -46,13 +57,18 @@
                                     <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded font-black text-xs">{{ unit.staff_members.count }}</span>
                                 </td>
                                 <td class="px-8 py-6 text-right">
-                                    <button class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
-                                            </path>
-                                        </svg>
-                                    </button>
+                                    {% if user.is_superuser %}
+                                    <div class="flex items-center justify-end gap-2">
+                                        <a href="{% url 'organization:unit_edit' pk=unit.pk %}"
+                                           class="px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-600 text-[10px] font-bold rounded transition-all uppercase tracking-widest">
+                                            Edit
+                                        </a>
+                                        <a href="{% url 'organization:unit_delete' pk=unit.pk %}"
+                                           class="px-3 py-1.5 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 text-[10px] font-bold rounded transition-all uppercase tracking-widest">
+                                            Delete
+                                        </a>
+                                    </div>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% empty %}
