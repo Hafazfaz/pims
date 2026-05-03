@@ -135,7 +135,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "user_management.validators.ComplexityValidator",
-        "OPTIONS": {"min_length": 12},
+        "OPTIONS": {"min_length": 8},
     },
     {
         "NAME": "user_management.validators.PasswordHistoryValidator",

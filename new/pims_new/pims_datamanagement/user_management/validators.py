@@ -8,7 +8,7 @@ class ComplexityValidator:
     """
     Validates that the password meets complexity requirements.
     """
-    def __init__(self, min_length=12):
+    def __init__(self, min_length=8):
         self.min_length = min_length
 
     def validate(self, password, user=None):
