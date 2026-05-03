@@ -843,6 +843,11 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 is_supervisor=form.cleaned_data["is_supervisor"],
             )
 
+            # Assign to Staff group so they get baseline permissions
+            from django.contrib.auth.models import Group
+            staff_group, _ = Group.objects.get_or_create(name='Staff')
+            user.groups.add(staff_group)
+
             log_action(
                 self.request.user,
                 "USER_CREATED",
