@@ -1,56 +1,56 @@
 import io
 import logging  # Import logging
-from django.conf import settings  # Add this import
-from django.utils import timezone  # Add this import
 
+from audit_log.models import AuditLogEntry  # Import for admin health dashboard
+from audit_log.utils import log_action  # Import audit logging utility
+from django.conf import settings  # Add this import
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
-from django.contrib.sessions.models import (
-    Session,
-)  # Added for concurrent session control
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.hashers import make_password  # Import make_password
+from django.contrib.auth.mixins import (
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    UserPassesTestMixin,
+)
 from django.contrib.auth.views import LoginView
+from django.contrib.sessions.models import (
+    Session,
+)  # Added for concurrent session control
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone  # Add this import
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import ListView, TemplateView  # Added TemplateView
-from django.db.models import Q
-from django.contrib.auth.mixins import (
-    PermissionRequiredMixin,
-    LoginRequiredMixin,
-    UserPassesTestMixin,
+from document_management.models import (  # Import for admin health dashboard
+    Document,
+    File,
 )
-
-from .models import CustomUser, PasswordHistory  # Import PasswordHistory
-from audit_log.utils import log_action  # Import audit logging utility
-from notifications.utils import (
+from notifications.utils import (  # Import notification utilities
     create_notification,
     notify_admins_of_critical_event,
-)  # Import notification utilities
-from document_management.models import (
-    File,
-    Document,
-)  # Import for admin health dashboard
-from audit_log.models import AuditLogEntry  # Import for admin health dashboard
+)
+from organization.models import (
+    Department,  # Added Designation for filtering
+    Designation,
+    Staff,
+    Unit,
+)
+
+from .forms import SignatureUploadForm
+from .models import CustomUser, PasswordHistory  # Import PasswordHistory
 from .otp_utils import (
+    clear_otp_session,  # Import OTP utilities
     generate_otp,
     send_otp_email,
     set_otp_in_session,
     verify_otp_in_session,
-    clear_otp_session,
-)  # Import OTP utilities
-from organization.models import (
-    Department,
-    Unit,
-    Designation,
-    Staff,
-)  # Added Designation for filtering
-from .forms import SignatureUploadForm
+)
 
 logger = logging.getLogger(__name__)  # Initialize logger
 
@@ -212,9 +212,6 @@ class EmailOTPVerifyView(View):
         messages.success(request, "Verify success. You are now logged in.")
         clear_otp_session(request)
         return redirect(reverse_lazy("home"))
-
-
-
 
 
 class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -562,9 +559,10 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
     def post(self, request, *args, **kwargs):
         import csv
-        from organization.models import Department, Unit, Designation, Staff
+
         from django.db import transaction
         from django.utils.crypto import get_random_string
+        from organization.models import Department, Designation, Staff, Unit
 
         csv_file = request.FILES.get("csv_file")
         if not csv_file:
@@ -708,6 +706,7 @@ class DownloadSampleUserCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
 
     def get(self, request, *args, **kwargs):
         import csv
+
         from django.http import HttpResponse
 
         response = HttpResponse(content_type="text/csv")
@@ -757,54 +756,65 @@ class DownloadSampleUserCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
 
         return response
 
+
 class UserProfileView(LoginRequiredMixin, TemplateView):
     template_name = "user_management/profile.html"
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_superuser:
-            return redirect('home')
+            return redirect("home")
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         staff = get_object_or_404(Staff, user=self.request.user)
-        context['staff'] = staff
-        context['active_signature'] = staff.get_active_signature()
-        context['signature_form'] = SignatureUploadForm()
+        context["staff"] = staff
+        context["active_signature"] = staff.get_active_signature()
+        context["signature_form"] = SignatureUploadForm()
         return context
 
     def post(self, request, *args, **kwargs):
         staff = get_object_or_404(Staff, user=request.user)
         form = SignatureUploadForm(request.POST, request.FILES)
-        
+
         if form.is_valid():
             import base64
             import uuid
+
             from django.core.files.base import ContentFile
 
             signature = form.save(commit=False)
-            
-            sig_data = form.cleaned_data.get('signature_data')
-            if sig_data and ',' in sig_data:
-                format, imgstr = sig_data.split(';base64,')
-                ext = format.split('/')[-1]
-                data = ContentFile(base64.b64decode(imgstr), name=f"{staff.user.username}_sig_{uuid.uuid4().hex[:8]}.{ext}")
+
+            sig_data = form.cleaned_data.get("signature_data")
+            if sig_data and "," in sig_data:
+                format, imgstr = sig_data.split(";base64,")
+                ext = format.split("/")[-1]
+                data = ContentFile(
+                    base64.b64decode(imgstr),
+                    name=f"{staff.user.username}_sig_{uuid.uuid4().hex[:8]}.{ext}",
+                )
                 signature.image = data
 
             signature.staff = staff
-            signature.is_active = True # Will deactivate others in save()
+            signature.is_active = True  # Will deactivate others in save()
             signature.save()
-            
+
             log_action(request.user, "SIGNATURE_UPLOADED", request=request)
-            messages.success(request, "Your signature has been uploaded and is pending verification.")
-            return redirect('user_management:profile')
-        
+            messages.success(
+                request, "Your signature has been uploaded and is pending verification."
+            )
+            return redirect("user_management:profile")
+
         context = self.get_context_data()
-        context['signature_form'] = form
+        context["signature_form"] = form
         return render(request, self.template_name, context)
 
-from .forms import UserCreateForm
+
 from django.views.generic import CreateView
+
+from .forms import UserCreateForm
+
+
 class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = CustomUser
     form_class = UserCreateForm
@@ -815,22 +825,24 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return self.request.user.is_superuser
 
     def form_valid(self, form):
+        import logging
+
         from django.db import transaction
         from django.utils.crypto import get_random_string
         from organization.models import Staff
-        import logging
+
         logger = logging.getLogger(__name__)
-        
+
         with transaction.atomic():
             user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
+            user.set_password(form.cleaned_data["password"])
             user.must_change_password = True
             user.save()
 
-            department = form.cleaned_data['department']
-            unit = form.cleaned_data['unit']
-            designation = form.cleaned_data['designation']
-            staff_type = form.cleaned_data['staff_type']
+            department = form.cleaned_data["department"]
+            unit = form.cleaned_data["unit"]
+            designation = form.cleaned_data["designation"]
+            staff_type = form.cleaned_data["staff_type"]
 
             Staff.objects.create(
                 user=user,
@@ -838,7 +850,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 unit=unit,
                 designation=designation,
                 staff_type=staff_type,
-                is_supervisor=form.cleaned_data['is_supervisor'],
+                is_supervisor=form.cleaned_data["is_supervisor"],
             )
 
             log_action(
@@ -858,8 +870,9 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                     f"Please log in at {self.request.build_absolute_uri('/')} and change your password immediately.\n\n"
                     f"Regards,\nPIMS Administration"
                 )
-                from django.core.mail import send_mail
                 from django.conf import settings
+                from django.core.mail import send_mail
+
                 send_mail(
                     subject,
                     message,
@@ -868,10 +881,15 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                     fail_silently=False,
                 )
             except Exception as mail_err:
-                logger.error(f"Failed to send welcome email to {user.email}: {mail_err}")
-                messages.warning(self.request, f"User {user.username} created but failed to send welcome email.")
+                logger.error(
+                    f"Failed to send welcome email to {user.email}: {mail_err}"
+                )
+                # messages.warning(self.request, f"User {user.username} created but failed to send welcome email.")
             else:
-                messages.success(self.request, f"User {user.username} created successfully and welcome email sent.")
+                messages.success(
+                    self.request,
+                    f"User {user.username} created successfully and welcome email sent.",
+                )
 
         return HttpResponseRedirect(self.success_url)
 
