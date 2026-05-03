@@ -84,16 +84,6 @@ class CustomLoginView(LoginView):
             "REMOTE_ADDR"
         )  # Simple way to get client IP
 
-        # Concurrent session prevention
-        if (
-            user.last_session_key
-            and user.last_session_key != self.request.session.session_key
-        ):
-            try:
-                Session.objects.get(session_key=user.last_session_key).delete()
-            except Session.DoesNotExist:
-                pass  # Old session already expired or deleted
-
         user.last_session_key = self.request.session.session_key
         user.save(
             update_fields=["last_login_ip", "last_session_key"]
