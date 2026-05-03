@@ -41,3 +41,5 @@ celeryd.pid
 .pytest_cachenode_modules/
 kiro.json
 staticfiles/
+
+node_modules/
