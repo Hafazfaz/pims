@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Batch Upload Records | PIMS{% endblock %}
+{% block content %}
+    <div class="max-w-3xl mx-auto py-8 lg:py-12">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <!-- Header -->
+            <div class="bg-slate-50 border-b border-slate-200 px-8 py-6 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Batch Upload Records</h2>
+                    <p class="text-xs text-slate-500 font-medium">Import multiple file records from a CSV file</p>
+                </div>
+                <a href="{% url 'document_management:file_batch_sample_csv' %}"
+                   class="inline-flex items-center gap-2 px-4 py-2 bg-nigeria-light text-nigeria-green border border-nigeria-green/20 rounded-lg text-xs font-bold hover:bg-nigeria-green hover:text-white transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download Sample CSV
+                </a>
+            </div>
+
+            <div class="p-8 lg:p-10 space-y-8">
+                <!-- CSV Format Guide -->
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 text-xs text-blue-800 space-y-2">
+                    <p class="font-bold uppercase tracking-wider text-blue-700">CSV Column Reference</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 font-mono">
+                        <span><span class="font-bold">title</span> — required</span>
+                        <span><span class="font-bold">file_type</span> — <code>personal</code> or <code>policy</code></span>
+                        <span><span class="font-bold">owner_username</span> — required for personal</span>
+                        <span><span class="font-bold">department_code</span> — required for internal policy</span>
+                        <span><span class="font-bold">unit_name</span> — optional for internal policy</span>
+                        <span><span class="font-bold">policy_range</span> — <code>internal</code> or <code>external</code></span>
+                        <span><span class="font-bold">external_party</span> — required for external policy</span>
+                    </div>
+                </div>
+
+                <!-- Upload Form -->
+                <form method="post" enctype="multipart/form-data" class="space-y-6">
+                    {% csrf_token %}
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">CSV File</label>
+                        <input type="file"
+                               name="csv_file"
+                               accept=".csv"
+                               required
+                               class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-nigeria-light file:text-nigeria-green hover:file:bg-nigeria-green hover:file:text-white">
+                    </div>
+                    <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-100">
+                        <a href="{% url 'document_management:file_create' %}"
+                           class="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50">Cancel</a>
+                        <button type="submit"
+                                class="px-8 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-all">
+                            Upload &amp; Process
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Results -->
+                {% if results %}
+                    <div class="space-y-4 pt-4 border-t border-slate-100">
+                        {% if results.success %}
+                            <div class="bg-green-50 border border-green-200 rounded-xl p-5">
+                                <p class="text-xs font-bold text-green-700 uppercase tracking-wider mb-2">
+                                    {{ results.success|length }} record{{ results.success|length|pluralize }} created
+                                </p>
+                                <ul class="space-y-1">
+                                    {% for msg in results.success %}
+                                        <li class="text-xs text-green-800 font-medium">✓ {{ msg }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        {% if results.errors %}
+                            <div class="bg-red-50 border border-red-200 rounded-xl p-5">
+                                <p class="text-xs font-bold text-red-700 uppercase tracking-wider mb-2">
+                                    {{ results.errors|length }} error{{ results.errors|length|pluralize }}
+                                </p>
+                                <ul class="space-y-1">
+                                    {% for err in results.errors %}
+                                        <li class="text-xs text-red-800 font-medium">✗ {{ err }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
