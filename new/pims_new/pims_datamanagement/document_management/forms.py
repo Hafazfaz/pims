@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q
-from organization.models import Staff
+from organization.models import Staff, Unit
 from user_management.models import CustomUser
 
 
@@ -8,15 +8,9 @@ from .models import Document, File, FileAccessRequest
 
 
 class FileForm(forms.ModelForm):
-    attachments = forms.FileField(
-        widget=forms.FileInput(attrs={"class": "form-control"}),
-        required=False,
-        help_text="You can upload one initial document.",
-    )
-
     class Meta:
         model = File
-        fields = ["title", "file_type", "owner", "department", "external_party"] 
+        fields = ["title", "file_type", "owner", "department", "unit", "external_party"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -27,6 +21,7 @@ class FileForm(forms.ModelForm):
             "file_type": forms.Select(attrs={"class": "form-select", "x-model": "fileType"}),
             "owner": forms.HiddenInput(),
             "department": forms.Select(attrs={"class": "form-select"}),
+            "unit": forms.Select(attrs={"class": "form-select"}),
             "external_party": forms.TextInput(
                 attrs={
                     "class": "form-control",
@@ -39,6 +34,7 @@ class FileForm(forms.ModelForm):
             "file_type": "Folder Category",
             "owner": "Associated Staff",
             "department": "Associated Department",
+            "unit": "Associated Unit",
             "external_party": "External Organization/Party",
         }
 
@@ -51,52 +47,49 @@ class FileForm(forms.ModelForm):
     )
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop("user", None)  # Get the user and remove from kwargs
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        
-        # Insert policy_type after file_type
-        # (This is just for ordering in some layouts, but template will handle it)
-        
-        # Filter owner queryset based on user's permissions
+
+        # Unit starts empty; populated via HTMX when department is selected
+        self.fields["unit"].queryset = Unit.objects.none()
+        self.fields["unit"].required = False
+
+        # If editing and department is set, populate units for that department
+        if self.instance and self.instance.pk and self.instance.department_id:
+            self.fields["unit"].queryset = Unit.objects.filter(department=self.instance.department)
+        # Also handle POST data
+        elif "department" in (self.data or {}):
+            try:
+                dept_id = int(self.data["department"])
+                self.fields["unit"].queryset = Unit.objects.filter(department_id=dept_id)
+            except (ValueError, TypeError):
+                pass
+
         if self.user and self.user.is_authenticated:
             try:
                 creator_staff = self.user.staff
-                
-                # Registry users can assign files to ANY non-registry staff member
                 if creator_staff.is_registry:
                     self.fields["owner"].queryset = Staff.objects.exclude(
                         designation__name__icontains="registry"
                     ).order_by("user__username")
                 elif creator_staff.is_hod:
-                    # HOD can create files for anyone in their department EXCEPT themselves
                     self.fields["owner"].queryset = Staff.objects.filter(
                         department=creator_staff.headed_department
                     ).exclude(user=self.user).order_by("user__username")
                 elif creator_staff.is_unit_manager:
-                    # Unit Manager can create files for anyone in their unit EXCEPT themselves
                     self.fields["owner"].queryset = Staff.objects.filter(
                         unit=creator_staff.headed_unit
                     ).exclude(user=self.user).order_by("user__username")
                 else:
-                    # Regular user can only create files for themselves
                     self.fields["owner"].queryset = Staff.objects.filter(user=self.user)
-                
-                # Always hide owner since template uses custom display
+
                 self.fields["owner"].widget = forms.HiddenInput()
-                # Set initial value (current user for staff, or blank for registry/hod if they need to choose)
                 if not creator_staff.is_registry and not creator_staff.is_hod and not creator_staff.is_unit_manager:
                     self.fields["owner"].initial = creator_staff
-                
-                # Ensure it's not required by browser if it's hidden (Django validation will still run)
                 self.fields["owner"].required = False
             except Staff.DoesNotExist:
-                # If user is not staff, they can only create for themselves
-                self.fields["owner"].queryset = Staff.objects.filter(
-                    user=self.user
-                )
-
+                self.fields["owner"].queryset = Staff.objects.filter(user=self.user)
         else:
-            # For unauthenticated users, no owner choices (shouldn't happen with LoginRequiredMixin)
             self.fields["owner"].queryset = Staff.objects.none()
 
     def clean_title(self):
@@ -108,39 +101,37 @@ class FileForm(forms.ModelForm):
         file_type = cleaned_data.get("file_type")
         owner = cleaned_data.get("owner")
         department = cleaned_data.get("department")
+        unit = cleaned_data.get("unit")
         external_party = cleaned_data.get("external_party")
         policy_range = cleaned_data.get("policy_type")
 
-        # Validation for Personal Folders
         if file_type == "personal":
             if not owner:
                 raise forms.ValidationError({"owner": "Personal folders must be assigned to a staff member."})
-            
-            # Enforce 1:1 restriction
             existing = File.objects.filter(file_type="personal", owner=owner)
             if self.instance and self.instance.pk:
                 existing = existing.exclude(pk=self.instance.pk)
-            
             if existing.exists():
                 raise forms.ValidationError(
                     f"A personal record folder already exists for {owner}. Only one personal folder is allowed per staff member."
                 )
-            
-            # Clear policy fields for personal type
             cleaned_data["department"] = None
+            cleaned_data["unit"] = None
             cleaned_data["external_party"] = None
 
-        # Validation for Policy Folders
         elif file_type == "policy":
             if policy_range == "internal":
                 if not department:
                     raise forms.ValidationError({"department": "Please select a department for this internal policy folder."})
+                # Validate unit belongs to selected department
+                if unit and unit.department != department:
+                    raise forms.ValidationError({"unit": "Selected unit does not belong to the chosen department."})
                 cleaned_data["external_party"] = None
             else:
                 if not external_party:
                     raise forms.ValidationError({"external_party": "Please specify the external organization or party name."})
                 cleaned_data["department"] = None
-            
+                cleaned_data["unit"] = None
             cleaned_data["owner"] = None
 
         return cleaned_data

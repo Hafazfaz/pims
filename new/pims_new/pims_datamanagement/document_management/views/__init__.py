@@ -47,6 +47,7 @@ from .search_views import (  # noqa: F401
     RecipientSearchView,
     StaffSearchView,
     InboxRecipientSearchView,
+    UnitsForDepartmentView,
 )
 from .approval_views import (  # noqa: F401
     MyApprovalChainsView,

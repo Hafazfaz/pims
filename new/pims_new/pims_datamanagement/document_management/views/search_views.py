@@ -3,7 +3,7 @@ from django.views.generic import View
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.db.models import Q
-from organization.models import Staff
+from organization.models import Staff, Unit
 from .base import EXCLUDE_REGISTRY_Q
 
 class RecipientSearchView(LoginRequiredMixin, View):
@@ -220,3 +220,14 @@ class StaffSearchView(LoginRequiredMixin, View):
             'staff_members': staff_members,
             'query': query
         })
+
+
+class UnitsForDepartmentView(LoginRequiredMixin, View):
+    """HTMX: return <option> elements for units belonging to a department."""
+    def get(self, request, *args, **kwargs):
+        dept_id = request.GET.get('department')
+        units = Unit.objects.filter(department_id=dept_id).order_by('name') if dept_id else Unit.objects.none()
+        html = '<option value="">— No specific unit —</option>'
+        for unit in units:
+            html += f'<option value="{unit.pk}">{unit.name}</option>'
+        return HttpResponse(html)

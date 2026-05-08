@@ -1,7 +1,7 @@
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db import models
-from organization.models import Department, Staff
+from organization.models import Department, Unit, Staff
 from core.constants import FILE_TYPE_CHOICES, STATUS_CHOICES
 from core.utils.pdf import watermark_pdf_file
 
@@ -24,6 +24,10 @@ class File(models.Model):
     )
     department = models.ForeignKey(
         Department, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    unit = models.ForeignKey(
+        Unit, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Optional: narrow policy file to a specific unit within the department."
     )
     external_party = models.CharField(
         max_length=255, 

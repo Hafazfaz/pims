@@ -35,6 +35,7 @@ urlpatterns = [
     path('access-requests/<int:pk>/approve/', views.FileAccessRequestApproveView.as_view(), name='access_request_approve'),
     path('access-requests/<int:pk>/reject/', views.FileAccessRequestRejectView.as_view(), name='access_request_reject'),
     path('staff-search/', views.StaffSearchView.as_view(), name='staff_search'),
+    path('units-for-department/', views.UnitsForDepartmentView.as_view(), name='units_for_department'),
     path('document/<int:pk>/download/', views.DocumentDownloadView.as_view(), name='document_download'),
     path('document/<int:pk>/delete/', views.DocumentDeleteView.as_view(), name='document_delete'),
     path('document/<int:pk>/share/', views.DocumentShareView.as_view(), name='document_share'),
