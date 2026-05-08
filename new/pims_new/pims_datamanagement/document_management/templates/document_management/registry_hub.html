@@ -120,10 +120,11 @@
             </div>
             <div x-show="open" x-collapse>
                 <div class="p-8">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div class="flex flex-col gap-6 mb-8">
                         <div class="relative group flex-1 max-w-2xl">
                             <input type="text"
                                    name="q"
+                                   id="file-search-input"
                                    value="{{ selected_search_query }}"
                                    placeholder="Enter file number, title or keyword..."
                                    hx-get="{% url 'document_management:registry_hub' %}"
@@ -131,9 +132,64 @@
                                    hx-target="#registry-file-list"
                                    hx-indicator="#search-indicator"
                                    hx-push-url="true"
+                                   hx-include="[name='file_type'],[name='department'],[name='status']"
                                    class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-sm group-hover:bg-white" />
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fas fa-search text-slate-400 group-focus-within:text-nigeria-green transition-colors"></i>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-4">
+                            <div class="flex-1 min-w-[200px]">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">File Type</label>
+                                <select name="file_type"
+                                        hx-get="{% url 'document_management:registry_hub' %}"
+                                        hx-trigger="change"
+                                        hx-target="#registry-file-list"
+                                        hx-indicator="#search-indicator"
+                                        hx-push-url="true"
+                                        hx-include="[name='q'],[name='department'],[name='status']"
+                                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+                                    <option value="">All Types</option>
+                                    {% for value, label in all_file_types %}
+                                        <option value="{{ value }}" {% if selected_file_type == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="flex-1 min-w-[200px]">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Department</label>
+                                <select name="department"
+                                        hx-get="{% url 'document_management:registry_hub' %}"
+                                        hx-trigger="change"
+                                        hx-target="#registry-file-list"
+                                        hx-indicator="#search-indicator"
+                                        hx-push-url="true"
+                                        hx-include="[name='q'],[name='file_type'],[name='status']"
+                                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+                                    <option value="">All Departments</option>
+                                    {% for dept in all_departments %}
+                                        <option value="{{ dept.id }}" {% if selected_department == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="flex-1 min-w-[200px]">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Status</label>
+                                <select name="status"
+                                        hx-get="{% url 'document_management:registry_hub' %}"
+                                        hx-trigger="change"
+                                        hx-target="#registry-file-list"
+                                        hx-indicator="#search-indicator"
+                                        hx-push-url="true"
+                                        hx-include="[name='q'],[name='file_type'],[name='department']"
+                                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+                                    <option value="">All Statuses</option>
+                                    <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                                    <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+                                    <option value="pending_activation" {% if selected_status == 'pending_activation' %}selected{% endif %}>Pending Activation</option>
+                                    <option value="in_transit" {% if selected_status == 'in_transit' %}selected{% endif %}>In Transit</option>
+                                    <option value="in_review" {% if selected_status == 'in_review' %}selected{% endif %}>In Review</option>
+                                    <option value="closed" {% if selected_status == 'closed' %}selected{% endif %}>Closed</option>
+                                    <option value="archived" {% if selected_status == 'archived' %}selected{% endif %}>Archived</option>
+                                </select>
                             </div>
                         </div>
                     </div>
