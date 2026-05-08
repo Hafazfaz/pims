@@ -105,7 +105,16 @@ class RegistryHubView(RegistryRequiredMixin, ListView):
                     Q(current_location__user__first_name__icontains=q_outgoing) |
                     Q(current_location__user__last_name__icontains=q_outgoing)
                 )
+            outgoing_file_type = self.request.GET.get("outgoing_file_type")
+            if outgoing_file_type:
+                outgoing_qs = outgoing_qs.filter(file_type=outgoing_file_type)
+            outgoing_department = self.request.GET.get("outgoing_department")
+            if outgoing_department:
+                outgoing_qs = outgoing_qs.filter(department_id=outgoing_department)
+
             context["selected_outgoing_query"] = q_outgoing or ""
+            context["selected_outgoing_file_type"] = outgoing_file_type or ""
+            context["selected_outgoing_department"] = outgoing_department and int(outgoing_department)
 
             outgoing_files_subset = outgoing_qs.order_by('-created_at')[:50]
             
