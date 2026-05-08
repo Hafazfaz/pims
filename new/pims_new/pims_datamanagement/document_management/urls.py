@@ -59,4 +59,6 @@ urlpatterns = [
     path('staff/<int:pk>/folder-hub/', views.StaffFolderHubView.as_view(), name='staff_folder_hub'),
     path('staff/folders/', views.StaffFolderListView.as_view(), name='staff_folder_list'),
     path('movement/<int:pk>/close/', views.CloseMovementView.as_view(), name='movement_close'),
+    path('batch-upload/', views.FileBatchUploadView.as_view(), name='file_batch_upload'),
+    path('batch-upload/sample-csv/', views.DownloadSampleFileCSVView.as_view(), name='file_batch_sample_csv'),
 ]

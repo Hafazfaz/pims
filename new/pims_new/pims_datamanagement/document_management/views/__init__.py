@@ -27,6 +27,8 @@ from .file_views import (  # noqa: F401
     InboxDocumentDetailView,
     InboxFileView,
     InboxRefDocView,
+    FileBatchUploadView,
+    DownloadSampleFileCSVView,
 )
 from .document_views import (  # noqa: F401
     DocumentUploadView,

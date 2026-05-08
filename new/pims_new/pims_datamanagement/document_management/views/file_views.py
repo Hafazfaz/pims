@@ -1605,3 +1605,146 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             messages.error(request, "Invalid action.")
 
         return redirect("document_management:inbox")
+
+
+class FileBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
+    template_name = "document_management/file_batch_upload.html"
+
+    def test_func(self):
+        try:
+            return self.request.user.staff.is_registry or self.request.user.is_superuser
+        except AttributeError:
+            return False
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "Only registry staff can perform batch uploads.")
+        return redirect("document_management:registry_hub")
+
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name)
+
+    def post(self, request, *args, **kwargs):
+        import csv
+        import io
+
+        from django.db import transaction
+
+        csv_file = request.FILES.get("csv_file")
+        if not csv_file:
+            messages.error(request, "Please select a CSV file to upload.")
+            return render(request, self.template_name)
+
+        if not csv_file.name.endswith(".csv"):
+            messages.error(request, "The uploaded file is not a CSV.")
+            return render(request, self.template_name)
+
+        try:
+            decoded_file = csv_file.read().decode("utf-8")
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+        except Exception as e:
+            messages.error(request, f"Failed to read CSV: {str(e)}")
+            return render(request, self.template_name)
+
+        required_cols = ["title", "file_type"]
+        if not reader.fieldnames or not all(c in reader.fieldnames for c in required_cols):
+            missing = [c for c in required_cols if not reader.fieldnames or c not in reader.fieldnames]
+            messages.error(request, f"CSV is missing required columns: {', '.join(missing)}")
+            return render(request, self.template_name)
+
+        results = {"success": [], "errors": []}
+        registry_staff = request.user.staff
+
+        for row_idx, row in enumerate(reader, start=2):
+            try:
+                with transaction.atomic():
+                    file_type = row["file_type"].strip().lower()
+                    title = row["title"].strip().upper()
+
+                    if file_type not in ("personal", "policy"):
+                        raise ValueError(f'Invalid file_type "{file_type}". Must be "personal" or "policy".')
+
+                    kwargs_create = {
+                        "title": title,
+                        "file_type": file_type,
+                        "current_location": registry_staff,
+                        "created_by": request.user,
+                    }
+
+                    if file_type == "personal":
+                        owner_username = row.get("owner_username", "").strip()
+                        if not owner_username:
+                            raise ValueError("owner_username is required for personal files.")
+                        from organization.models import Staff as StaffModel
+                        try:
+                            owner = StaffModel.objects.get(user__username=owner_username)
+                        except StaffModel.DoesNotExist:
+                            raise ValueError(f'Staff with username "{owner_username}" not found.')
+                        kwargs_create["owner"] = owner
+                        kwargs_create["department"] = owner.department
+
+                    elif file_type == "policy":
+                        policy_range = row.get("policy_range", "internal").strip().lower()
+                        if policy_range == "internal":
+                            dept_code = row.get("department_code", "").strip()
+                            if not dept_code:
+                                raise ValueError("department_code is required for internal policy files.")
+                            from organization.models import Department as DeptModel, Unit as UnitModel
+                            dept = DeptModel.objects.filter(code=dept_code).first()
+                            if not dept:
+                                raise ValueError(f'Department code "{dept_code}" not found.')
+                            kwargs_create["department"] = dept
+                            unit_name = row.get("unit_name", "").strip()
+                            if unit_name:
+                                unit = UnitModel.objects.filter(name=unit_name, department=dept).first()
+                                if not unit:
+                                    raise ValueError(f'Unit "{unit_name}" not found in department "{dept.name}".')
+                                kwargs_create["unit"] = unit
+                        else:
+                            external_party = row.get("external_party", "").strip()
+                            if not external_party:
+                                raise ValueError("external_party is required for external policy files.")
+                            kwargs_create["external_party"] = external_party
+
+                    file_obj = File.objects.create(**kwargs_create)
+                    results["success"].append(f'File "{file_obj.file_number} – {title}" created.')
+                    log_action(
+                        request.user,
+                        "FILE_CREATED_BATCH",
+                        request=request,
+                        obj=file_obj,
+                        details={"file_number": file_obj.file_number, "batch": True},
+                    )
+
+            except Exception as e:
+                results["errors"].append(f"Row {row_idx}: {str(e)}")
+
+        return render(request, self.template_name, {"results": results})
+
+
+class DownloadSampleFileCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        try:
+            return self.request.user.staff.is_registry or self.request.user.is_superuser
+        except AttributeError:
+            return False
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "Only registry staff can download sample CSV.")
+        return redirect("document_management:registry_hub")
+
+    def get(self, request, *args, **kwargs):
+        import csv
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="sample_files.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["title", "file_type", "owner_username", "department_code", "unit_name", "policy_range", "external_party"])
+        writer.writerow(["PERSONNEL FILE OF JOHN DOE", "personal", "john.doe", "", "", "", ""])
+        writer.writerow(["LEAVE POLICY 2025", "policy", "", "HR001", "Recruitment Unit", "internal", ""])
+        writer.writerow(["MOU WITH WHO", "policy", "", "", "", "external", "World Health Organization"])
+        return response
