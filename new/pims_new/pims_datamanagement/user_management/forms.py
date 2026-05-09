@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from organization.models import StaffSignature, Department, Unit, Designation
+from organization.models import StaffSignature, Department, Unit, Designation, Division
 
 CustomUser = get_user_model()
 
@@ -9,11 +9,12 @@ class SignatureUploadForm(forms.ModelForm):
 
     class Meta:
         model = StaffSignature
-        fields = []  # We don't use 'image' directly from the form anymore
+        fields = []
 
 class UserCreateForm(forms.ModelForm):
     department = forms.ModelChoiceField(queryset=Department.objects.all(), required=True)
     unit = forms.ModelChoiceField(queryset=Unit.objects.none(), required=False)
+    division = forms.ModelChoiceField(queryset=Division.objects.none(), required=False, empty_label="— None (optional) —")
     designation = forms.ModelChoiceField(queryset=Designation.objects.all(), required=True)
     staff_type = forms.ChoiceField(choices=[('permanent', 'Permanent'), ('contract', 'Contract')], required=True)
     is_supervisor = forms.BooleanField(required=False)
@@ -22,16 +23,19 @@ class UserCreateForm(forms.ModelForm):
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'first_name', 'last_name']
-        
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'department' in self.data:
             try:
                 department_id = int(self.data.get('department'))
                 self.fields['unit'].queryset = Unit.objects.filter(department_id=department_id)
+                self.fields['division'].queryset = Division.objects.filter(department_id=department_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk and hasattr(self.instance, 'staff') and self.instance.staff.department:
             self.fields['unit'].queryset = self.instance.staff.department.units.all()
+            self.fields['division'].queryset = self.instance.staff.department.divisions.all()
         else:
             self.fields['unit'].queryset = Unit.objects.all()
+            self.fields['division'].queryset = Division.objects.all()

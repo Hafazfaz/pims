@@ -170,13 +170,17 @@ def get_dispatch_recipients(user, file):
         head_pks = []
         if staff.unit and staff.unit.head:
             head_pks.append(staff.unit.head.pk)
+        if staff.division and getattr(staff.division, 'head', None):
+            head_pks.append(staff.division.head.pk)
         if staff.department and staff.department.head:
             head_pks.append(staff.department.head.pk)
         return base_qs.filter(pk__in=set(supervisor_pks + head_pks))
 
-    # Regular staff or supervisor sending own file
+    # Regular staff: Unit Head → Division Head → HOD (skip division if not set)
     if staff.unit and staff.unit.head:
         return base_qs.filter(pk=staff.unit.head.pk)
+    if staff.division and getattr(staff.division, 'head', None):
+        return base_qs.filter(pk=staff.division.head.pk)
     if staff.department and staff.department.head:
         return base_qs.filter(pk=staff.department.head.pk)
     return base_qs.none()
