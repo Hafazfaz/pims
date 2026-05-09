@@ -35,7 +35,7 @@ class File(models.Model):
         blank=True, 
         help_text="Name of external organization (for Corporate/External Policy files)"
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="inactive")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_activation")
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(
         Staff,

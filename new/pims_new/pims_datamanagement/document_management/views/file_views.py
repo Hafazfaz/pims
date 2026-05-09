@@ -301,6 +301,9 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             Q(owner=staff_user) | Q(created_by=self.request.user)
         ).distinct()
 
+        if not staff_user.is_registry:
+            queryset = queryset.filter(status="active")
+
         search_query = self.request.GET.get("q")
         if search_query:
             queryset = queryset.filter(
@@ -604,8 +607,10 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         ) and not file_obj.is_in_active_chain
         context["can_add_minutes"] = context["can_add_minute"]
         context["can_send_file"] = (
-            is_custodian or is_registry
-        ) and not file_obj.is_in_active_chain
+            (is_custodian or is_registry)
+            and not file_obj.is_in_active_chain
+            and file_obj.status == "active"
+        )
         context["is_custodian"] = is_custodian
         context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
@@ -638,7 +643,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             .select_related("user", "designation", "department", "unit")
         )
         if sender_staff:
-            if sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
+            if sender_staff.is_registry:
+                recipient_qs = base_qs
+            elif sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
                 recipient_qs = base_qs
             elif (
                 sender_staff.is_effective_supervisor and file_obj.owner != sender_staff
