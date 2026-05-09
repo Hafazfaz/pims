@@ -17,9 +17,17 @@ class Department(models.Model):
     def __str__(self):
         return self.name
 
+class Division(models.Model):
+    name = models.CharField(max_length=100)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='divisions')
+
+    def __str__(self):
+        return f"{self.name} ({self.department.code})"
+
 class Unit(models.Model):
     name = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='units')
+    division = models.ForeignKey(Division, on_delete=models.SET_NULL, null=True, blank=True, related_name='units')
     head = models.OneToOneField(
         'Staff',
         on_delete=models.SET_NULL,
@@ -46,6 +54,7 @@ class Staff(models.Model):
     designation = models.ForeignKey(Designation, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, related_name='staff_members')
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
+    division = models.ForeignKey(Division, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
     staff_type = models.CharField(max_length=20, choices=STAFF_TYPE_CHOICES, default='permanent')
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)

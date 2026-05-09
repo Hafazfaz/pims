@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block title %}{% if object %}Edit{% else %}Create{% endif %} Division | PIMS{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-8">
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-900">{% if object %}Edit Division{% else %}Create Division{% endif %}</h2>
+        <a href="{% url 'organization:division_list' %}" class="text-[10px] font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-widest">← Back</a>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            <div class="space-y-1.5">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Division Name *</label>
+                {{ form.name|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" }}
+                {% if form.name.errors %}<p class="text-[10px] text-red-500">{{ form.name.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="space-y-1.5">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Department *</label>
+                {{ form.department|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" }}
+                {% if form.department.errors %}<p class="text-[10px] text-red-500">{{ form.department.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <a href="{% url 'organization:division_list' %}" class="px-5 py-2.5 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Cancel</a>
+                <button type="submit" class="px-6 py-2.5 bg-slate-900 hover:bg-indigo-600 text-white text-[10px] font-bold rounded-lg uppercase tracking-widest">
+                    {% if object %}Save Changes{% else %}Create Division{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

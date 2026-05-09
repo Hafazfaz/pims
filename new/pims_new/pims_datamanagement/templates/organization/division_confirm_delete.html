@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Delete Division | PIMS{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border border-red-200 p-8 space-y-6">
+        <h2 class="text-lg font-black text-slate-900">Delete Division</h2>
+        <p class="text-sm text-slate-700">Are you sure you want to delete <span class="font-bold">{{ object.name }}</span> ({{ object.department.name }})?</p>
+        <form method="post" class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            {% csrf_token %}
+            <a href="{% url 'organization:division_list' %}" class="px-5 py-2.5 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Cancel</a>
+            <button type="submit" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-lg uppercase tracking-widest">Delete</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -4,8 +4,8 @@ from django.http import JsonResponse
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Department, Unit, Designation
-from .forms import DepartmentForm, UnitForm, DesignationForm
+from .models import Department, Unit, Designation, Division
+from .forms import DepartmentForm, UnitForm, DesignationForm, DivisionForm
 
 class SuperuserRequiredMixin(UserPassesTestMixin):
     def test_func(self):
@@ -159,4 +159,45 @@ class DesignationDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteVi
 
     def form_valid(self, form):
         messages.success(self.request, f'Designation "{self.object.name}" deleted.')
+        return super().form_valid(form)
+
+
+# ── Division CRUD ─────────────────────────────────────────────────────────────
+
+class DivisionListView(LoginRequiredMixin, SuperuserRequiredMixin, ListView):
+    model = Division
+    context_object_name = 'divisions'
+    template_name = 'organization/division_list.html'
+    ordering = ['department__name', 'name']
+
+
+class DivisionCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
+    model = Division
+    form_class = DivisionForm
+    template_name = 'organization/division_form.html'
+    success_url = reverse_lazy('organization:division_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Division "{form.instance.name}" created.')
+        return super().form_valid(form)
+
+
+class DivisionUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
+    model = Division
+    form_class = DivisionForm
+    template_name = 'organization/division_form.html'
+    success_url = reverse_lazy('organization:division_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Division "{form.instance.name}" updated.')
+        return super().form_valid(form)
+
+
+class DivisionDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+    model = Division
+    template_name = 'organization/division_confirm_delete.html'
+    success_url = reverse_lazy('organization:division_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Division "{self.object.name}" deleted.')
         return super().form_valid(form)
