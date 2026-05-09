@@ -10,6 +10,10 @@ from .registry_views import (  # noqa: F401
     OutgoingDispatchesView,
     DispatchDetailView,
     RegistryFileView,
+    DocumentTypeListView,
+    DocumentTypeCreateView,
+    DocumentTypeDeleteView,
+    DocumentsByTypeView,
 )
 from .file_views import (  # noqa: F401
     ExecutiveDashboardView,
@@ -35,6 +39,7 @@ from .file_views import (  # noqa: F401
 )
 from .document_views import (  # noqa: F401
     DocumentUploadView,
+    DocumentCreateView,
     DocumentDeleteView,
     DocumentDetailView,
     DocumentNewVersionView,
@@ -42,7 +47,6 @@ from .document_views import (  # noqa: F401
     DocumentShareView,
     DocumentDownloadView,
 )
-DocumentCreateView = DocumentUploadView  # alias for url routing
 from .access_views import (  # noqa: F401
     FileAccessRequestListView,
     FileAccessRequestApproveView,

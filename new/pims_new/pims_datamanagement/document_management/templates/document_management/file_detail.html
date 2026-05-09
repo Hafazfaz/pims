@@ -243,6 +243,11 @@
                                                                     <span class="ml-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {% if entry.item.status == 'approved' %}bg-green-100 text-green-700 {% elif entry.item.status == 'cancelled' %}bg-red-100 text-red-700 line-through decoration-red-700 {% else %}bg-amber-100 text-amber-700{% endif %}">
                                                                         {{ entry.item.get_status_display }}
                                                                     </span>
+                                                                    {% if entry.item.document_type %}
+                                                                    <span class="ml-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+                                                                        {{ entry.item.document_type.name }}
+                                                                    </span>
+                                                                    {% endif %}
                                                                     {% if entry.item.status_reason %}
                                                                         <p class="text-[10px] text-slate-500 mt-1 italic w-full">Reason: {{ entry.item.status_reason }}</p>
                                                                     {% endif %}

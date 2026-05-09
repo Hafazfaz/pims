@@ -1,16 +1,16 @@
 from django import forms
 from django.db.models import Q
-from organization.models import Staff, Unit
+from organization.models import Staff, Unit, Division
 from user_management.models import CustomUser
 
 
-from .models import Document, File, FileAccessRequest
+from .models import Document, DocumentType, File, FileAccessRequest
 
 
 class FileForm(forms.ModelForm):
     class Meta:
         model = File
-        fields = ["title", "file_type", "owner", "department", "unit", "external_party"]
+        fields = ["title", "file_type", "owner", "department", "division", "unit", "external_party"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -21,6 +21,7 @@ class FileForm(forms.ModelForm):
             "file_type": forms.Select(attrs={"class": "form-select", "x-model": "fileType"}),
             "owner": forms.HiddenInput(),
             "department": forms.Select(attrs={"class": "form-select"}),
+            "division": forms.Select(attrs={"class": "form-select"}),
             "unit": forms.Select(attrs={"class": "form-select"}),
             "external_party": forms.TextInput(
                 attrs={
@@ -34,6 +35,7 @@ class FileForm(forms.ModelForm):
             "file_type": "Folder Category",
             "owner": "Associated Staff",
             "department": "Associated Department",
+            "division": "Associated Division",
             "unit": "Associated Unit",
             "external_party": "External Organization/Party",
         }
@@ -53,6 +55,8 @@ class FileForm(forms.ModelForm):
         # Unit starts empty; populated via HTMX when department is selected
         self.fields["unit"].queryset = Unit.objects.none()
         self.fields["unit"].required = False
+        self.fields["division"].queryset = Division.objects.none()
+        self.fields["division"].required = False
 
         # If editing and department is set, populate units for that department
         if self.instance and self.instance.pk and self.instance.department_id:
@@ -145,10 +149,17 @@ class DocumentForm(forms.ModelForm):
         help_text="Optionally route this file to another staff member for review or approval.",
         widget=forms.Select(attrs={"class": "form-select"})
     )
+    document_type = forms.ModelChoiceField(
+        queryset=DocumentType.objects.all(),
+        required=True,
+        label="Document Type",
+        empty_label="— Select type —",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
 
     class Meta:
         model = Document
-        fields = ["title", "minute_content", "attachment", "parent"]
+        fields = ["title", "document_type", "minute_content", "attachment", "parent"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -303,6 +314,13 @@ class DocumentUploadForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "form-control"}),
         label="Associate with File",
     )
+    document_type = forms.ModelChoiceField(
+        queryset=DocumentType.objects.all(),
+        required=True,
+        label="Document Type",
+        empty_label="— Select type —",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
     minute_content = forms.CharField(
         required=False,
         label="Minute / Note Content",
@@ -311,7 +329,7 @@ class DocumentUploadForm(forms.ModelForm):
 
     class Meta:
         model = Document
-        fields = ["file", "title", "minute_content", "attachment"]
+        fields = ["file", "title", "document_type", "minute_content", "attachment"]
         widgets = {
             "title": forms.TextInput(
                 attrs={

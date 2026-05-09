@@ -454,29 +454,20 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
         minute_content = request.POST.get('minute_content', '').strip()
         attachment = request.FILES.get('attachment')
 
-        # Walk to root then find the true latest version in this chain
-        root = original
-        while root.previous_version:
-            root = root.previous_version
-
-        latest_version = Document.objects.filter(
-            file=original.file, title=root.title
-        ).order_by('-version').first()
-
-        # New version always chains off the latest, not the restored-from version
+        # New version chains off the original via parent
         new_doc = Document.objects.create(
             file=original.file,
             uploaded_by=request.user,
-            title=root.title,
+            title=title or original.title,
             minute_content=minute_content or original.minute_content,
-            previous_version=latest_version,
-            version=latest_version.version + 1,
+            document_type=original.document_type,
+            parent=original,
         )
         if attachment:
             new_doc.attachment = attachment
             new_doc.save()
 
-        messages.success(request, f"Version {new_doc.version} created.")
+        messages.success(request, "New version created.")
         return redirect('document_management:document_detail', pk=original.pk)
 
 
@@ -520,8 +511,18 @@ class DocumentDownloadView(LoginRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         import mimetypes
+        import os
         from django.http import FileResponse
+
+        if not document.attachment:
+            messages.error(request, "This document has no attachment.")
+            return redirect(file_obj.get_absolute_url())
+
         file_path = document.attachment.path
+        if not os.path.exists(file_path):
+            messages.error(request, "Attachment file not found on server.")
+            return redirect(file_obj.get_absolute_url())
+
         mime_type, _ = mimetypes.guess_type(file_path)
         inline = request.GET.get('inline') == '1'
         disposition = 'inline' if inline else f'attachment; filename="{document.attachment.name.split("/")[-1]}"'
@@ -531,6 +532,9 @@ class DocumentDownloadView(LoginRequiredMixin, View):
             response['X-Frame-Options'] = 'SAMEORIGIN'
         log_action(user, "DOCUMENT_DOWNLOADED", request=request, obj=document)
         return response
+
+
+class DocumentCreateView(LoginRequiredMixin, CreateView):
     model = Document
     form_class = DocumentForm
     template_name = "document_management/document_create.html"

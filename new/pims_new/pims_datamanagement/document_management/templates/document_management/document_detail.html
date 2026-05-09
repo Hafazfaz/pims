@@ -1,6 +1,28 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
+{% load static %}
 {% block title %}{{ document.title|default:"Document" }} | PIMS{% endblock %}
+{% block extra_head %}
+<link href="{% static 'summernote/summernote-lite.min.css' %}" rel="stylesheet" />
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'admin/js/vendor/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'summernote/summernote-lite.min.js' %}"></script>
+<script>
+$(document).ready(function() {
+    $("#edit-minute-content").summernote({
+        height: 250,
+        tabsize: 2,
+        toolbar: [
+            ["style", ["bold", "italic", "underline", "clear"]],
+            ["para", ["ul", "ol"]],
+            ["insert", ["link"]],
+            ["view", ["codeview"]],
+        ],
+    });
+});
+</script>
+{% endblock %}
 {% block content %}
     <div class="flex flex-col gap-4 h-full" x-data="{ showDispatchModal: false }">
         <!-- Breadcrumb Navigation -->
@@ -30,8 +52,15 @@
             <div class="p-8 lg:p-10">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
                     <div class="space-y-2">
-                        <div class="inline-flex items-center px-2.5 py-1 rounded bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-widest border border-indigo-100">
-                            Document
+                        <div class="flex items-center gap-2">
+                            <div class="inline-flex items-center px-2.5 py-1 rounded bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-widest border border-indigo-100">
+                                Document
+                            </div>
+                            {% if document.document_type %}
+                            <div class="inline-flex items-center px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest border border-slate-200">
+                                {{ document.document_type.name }}
+                            </div>
+                            {% endif %}
                         </div>
                         <h2 class="text-3xl font-bold text-slate-900 tracking-tight">{{ document.title|default:"Minute Entry" }}</h2>
                         <div class="flex flex-wrap items-center gap-3 text-sm font-medium text-slate-500">
@@ -120,30 +149,59 @@
                         <span class="px-4 py-3 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-lg">Dispatch not allowed</span>
                     {% endif %}
                     {% if can_add_minute %}
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" @click.outside="open = false"
+                    <div x-data="{ open: false }">
+                        <button @click="open = true"
                                 class="px-5 py-3 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all shadow-sm">
                             ✎ Edit
                         </button>
-                        <div x-show="open" x-cloak class="absolute left-0 mt-2 w-96 bg-white border border-slate-200 rounded-xl shadow-xl p-5 z-50 space-y-3">
-                            <div>
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Edit Document</p>
-                                <p class="text-[10px] text-slate-400">Saves as <strong class="text-slate-600">Version {{ document.version|add:1 }}</strong> — original is preserved.</p>
-                            </div>
-                            <form method="post" action="{% url 'document_management:document_new_version' pk=document.pk %}" enctype="multipart/form-data" class="space-y-3">
-                                {% csrf_token %}
-                                <input type="text" name="title" value="{{ document.title|default:'' }}" placeholder="Title"
-                                       class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-nigeria-green">
-                                <textarea name="minute_content" rows="4" placeholder="Updated content..."
-                                          class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-nigeria-green resize-none">{{ document.minute_content|default:'' }}</textarea>
-                                <div>
-                                    <p class="text-[9px] text-slate-400 uppercase tracking-widest mb-1">Replace attachment (optional)</p>
-                                    <input type="file" name="attachment" class="text-xs w-full">
+                        <!-- Slide-in sidebar -->
+                        <div x-show="open" x-cloak class="fixed inset-0 z-50 flex justify-end">
+                            <!-- Backdrop -->
+                            <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="open = false"></div>
+                            <!-- Panel -->
+                            <div class="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="translate-x-full"
+                                 x-transition:enter-end="translate-x-0"
+                                 x-transition:leave="transition ease-in duration-150"
+                                 x-transition:leave-start="translate-x-0"
+                                 x-transition:leave-end="translate-x-full">
+                                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                                    <div>
+                                        <p class="text-sm font-black text-slate-900 uppercase tracking-widest">Edit Document</p>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Saves as <strong class="text-slate-600">Version {{ document.version|add:1 }}</strong> — original is preserved.</p>
+                                    </div>
+                                    <button @click="open = false" class="text-slate-400 hover:text-slate-600">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </button>
                                 </div>
-                                <button type="submit" class="w-full py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all">
-                                    Save as Version {{ document.version|add:1 }}
-                                </button>
-                            </form>
+                                <div class="flex-1 overflow-y-auto p-6">
+                                    <form method="post" action="{% url 'document_management:document_new_version' pk=document.pk %}" enctype="multipart/form-data" class="space-y-4">
+                                        {% csrf_token %}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Title</label>
+                                            <input type="text" name="title" value="{{ document.title|default:'' }}" placeholder="Title"
+                                                   class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-nigeria-green">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Content</label>
+                                            <textarea id="edit-minute-content" name="minute_content" rows="10" placeholder="Updated content..."
+                                                      class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-nigeria-green resize-none">{{ document.minute_content|default:'' }}</textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Replace Attachment (optional)</label>
+                                            <label class="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                                <i class="fas fa-paperclip text-slate-400 text-xs"></i>
+                                                <span class="text-sm text-slate-500" id="edit-attach-label">Choose file...</span>
+                                                <input type="file" name="attachment" class="hidden" onchange="document.getElementById('edit-attach-label').textContent = this.files[0]?.name || 'Choose file...'">
+                                            </label>
+                                        </div>
+                                        <button type="submit" class="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all">
+                                            Save as Version {{ document.version|add:1 }}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endif %}

@@ -1,7 +1,7 @@
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db import models
-from organization.models import Department, Unit, Staff
+from organization.models import Department, Division, Unit, Staff
 from core.constants import FILE_TYPE_CHOICES, STATUS_CHOICES
 from core.utils.pdf import watermark_pdf_file
 
@@ -28,6 +28,10 @@ class File(models.Model):
     unit = models.ForeignKey(
         Unit, on_delete=models.SET_NULL, null=True, blank=True,
         help_text="Optional: narrow policy file to a specific unit within the department."
+    )
+    division = models.ForeignKey(
+        Division, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Optional: associate file with a division."
     )
     external_party = models.CharField(
         max_length=255, 
@@ -181,6 +185,16 @@ class File(models.Model):
         return self.documents.filter(approval_chains__status='active').exists()
 
 
+class DocumentType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
+
 class Document(models.Model):
     """
     Represents a document or a minute attached to a File.
@@ -189,7 +203,10 @@ class Document(models.Model):
     file = models.ForeignKey(File, related_name="documents", on_delete=models.CASCADE)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    
+    document_type = models.ForeignKey(
+        DocumentType, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents'
+    )
+
     # New: Add title for labeling official documents (e.g. "Birth Certificate")
     title = models.CharField(max_length=255, blank=True, null=True)
 
