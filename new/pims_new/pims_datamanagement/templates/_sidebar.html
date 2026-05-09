@@ -104,6 +104,11 @@
                         <i class="fas fa-paper-plane w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Outgoing Dispatches</span>
                     </a>
+                    <a href="{% url 'document_management:document_type_list' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'document-types' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-tags w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Document Types</span>
+                    </a>
 
 
                 </div>
@@ -170,6 +175,11 @@
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/designations/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-id-badge w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Designations</span>
+                    </a>
+                    <a href="{% url 'organization:division_list' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/divisions/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-layer-group w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Divisions</span>
                     </a>
                     {% endif %}
                     {% if user.is_superuser or user.is_staff or user.staff.is_executive %}

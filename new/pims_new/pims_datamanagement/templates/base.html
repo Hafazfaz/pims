@@ -131,5 +131,41 @@
         </main>
         {% block extra_modals %}{% endblock %}
         {% block extra_js %}{% endblock %}
+
+        <!-- Global upload spinner -->
+        <div id="upload-overlay" class="hidden fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <div class="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 min-w-[220px]">
+                <svg class="animate-spin w-10 h-10 text-nigeria-green" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <div class="text-center">
+                    <p class="text-sm font-bold text-slate-800 uppercase tracking-widest">Uploading...</p>
+                    <p class="text-xs text-slate-400 mt-1" id="upload-progress-text">Please wait</p>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                    <div id="upload-progress-bar" class="bg-nigeria-green h-1.5 rounded-full transition-all duration-300" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+        <script>
+        document.querySelectorAll('form[enctype="multipart/form-data"]').forEach(function(form) {
+            form.addEventListener('submit', function() {
+                var hasFile = Array.from(form.querySelectorAll('input[type="file"]')).some(function(i) { return i.files && i.files.length > 0; });
+                if (!hasFile) return;
+                var overlay = document.getElementById('upload-overlay');
+                var bar = document.getElementById('upload-progress-bar');
+                var text = document.getElementById('upload-progress-text');
+                overlay.classList.remove('hidden');
+                var pct = 0;
+                var interval = setInterval(function() {
+                    pct = Math.min(pct + Math.random() * 15, 90);
+                    bar.style.width = pct + '%';
+                    text.textContent = Math.round(pct) + '%';
+                }, 300);
+                form.addEventListener('submit', function() { clearInterval(interval); }, { once: true });
+            });
+        });
+        </script>
     </body>
 </html>
