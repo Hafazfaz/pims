@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block title %}Outgoing Dispatches | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-6">
+
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900">Outgoing Dispatches</h1>
+            <p class="text-xs text-slate-500 mt-0.5">All files and documents sent out from registry</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+        <input type="text" name="q" value="{{ search_query }}"
+               placeholder="Search file number, title, recipient…"
+               class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none w-64">
+        <select name="status"
+                class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green outline-none">
+            <option value="">All Statuses</option>
+            <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="approved" {% if selected_status == 'approved' %}selected{% endif %}>Approved</option>
+            <option value="rejected" {% if selected_status == 'rejected' %}selected{% endif %}>Rejected</option>
+            <option value="forwarded" {% if selected_status == 'forwarded' %}selected{% endif %}>Forwarded</option>
+        </select>
+        <button type="submit"
+                class="px-4 py-2 bg-nigeria-green text-white text-sm font-bold rounded-lg hover:bg-nigeria-dark transition-all">
+            Filter
+        </button>
+        {% if search_query or selected_status %}
+        <a href="{% url 'document_management:outgoing_dispatches' %}"
+           class="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-200 transition-all">
+            Clear
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">File</th>
+                    <th class="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Document</th>
+                    <th class="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Sent To</th>
+                    <th class="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Sent By</th>
+                    <th class="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Date</th>
+                    <th class="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                    <th class="px-5 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for movement in movements %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-5 py-3">
+                        <a href="{% url 'document_management:file_detail' movement.file.pk %}"
+                           class="font-bold text-nigeria-green hover:underline text-xs">{{ movement.file.file_number }}</a>
+                        <p class="text-[10px] text-slate-400 truncate max-w-[160px]">{{ movement.file.title }}</p>
+                    </td>
+                    <td class="px-5 py-3 text-xs text-slate-700">
+                        {% if movement.document %}
+                            {{ movement.document.title|default:"Untitled"|truncatechars:40 }}
+                        {% else %}
+                            <span class="text-slate-400 italic">File only</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-xs text-slate-700">
+                        {% if movement.sent_to %}
+                            {{ movement.sent_to.user.get_full_name|default:movement.sent_to.user.username }}
+                            {% if movement.sent_to.designation %}
+                                <p class="text-[10px] text-slate-400">{{ movement.sent_to.designation.name }}</p>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-slate-400">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-xs text-slate-700">
+                        {{ movement.sent_by.get_full_name|default:movement.sent_by.username|default:"—" }}
+                    </td>
+                    <td class="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {{ movement.moved_at|date:"d M Y" }}<br>
+                        <span class="text-[10px]">{{ movement.moved_at|date:"H:i" }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border
+                            {% if movement.status == 'approved' %}bg-green-50 text-green-700 border-green-200
+                            {% elif movement.status == 'rejected' %}bg-red-50 text-red-700 border-red-200
+                            {% elif movement.status == 'forwarded' %}bg-blue-50 text-blue-700 border-blue-200
+                            {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+                            {{ movement.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <a href="{% url 'document_management:dispatch_detail' movement.pk %}"
+                           class="text-[10px] font-bold text-slate-500 hover:text-nigeria-green transition-colors uppercase tracking-widest">
+                            View →
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-5 py-12 text-center text-sm text-slate-400">No dispatches found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="flex items-center justify-between text-xs text-slate-500">
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+            {% if page_obj.has_previous %}
+            <a href="?{% if search_query %}q={{ search_query }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}page={{ page_obj.previous_page_number }}"
+               class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold hover:bg-slate-50">← Prev</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?{% if search_query %}q={{ search_query }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}page={{ page_obj.next_page_number }}"
+               class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold hover:bg-slate-50">Next →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

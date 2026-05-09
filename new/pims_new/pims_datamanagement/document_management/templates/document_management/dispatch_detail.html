@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}Dispatch #{{ movement.pk }} | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-6 max-w-3xl mx-auto">
+
+    <div class="flex items-center gap-2 text-sm">
+        <a href="{% url 'document_management:outgoing_dispatches' %}" class="text-slate-400 hover:text-nigeria-green transition-colors">
+            ← Back to Outgoing Dispatches
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 space-y-6">
+
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Dispatch #{{ movement.pk }}</p>
+                <h2 class="text-xl font-bold text-slate-900">{{ file.file_number }} — {{ file.title }}</h2>
+                <p class="text-xs text-slate-500 mt-1">{{ movement.moved_at|date:"d M Y @ H:i" }}</p>
+            </div>
+            <span class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                {% if movement.status == 'approved' %}bg-green-50 text-green-700 border-green-200
+                {% elif movement.status == 'rejected' %}bg-red-50 text-red-700 border-red-200
+                {% elif movement.status == 'forwarded' %}bg-blue-50 text-blue-700 border-blue-200
+                {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+                {{ movement.get_status_display }}
+            </span>
+        </div>
+
+        <hr class="border-slate-100">
+
+        <!-- Sender / Recipient -->
+        <div class="grid grid-cols-2 gap-6">
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sent By</p>
+                <p class="text-sm font-semibold text-slate-800">{{ movement.sent_by.get_full_name|default:movement.sent_by.username|default:"—" }}</p>
+                {% if sender_staff and sender_staff.designation %}
+                    <p class="text-[10px] text-slate-400">{{ sender_staff.designation.name }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sent To</p>
+                {% if movement.sent_to %}
+                    <p class="text-sm font-semibold text-slate-800">{{ movement.sent_to.user.get_full_name|default:movement.sent_to.user.username }}</p>
+                    {% if movement.sent_to.designation %}
+                        <p class="text-[10px] text-slate-400">{{ movement.sent_to.designation.name }}</p>
+                    {% endif %}
+                    {% if movement.sent_to.department %}
+                        <p class="text-[10px] text-slate-400">{{ movement.sent_to.department.name }}</p>
+                    {% endif %}
+                {% else %}
+                    <p class="text-sm text-slate-400">—</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Note -->
+        {% if movement.note %}
+        <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+            <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Covering Note</p>
+            <p class="text-sm text-slate-700">{{ movement.note }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Document -->
+        {% if document %}
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Document</p>
+            <p class="text-sm font-semibold text-slate-800">{{ document.title|default:"Untitled" }}</p>
+            {% if document.minute_content %}
+                <div class="mt-3 prose prose-sm max-w-none text-slate-700">{{ document.minute_content|safe }}</div>
+            {% endif %}
+            {% if document.attachment %}
+                <a href="{% url 'document_management:document_download' document.pk %}"
+                   class="mt-3 inline-flex items-center gap-2 text-xs font-bold text-indigo-600 hover:underline">
+                    <i class="fas fa-paperclip"></i> Download Attachment
+                </a>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-400 italic">No document attached — file dispatch only.</p>
+        {% endif %}
+
+        <!-- Dispatch Trail -->
+        {% if movement_history %}
+        <div>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Dispatch Trail</p>
+            <div class="space-y-4">
+                {% for m in movement_history %}
+                <div class="flex items-start gap-3">
+                    <!-- Avatar -->
+                    <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-black text-slate-600 shrink-0">
+                        {{ m.sent_by.get_full_name|default:m.sent_by.username|default:"?"|slice:":1"|upper }}
+                    </div>
+                    <div class="flex-1">
+                        <!-- Who sent to whom -->
+                        <div class="flex items-center flex-wrap gap-2 mb-1">
+                            <span class="text-xs font-bold text-slate-800">{{ m.sent_by.get_full_name|default:m.sent_by.username|default:"—" }}</span>
+                            <span class="text-[10px] text-slate-400">→</span>
+                            <span class="text-xs font-semibold text-slate-700">
+                                {% if m.sent_to %}{{ m.sent_to.user.get_full_name|default:m.sent_to.user.username }}{% if m.sent_to.designation %} <span class="text-[10px] text-slate-400 font-normal">({{ m.sent_to.designation.name }})</span>{% endif %}{% else %}—{% endif %}
+                            </span>
+                            <!-- Status badge -->
+                            <span class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border
+                                {% if m.status == 'approved' %}bg-green-50 text-green-700 border-green-200
+                                {% elif m.status == 'rejected' %}bg-red-50 text-red-700 border-red-200
+                                {% elif m.status == 'forwarded' %}bg-blue-50 text-blue-700 border-blue-200
+                                {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+                                {{ m.get_status_display }}
+                            </span>
+                            <span class="text-[10px] text-slate-400 ml-auto">{{ m.moved_at|date:"d M Y @ H:i" }}</span>
+                        </div>
+                        <!-- Note / comment -->
+                        {% if m.note %}
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700">
+                            {{ m.note }}
+                        </div>
+                        {% else %}
+                        <p class="text-xs text-slate-400 italic">No note.</p>
+                        {% endif %}
+                        <!-- Attachment -->
+                        {% if m.attachment %}
+                        <a href="{{ m.attachment.url }}" class="mt-1 inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 hover:underline">
+                            <i class="fas fa-paperclip"></i> Attachment
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if not forloop.last %}
+                <div class="ml-4 border-l-2 border-slate-100 h-4"></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Link to file -->
+        <div class="pt-4 border-t border-slate-100">
+            <a href="{% url 'document_management:file_detail' file.pk %}"
+               class="text-xs font-bold text-nigeria-green hover:underline">
+                View full file record →
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

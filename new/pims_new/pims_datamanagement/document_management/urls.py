@@ -61,4 +61,7 @@ urlpatterns = [
     path('movement/<int:pk>/close/', views.CloseMovementView.as_view(), name='movement_close'),
     path('batch-upload/', views.FileBatchUploadView.as_view(), name='file_batch_upload'),
     path('batch-upload/sample-csv/', views.DownloadSampleFileCSVView.as_view(), name='file_batch_sample_csv'),
+    path('outgoing-dispatches/', views.OutgoingDispatchesView.as_view(), name='outgoing_dispatches'),
+    path('dispatch/<int:pk>/', views.DispatchDetailView.as_view(), name='dispatch_detail'),
+    path('registry/file/<int:pk>/', views.RegistryFileView.as_view(), name='registry_file_view'),
 ]

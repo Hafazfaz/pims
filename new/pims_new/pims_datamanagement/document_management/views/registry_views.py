@@ -295,27 +295,51 @@ class StaffFolderHubView(RegistryRequiredMixin, DetailView):
 
 
 class StaffFolderListView(RegistryRequiredMixin, ListView):
-    """Registry-only: list all staff with links to their folder hub."""
-    model = Staff
+    """Registry-only: list all files (personal, policy, etc.)."""
+    model = File
     template_name = "document_management/staff_folder_list.html"
-    context_object_name = "staff_list"
-    paginate_by = 20
+    context_object_name = "file_list"
+    paginate_by = 5
 
     def get_queryset(self):
-        qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).select_related('user', 'department', 'designation').order_by('user__last_name')
+        qs = File.objects.select_related('owner__user', 'department', 'unit').order_by('-created_at')
+
         q = self.request.GET.get('q')
         if q:
             qs = qs.filter(
-                Q(user__first_name__icontains=q) |
-                Q(user__last_name__icontains=q) |
-                Q(user__username__icontains=q) |
+                Q(title__icontains=q) |
+                Q(file_number__icontains=q) |
+                Q(owner__user__first_name__icontains=q) |
+                Q(owner__user__last_name__icontains=q) |
                 Q(department__name__icontains=q)
             )
+
+        file_type = self.request.GET.get('file_type')
+        if file_type:
+            qs = qs.filter(file_type=file_type)
+
+        department = self.request.GET.get('department')
+        if department:
+            qs = qs.filter(department_id=department)
+
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+
         return qs
+
+    def get_template_names(self):
+        if self.request.headers.get('HX-Request'):
+            return ['document_management/partials/_staff_folder_rows.html']
+        return [self.template_name]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_query'] = self.request.GET.get('q', '')
+        context['selected_file_type'] = self.request.GET.get('file_type', '')
+        context['selected_department'] = self.request.GET.get('department', '')
+        context['selected_status'] = self.request.GET.get('status', '')
+        context['all_departments'] = Department.objects.all().order_by('name')
         return context
 
 
@@ -363,3 +387,95 @@ class CloseMovementView(RegistryRequiredMixin, View):
                    details={"movement_id": movement.pk})
         messages.success(request, f"Movement for {file_obj.file_number} closed successfully.")
         return redirect(file_obj.get_absolute_url())
+
+
+class RegistryFileView(RegistryRequiredMixin, View):
+    """Registry view of any file — shows documents, approval chains, and dispatch history."""
+
+    def get(self, request, pk):
+        file_obj = get_object_or_404(File, pk=pk)
+        documents = file_obj.documents.select_related('uploaded_by').order_by('-uploaded_at')
+        active_chain = ApprovalChain.objects.filter(file=file_obj, status='active').first()
+        all_chains = ApprovalChain.objects.filter(file=file_obj).order_by('-created_at')
+        movements = file_obj.movements.select_related(
+            'sent_by', 'sent_to__user', 'sent_to__designation', 'document'
+        ).order_by('-moved_at')
+
+        return render(request, "document_management/registry_file_view.html", {
+            "file": file_obj,
+            "documents": documents[:5],
+            "documents_total": documents.count(),
+            "documents_all": documents,
+            "active_chain": active_chain,
+            "all_chains": all_chains,
+            "movements": movements[:5],
+            "movements_total": movements.count(),
+            "movements_all": movements,
+        })
+
+
+class OutgoingDispatchesView(RegistryRequiredMixin, ListView):
+    """All FileMovements dispatched out — files and documents sent to staff."""
+    model = FileMovement
+    template_name = "document_management/outgoing_dispatches.html"
+    context_object_name = "movements"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = FileMovement.objects.select_related(
+            "file", "document", "sent_by", "sent_to__user", "from_location__user"
+        ).order_by("-moved_at")
+
+        q = self.request.GET.get("q")
+        if q:
+            qs = qs.filter(
+                Q(file__file_number__icontains=q) |
+                Q(file__title__icontains=q) |
+                Q(sent_to__user__first_name__icontains=q) |
+                Q(sent_to__user__last_name__icontains=q)
+            )
+
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = self.request.GET.get("q", "")
+        context["selected_status"] = self.request.GET.get("status", "")
+        return context
+
+
+class DispatchDetailView(RegistryRequiredMixin, View):
+    """Registry read-only view of a single dispatch (FileMovement)."""
+
+    def get(self, request, pk):
+        movement = get_object_or_404(FileMovement, pk=pk)
+        file_obj = movement.file
+        document = movement.document
+
+        try:
+            sender_staff = movement.sent_by.staff
+        except Exception:
+            sender_staff = None
+
+        # Full trail for this document (all hops), oldest first
+        movement_history = (
+            FileMovement.objects.filter(document=document)
+            .select_related("sent_by", "sent_to__user", "sent_to__designation")
+            .order_by("moved_at")
+            if document else
+            FileMovement.objects.filter(file=file_obj)
+            .select_related("sent_by", "sent_to__user", "sent_to__designation")
+            .order_by("moved_at")
+        )
+
+        return render(request, "document_management/dispatch_detail.html", {
+            "movement": movement,
+            "document": document,
+            "file": file_obj,
+            "sender_staff": sender_staff,
+            "movement_history": movement_history,
+        })

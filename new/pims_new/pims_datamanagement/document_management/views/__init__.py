@@ -7,6 +7,9 @@ from .registry_views import (  # noqa: F401
     StaffFolderHubView,
     StaffFolderListView,
     CloseMovementView,
+    OutgoingDispatchesView,
+    DispatchDetailView,
+    RegistryFileView,
 )
 from .file_views import (  # noqa: F401
     ExecutiveDashboardView,
