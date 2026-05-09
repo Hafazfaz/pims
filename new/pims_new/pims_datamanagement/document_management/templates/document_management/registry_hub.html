@@ -74,6 +74,30 @@
                     {{ outgoing_overdue_count|default:0 }}
                 </p>
             </div>
+            {% if user.is_superuser or user.staff.is_registry %}
+                <a href="{% url 'document_management:document_type_list' %}"
+                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all group cursor-pointer block h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest group-hover:text-indigo-700">Doc Types</p>
+                        <i class="fas fa-tags text-indigo-200 group-hover:text-indigo-500 transition-colors text-xl"></i>
+                    </div>
+                    <div class="flex items-center justify-between mt-auto">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Manage Categories</p>
+                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
+                    </div>
+                </a>
+                <a href="{% url 'organization:division_list' %}"
+                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-nigeria-green hover:shadow-md transition-all group cursor-pointer block h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest group-hover:text-nigeria-dark">Divisions</p>
+                        <i class="fas fa-layer-group text-nigeria-light group-hover:text-nigeria-green transition-colors text-xl"></i>
+                    </div>
+                    <div class="flex items-center justify-between mt-auto">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Manage Structure</p>
+                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-nigeria-green transition-colors"></i>
+                    </div>
+                </a>
+            {% endif %}
             {% if user.staff.is_registry %}
                 <a href="{% url 'document_management:staff_without_files' %}"
                    class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all group cursor-pointer block h-full">

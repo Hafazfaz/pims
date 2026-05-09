@@ -11,6 +11,15 @@ class SuperuserRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.is_authenticated and self.request.user.is_superuser
 
+class RegistryOrSuperuserRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        return hasattr(user, 'staff') and user.staff.is_registry
+
 class DepartmentListView(LoginRequiredMixin, SuperuserRequiredMixin, ListView):
     model = Department
     context_object_name = 'departments'
@@ -164,14 +173,14 @@ class DesignationDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteVi
 
 # ── Division CRUD ─────────────────────────────────────────────────────────────
 
-class DivisionListView(LoginRequiredMixin, SuperuserRequiredMixin, ListView):
+class DivisionListView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, ListView):
     model = Division
     context_object_name = 'divisions'
     template_name = 'organization/division_list.html'
     ordering = ['department__name', 'name']
 
 
-class DivisionCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
+class DivisionCreateView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, CreateView):
     model = Division
     form_class = DivisionForm
     template_name = 'organization/division_form.html'
@@ -182,7 +191,7 @@ class DivisionCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView)
         return super().form_valid(form)
 
 
-class DivisionUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
+class DivisionUpdateView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, UpdateView):
     model = Division
     form_class = DivisionForm
     template_name = 'organization/division_form.html'
@@ -193,7 +202,7 @@ class DivisionUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView)
         return super().form_valid(form)
 
 
-class DivisionDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+class DivisionDeleteView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, DeleteView):
     model = Division
     template_name = 'organization/division_confirm_delete.html'
     success_url = reverse_lazy('organization:division_list')
