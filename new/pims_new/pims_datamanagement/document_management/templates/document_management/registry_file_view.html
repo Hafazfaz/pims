@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% block title %}{{ file.file_number }} | Registry | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-6" x-data="{ docsModal: false, movementsModal: false }">
+
+    <!-- Back + Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <a href="{% url 'document_management:staff_folder_list' %}" class="text-xs text-slate-400 hover:text-nigeria-green transition-colors">← All Folders</a>
+            <h2 class="text-xl font-bold text-slate-900 mt-1">{{ file.file_number }}</h2>
+            <p class="text-sm text-slate-500">{{ file.title }}</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
+                {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border-amber-200
+                {% elif file.status == 'closed' %}bg-red-50 text-red-700 border-red-200
+                {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
+                {{ file.get_status_display }}
+            </span>
+            <span class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                {% if file.file_type == 'personal' %}bg-blue-50 text-blue-700 border-blue-200
+                {% else %}bg-purple-50 text-purple-700 border-purple-200{% endif %}">
+                {{ file.get_file_type_display }}
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Documents (2/3) -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Documents</h3>
+                <span class="text-[11px] font-black text-nigeria-green bg-nigeria-light px-3 py-1 rounded-full">{{ documents_total }} total</span>
+            </div>
+            <div class="divide-y divide-slate-50">
+                {% for doc in documents %}
+                <div class="px-6 py-4 flex items-start justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                            <i class="fas {% if doc.attachment %}fa-paperclip{% else %}fa-align-left{% endif %} text-slate-400 text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Minute Entry" }}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">
+                                By {{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"—" }} &bull; {{ doc.uploaded_at|date:"d M Y, H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded border
+                            {% if doc.status == 'approved' %}bg-green-50 text-green-700 border-green-200
+                            {% elif doc.status == 'rejected' %}bg-red-50 text-red-700 border-red-200
+                            {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
+                            {{ doc.get_status_display }}
+                        </span>
+                        <a href="{% url 'document_management:document_detail' pk=doc.pk %}"
+                           class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700 transition-colors">View</a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="px-6 py-10 text-center text-sm text-slate-400">No documents in this file.</div>
+                {% endfor %}
+            </div>
+            {% if documents_total > 5 %}
+            <div class="px-6 py-3 border-t border-slate-100 text-center">
+                <button @click="docsModal = true"
+                        class="text-xs font-bold text-nigeria-green hover:underline uppercase tracking-widest">
+                    View {{ documents_total|add:"-5" }} more entries...
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar (1/3) -->
+        <div class="space-y-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">File Info</h3>
+                {% if file.owner %}
+                <div>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest">Owner</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ file.owner.user.get_full_name|default:file.owner.user.username }}</p>
+                </div>
+                {% endif %}
+                {% if file.department %}
+                <div>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest">Department</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ file.department.name }}{% if file.unit %} · {{ file.unit.name }}{% endif %}</p>
+                </div>
+                {% endif %}
+                {% if file.external_party %}
+                <div>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest">External Party</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ file.external_party }}</p>
+                </div>
+                {% endif %}
+                {% if file.current_location %}
+                <div>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest">Current Location</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ file.current_location.user.get_full_name|default:file.current_location.user.username }}</p>
+                </div>
+                {% endif %}
+                <div class="pt-2 border-t border-slate-100">
+                    {% if file.status == 'inactive' or file.status == 'pending_activation' %}
+                    <form method="post" action="{% url 'document_management:file_approve_activation' pk=file.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full py-3 bg-nigeria-green text-white text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all mb-2">
+                            Activate File
+                        </button>
+                    </form>
+                    {% endif %}
+                    <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="text-xs font-bold text-nigeria-green hover:underline">Open full file →</a>
+                </div>
+            </div>
+
+            <!-- Dispatch history -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dispatch History</h3>
+                    {% if movements_total %}<span class="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{{ movements_total }}</span>{% endif %}
+                </div>
+                <div class="divide-y divide-slate-50">
+                    {% for m in movements %}
+                    <div class="px-5 py-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-semibold text-slate-800 truncate">
+                                {{ m.sent_by.get_full_name|default:m.sent_by.username|default:"—" }}
+                                <span class="text-slate-400 font-normal">→</span>
+                                {{ m.sent_to.user.get_full_name|default:m.sent_to|default:"—" }}
+                            </p>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0
+                                {% if m.status == 'approved' %}bg-green-100 text-green-700
+                                {% elif m.status == 'rejected' %}bg-red-100 text-red-700
+                                {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                {{ m.get_status_display }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between mt-0.5">
+                            <p class="text-[10px] text-slate-400">{{ m.moved_at|date:"d M Y @ H:i" }}</p>
+                            <a href="{% url 'document_management:dispatch_detail' pk=m.pk %}" class="text-[10px] font-bold text-nigeria-green hover:underline">Detail</a>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="px-5 py-4 text-xs text-slate-400 italic">No dispatches yet.</p>
+                    {% endfor %}
+                </div>
+                {% if movements_total > 5 %}
+                <div class="px-5 py-3 border-t border-slate-100 text-center">
+                    <button @click="movementsModal = true" class="text-xs font-bold text-nigeria-green hover:underline uppercase tracking-widest">
+                        View {{ movements_total|add:"-5" }} more entries...
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents Modal -->
+    <div x-show="docsModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" @click.stop>
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">All Documents <span class="text-nigeria-green ml-2">{{ documents_total }}</span></h3>
+                <button @click="docsModal = false" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div class="overflow-y-auto divide-y divide-slate-50">
+                {% for doc in documents_all %}
+                <div class="px-6 py-3 flex items-center justify-between gap-4 hover:bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <i class="fas {% if doc.attachment %}fa-paperclip{% else %}fa-align-left{% endif %} text-slate-400 text-xs w-4"></i>
+                        <div>
+                            <p class="text-xs font-semibold text-slate-800">{{ doc.title|default:"Minute Entry" }}</p>
+                            <p class="text-[10px] text-slate-400">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"—" }} · {{ doc.uploaded_at|date:"d M Y, H:i" }}</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700 shrink-0">View</a>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="px-6 py-3 border-t border-slate-100 text-right">
+                <button @click="docsModal = false" class="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Movements Modal -->
+    <div x-show="movementsModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" @click.stop>
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Dispatch History <span class="text-nigeria-green ml-2">{{ movements_total }}</span></h3>
+                <button @click="movementsModal = false" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div class="overflow-y-auto divide-y divide-slate-50">
+                {% for m in movements_all %}
+                <div class="px-6 py-3 flex items-center justify-between gap-4 hover:bg-slate-50">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-800">
+                            {{ m.sent_by.get_full_name|default:m.sent_by.username|default:"—" }}
+                            <span class="text-slate-400 font-normal">→</span>
+                            {{ m.sent_to.user.get_full_name|default:m.sent_to|default:"—" }}
+                        </p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">{{ m.moved_at|date:"d M Y @ H:i" }}</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase
+                            {% if m.status == 'approved' %}bg-green-100 text-green-700
+                            {% elif m.status == 'rejected' %}bg-red-100 text-red-700
+                            {% else %}bg-amber-100 text-amber-700{% endif %}">{{ m.get_status_display }}</span>
+                        <a href="{% url 'document_management:dispatch_detail' pk=m.pk %}" class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700">Detail</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="px-6 py-3 border-t border-slate-100 text-right">
+                <button @click="movementsModal = false" class="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200">Close</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

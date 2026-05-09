@@ -1,0 +1,78 @@
+<div id="staff-table-body" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+<table class="w-full text-left">
+    <thead>
+        <tr class="bg-slate-50 border-b border-slate-200">
+            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">File</th>
+            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
+            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Owner / Department</th>
+            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Action</th>
+        </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+        {% for file in file_list %}
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-4">
+                    <p class="text-sm font-bold text-nigeria-green">{{ file.file_number }}</p>
+                    <p class="text-xs text-slate-600 truncate max-w-[220px]">{{ file.title }}</p>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border
+                        {% if file.file_type == 'personal' %}bg-blue-50 text-blue-700 border-blue-200
+                        {% else %}bg-purple-50 text-purple-700 border-purple-200{% endif %}">
+                        {{ file.get_file_type_display }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-600">
+                    {% if file.file_type == 'personal' and file.owner %}
+                        {{ file.owner.user.get_full_name|default:file.owner.user.username }}
+                    {% elif file.department %}
+                        {{ file.department.name }}{% if file.unit %} · {{ file.unit.name }}{% endif %}
+                    {% elif file.external_party %}
+                        {{ file.external_party }}
+                    {% else %}—{% endif %}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border
+                        {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
+                        {% elif file.status == 'inactive' %}bg-slate-50 text-slate-500 border-slate-200
+                        {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border-amber-200
+                        {% elif file.status == 'closed' %}bg-red-50 text-red-700 border-red-200
+                        {% else %}bg-blue-50 text-blue-700 border-blue-200{% endif %}">
+                        {{ file.get_status_display }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <a href="{% url 'document_management:registry_file_view' pk=file.pk %}"
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold rounded-lg transition-colors">
+                        <i class="fas fa-folder-open"></i> View
+                    </a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400 font-medium">
+                    No folders found.
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if is_paginated or paginator.count > 0 %}
+<div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+    <span class="text-xs text-slate-500 font-medium">
+        {% if is_paginated %}Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ paginator.count }}{% else %}{{ paginator.count }} record{{ paginator.count|pluralize }}{% endif %}
+    </span>
+    <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&file_type={{ selected_file_type }}&department={{ selected_department }}&status={{ selected_status }}"
+               class="px-3 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-50">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&file_type={{ selected_file_type }}&department={{ selected_department }}&status={{ selected_status }}"
+               class="px-3 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-50">Next</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+</div>
