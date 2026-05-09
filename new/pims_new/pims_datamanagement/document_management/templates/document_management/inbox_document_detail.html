@@ -16,13 +16,14 @@
         <div class="lg:col-span-2 space-y-4">
 
             <!-- Document card -->
+            {% if document %}
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
                 <div class="flex items-start justify-between gap-4 mb-6">
                     <div>
                         <div class="inline-flex items-center px-2.5 py-1 rounded bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-widest border border-indigo-100 mb-2">Document</div>
                         <h2 class="text-2xl font-bold text-slate-900">{{ document.title|default:"Untitled Document" }}</h2>
                         <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-wider">
-                            Uploaded by {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }} · {{ document.uploaded_at|date:"M d, Y @ H:i" }}
+                            Uploaded by {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username|default:"Unknown" }} · {{ document.uploaded_at|date:"M d, Y @ H:i" }}
                         </p>
                     </div>
                     <span class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
@@ -50,6 +51,7 @@
                 </div>
                 {% endif %}
             </div>
+            {% endif %}
 
             <!-- Reference documents -->
             {% if reference_docs %}
@@ -60,7 +62,7 @@
                     <div class="py-3 flex items-center justify-between gap-4">
                         <div>
                             <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
-                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"Unknown" }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             {% if doc.attachment %}
@@ -117,7 +119,7 @@
                     <div class="py-3 flex items-center justify-between gap-4">
                         <div>
                             <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
-                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"Unknown" }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
                         </div>
                         <span class="text-[9px] font-bold px-2 py-1 rounded-full border uppercase tracking-tighter
                             {% if doc.status == 'approved' %}bg-green-50 text-green-600 border-green-100

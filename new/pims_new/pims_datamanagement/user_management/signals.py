@@ -16,10 +16,10 @@ def enforce_session_limit(sender, request, user, **kwargs):
     sessions = UserSession.objects.filter(user=user).order_by('created_at')
     overflow = sessions.count() - MAX_CONCURRENT_SESSIONS
     if overflow > 0:
-        oldest = sessions[:overflow]
-        old_keys = list(oldest.values_list('session_key', flat=True))
+        oldest_pks = list(sessions.values_list('pk', flat=True)[:overflow])
+        old_keys = list(UserSession.objects.filter(pk__in=oldest_pks).values_list('session_key', flat=True))
         Session.objects.filter(session_key__in=old_keys).delete()
-        oldest.delete()
+        UserSession.objects.filter(pk__in=oldest_pks).delete()
 
     # Legacy: keep last_session_key in sync
     if getattr(settings, 'SESSION_FLUSH_AT_LOGIN', False):
