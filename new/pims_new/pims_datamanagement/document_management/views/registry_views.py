@@ -479,3 +479,50 @@ class DispatchDetailView(RegistryRequiredMixin, View):
             "sender_staff": sender_staff,
             "movement_history": movement_history,
         })
+
+
+# ── DocumentType CRUD ─────────────────────────────────────────────────────────
+
+from django.views.generic import CreateView, UpdateView, DeleteView
+from document_management.models import DocumentType
+
+class DocumentTypeListView(RegistryRequiredMixin, View):
+    def get(self, request):
+        from django.db.models import Count
+        types = DocumentType.objects.annotate(doc_count=Count('documents')).order_by('name')
+        return render(request, "document_management/document_type_list.html", {"types": types})
+
+
+class DocumentTypeCreateView(RegistryRequiredMixin, View):
+    def get(self, request):
+        return render(request, "document_management/document_type_form.html", {})
+
+    def post(self, request):
+        name = request.POST.get("name", "").strip()
+        if not name:
+            messages.error(request, "Name is required.")
+            return render(request, "document_management/document_type_form.html", {})
+        DocumentType.objects.get_or_create(name=name)
+        messages.success(request, f'Document type "{name}" created.')
+        return redirect("document_management:document_type_list")
+
+
+class DocumentTypeDeleteView(RegistryRequiredMixin, View):
+    def post(self, request, pk):
+        dt = get_object_or_404(DocumentType, pk=pk)
+        name = dt.name
+        dt.delete()
+        messages.success(request, f'Document type "{name}" deleted.')
+        return redirect("document_management:document_type_list")
+
+
+class DocumentsByTypeView(RegistryRequiredMixin, View):
+    """Registry view: all documents of a given type."""
+    def get(self, request, pk):
+        dt = get_object_or_404(DocumentType, pk=pk)
+        documents = dt.documents.select_related('file', 'uploaded_by').order_by('-uploaded_at')
+        return render(request, "document_management/documents_by_type.html", {
+            "doc_type": dt,
+            "documents": documents,
+            "total": documents.count(),
+        })

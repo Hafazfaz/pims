@@ -64,4 +64,8 @@ urlpatterns = [
     path('outgoing-dispatches/', views.OutgoingDispatchesView.as_view(), name='outgoing_dispatches'),
     path('dispatch/<int:pk>/', views.DispatchDetailView.as_view(), name='dispatch_detail'),
     path('registry/file/<int:pk>/', views.RegistryFileView.as_view(), name='registry_file_view'),
+    path('document-types/', views.DocumentTypeListView.as_view(), name='document_type_list'),
+    path('document-types/create/', views.DocumentTypeCreateView.as_view(), name='document_type_create'),
+    path('document-types/<int:pk>/delete/', views.DocumentTypeDeleteView.as_view(), name='document_type_delete'),
+    path('document-types/<int:pk>/documents/', views.DocumentsByTypeView.as_view(), name='documents_by_type'),
 ]

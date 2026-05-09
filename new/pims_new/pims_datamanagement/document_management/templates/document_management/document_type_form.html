@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Add Document Type | PIMS{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-slate-900">Add Document Type</h2>
+        <a href="{% url 'document_management:document_type_list' %}" class="text-xs text-slate-400 hover:text-nigeria-green">← Back</a>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Type Name *</label>
+                <input type="text" name="name" required autofocus
+                       placeholder="e.g. Leave Request, Clearance, Memo..."
+                       class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green">
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                <a href="{% url 'document_management:document_type_list' %}" class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cancel</a>
+                <button type="submit" class="px-6 py-2.5 bg-nigeria-green text-white text-xs font-bold rounded-lg hover:bg-nigeria-dark uppercase tracking-widest">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
