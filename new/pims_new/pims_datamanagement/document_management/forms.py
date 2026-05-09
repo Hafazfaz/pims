@@ -242,7 +242,9 @@ class SendFileForm(forms.Form):
             base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.user).select_related('user')
 
             if staff:
-                if staff.is_hod or staff.is_md or staff.is_executive:
+                if staff.is_registry:
+                    eligible = base_qs
+                elif staff.is_hod or staff.is_md or staff.is_executive:
                     eligible = base_qs
                 elif staff.is_effective_supervisor and (not file_obj or file_obj.owner != staff):
                     # Supervisor sending someone else's file → other supervisors + direct heads

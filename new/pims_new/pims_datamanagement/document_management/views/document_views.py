@@ -238,7 +238,9 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         from organization.models import Department as Dept, Unit
         base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.request.user).select_related('user', 'designation', 'unit', 'department')
         if sender_staff:
-            if sender_staff.is_md or sender_staff.is_executive:
+            if sender_staff.is_registry:
+                recipient_qs = base_qs
+            elif sender_staff.is_md or sender_staff.is_executive:
                 recipient_qs = base_qs
             elif sender_staff.is_hod or sender_staff.is_head_of_unit:
                 pks = set()
