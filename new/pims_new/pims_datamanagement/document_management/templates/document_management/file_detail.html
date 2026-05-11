@@ -133,6 +133,24 @@
                                 </p>
                                 <p class="text-sm font-semibold text-slate-900">{{ file.department.name|default:"General Section" }}</p>
                             </div>
+                            {% if file.division %}
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Division</p>
+                                <p class="text-sm font-semibold text-slate-900">{{ file.division.name }}</p>
+                            </div>
+                            {% endif %}
+                            {% if file.section %}
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Section</p>
+                                <p class="text-sm font-semibold text-slate-900">{{ file.section.name }}</p>
+                            </div>
+                            {% endif %}
+                            {% if file.unit %}
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p>
+                                <p class="text-sm font-semibold text-slate-900">{{ file.unit.name }}</p>
+                            </div>
+                            {% endif %}
                             {% if file.file_type == 'personal' %}
                                 <div>
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Folder Owner (Staff)</p>

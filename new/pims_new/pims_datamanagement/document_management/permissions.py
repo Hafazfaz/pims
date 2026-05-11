@@ -170,16 +170,20 @@ def get_dispatch_recipients(user, file):
         head_pks = []
         if staff.unit and staff.unit.head:
             head_pks.append(staff.unit.head.pk)
-        if staff.division and getattr(staff.division, 'head', None):
+        if staff.section and staff.section.head:
+            head_pks.append(staff.section.head.pk)
+        if staff.division and staff.division.head:
             head_pks.append(staff.division.head.pk)
         if staff.department and staff.department.head:
             head_pks.append(staff.department.head.pk)
         return base_qs.filter(pk__in=set(supervisor_pks + head_pks))
 
-    # Regular staff: Unit Head → Division Head → HOD (skip division if not set)
+    # Regular staff: Unit Head → Section Head → Division Head → HOD
     if staff.unit and staff.unit.head:
         return base_qs.filter(pk=staff.unit.head.pk)
-    if staff.division and getattr(staff.division, 'head', None):
+    if staff.section and staff.section.head:
+        return base_qs.filter(pk=staff.section.head.pk)
+    if staff.division and staff.division.head:
         return base_qs.filter(pk=staff.division.head.pk)
     if staff.department and staff.department.head:
         return base_qs.filter(pk=staff.department.head.pk)

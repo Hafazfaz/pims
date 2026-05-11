@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q
-from organization.models import Staff, Unit, Division
+from organization.models import Staff, Unit, Division, Section
 from user_management.models import CustomUser
 
 
@@ -10,7 +10,7 @@ from .models import Document, DocumentType, File, FileAccessRequest
 class FileForm(forms.ModelForm):
     class Meta:
         model = File
-        fields = ["title", "file_type", "owner", "department", "division", "unit", "external_party"]
+        fields = ["title", "file_type", "owner", "department", "division", "section", "unit", "external_party"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -22,6 +22,7 @@ class FileForm(forms.ModelForm):
             "owner": forms.HiddenInput(),
             "department": forms.Select(attrs={"class": "form-select"}),
             "division": forms.Select(attrs={"class": "form-select"}),
+            "section": forms.Select(attrs={"class": "form-select"}),
             "unit": forms.Select(attrs={"class": "form-select"}),
             "external_party": forms.TextInput(
                 attrs={
@@ -36,6 +37,7 @@ class FileForm(forms.ModelForm):
             "owner": "Associated Staff",
             "department": "Associated Department",
             "division": "Associated Division",
+            "section": "Associated Section",
             "unit": "Associated Unit",
             "external_party": "External Organization/Party",
         }
@@ -57,6 +59,8 @@ class FileForm(forms.ModelForm):
         self.fields["unit"].required = False
         self.fields["division"].queryset = Division.objects.none()
         self.fields["division"].required = False
+        self.fields["section"].queryset = Section.objects.none()
+        self.fields["section"].required = False
 
         # If editing and department is set, populate units for that department
         if self.instance and self.instance.pk and self.instance.department_id:

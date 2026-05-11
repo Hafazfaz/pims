@@ -29,4 +29,10 @@ urlpatterns = [
     path('divisions/create/', views.DivisionCreateView.as_view(), name='division_create'),
     path('divisions/<int:pk>/edit/', views.DivisionUpdateView.as_view(), name='division_edit'),
     path('divisions/<int:pk>/delete/', views.DivisionDeleteView.as_view(), name='division_delete'),
+
+    # Section
+    path('sections/', views.SectionListView.as_view(), name='section_list'),
+    path('sections/create/', views.SectionCreateView.as_view(), name='section_create'),
+    path('sections/<int:pk>/edit/', views.SectionUpdateView.as_view(), name='section_edit'),
+    path('sections/<int:pk>/delete/', views.SectionDeleteView.as_view(), name='section_delete'),
 ]

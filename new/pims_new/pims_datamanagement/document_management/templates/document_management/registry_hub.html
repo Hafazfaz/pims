@@ -97,6 +97,17 @@
                         <i class="fas fa-chevron-right text-slate-300 group-hover:text-nigeria-green transition-colors"></i>
                     </div>
                 </a>
+                <a href="{% url 'organization:section_list' %}"
+                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-amber-500 hover:shadow-md transition-all group cursor-pointer block h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest group-hover:text-amber-700">Sections</p>
+                        <i class="fas fa-th-large text-amber-200 group-hover:text-amber-500 transition-colors text-xl"></i>
+                    </div>
+                    <div class="flex items-center justify-between mt-auto">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Manage Structure</p>
+                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-amber-500 transition-colors"></i>
+                    </div>
+                </a>
             {% endif %}
             {% if user.staff.is_registry %}
                 <a href="{% url 'document_management:staff_without_files' %}"

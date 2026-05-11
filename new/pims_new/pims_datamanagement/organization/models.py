@@ -20,14 +20,36 @@ class Department(models.Model):
 class Division(models.Model):
     name = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='divisions')
+    head = models.OneToOneField(
+        'Staff',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='headed_division'
+    )
 
     def __str__(self):
         return f"{self.name} ({self.department.code})"
+
+class Section(models.Model):
+    name = models.CharField(max_length=100)
+    division = models.ForeignKey(Division, on_delete=models.CASCADE, related_name='sections')
+    head = models.OneToOneField(
+        'Staff',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='headed_section'
+    )
+
+    def __str__(self):
+        return f"{self.name} ({self.division.name})"
 
 class Unit(models.Model):
     name = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='units')
     division = models.ForeignKey(Division, on_delete=models.SET_NULL, null=True, blank=True, related_name='units')
+    section = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True, blank=True, related_name='units')
     head = models.OneToOneField(
         'Staff',
         on_delete=models.SET_NULL,
@@ -53,8 +75,9 @@ class Staff(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     designation = models.ForeignKey(Designation, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, related_name='staff_members')
-    unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
     division = models.ForeignKey(Division, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
+    section = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
+    unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
     staff_type = models.CharField(max_length=20, choices=STAFF_TYPE_CHOICES, default='permanent')
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)
@@ -91,6 +114,20 @@ class Staff(models.Model):
         except Exception:
             return False
 
+    @property
+    def is_head_of_division(self):
+        try:
+            return self.headed_division is not None
+        except Exception:
+            return False
+
+    @property
+    def is_head_of_section(self):
+        try:
+            return self.headed_section is not None
+        except Exception:
+            return False
+
     # Keep backwards-compat alias
     @property
     def is_unit_manager(self):
@@ -98,8 +135,8 @@ class Staff(models.Model):
 
     @property
     def is_effective_supervisor(self):
-        """True if this staff acts as a supervisor — either flagged, HOU, or HOD."""
-        return self.is_supervisor or self.is_head_of_unit or self.is_hod or self.is_executive or self.is_md
+        """True if this staff acts as a supervisor — either flagged, HOU, HOD, etc."""
+        return self.is_supervisor or self.is_head_of_unit or self.is_head_of_section or self.is_head_of_division or self.is_hod or self.is_executive or self.is_md
 
     @property
     def is_executive(self):

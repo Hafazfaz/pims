@@ -832,6 +832,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             department = form.cleaned_data["department"]
             unit = form.cleaned_data["unit"]
             division = form.cleaned_data.get("division")
+            section = form.cleaned_data.get("section")
             designation = form.cleaned_data["designation"]
             staff_type = form.cleaned_data["staff_type"]
 
@@ -840,6 +841,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 department=department,
                 unit=unit,
                 division=division,
+                section=section,
                 designation=designation,
                 staff_type=staff_type,
                 is_supervisor=form.cleaned_data["is_supervisor"],

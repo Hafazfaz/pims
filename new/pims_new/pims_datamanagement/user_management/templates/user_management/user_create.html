@@ -70,6 +70,16 @@
                                 {% if form.department.errors %}<p class="text-[10px] text-red-500">{{ form.department.errors.0 }}</p>{% endif %}
                             </div>
                             <div class="space-y-1.5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Division</label>
+                                {{ form.division|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                {% if form.division.errors %}<p class="text-[10px] text-red-500">{{ form.division.errors.0 }}</p>{% endif %}
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Section</label>
+                                {{ form.section|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                {% if form.section.errors %}<p class="text-[10px] text-red-500">{{ form.section.errors.0 }}</p>{% endif %}
+                            </div>
+                            <div class="space-y-1.5">
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit</label>
                                 {{ form.unit|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
                                 {% if form.unit.errors %}<p class="text-[10px] text-red-500">{{ form.unit.errors.0 }}</p>{% endif %}

@@ -4,8 +4,8 @@ from django.http import JsonResponse
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Department, Unit, Designation, Division
-from .forms import DepartmentForm, UnitForm, DesignationForm, DivisionForm
+from .models import Department, Unit, Designation, Division, Section
+from .forms import DepartmentForm, UnitForm, DesignationForm, DivisionForm, SectionForm
 
 class SuperuserRequiredMixin(UserPassesTestMixin):
     def test_func(self):
@@ -209,4 +209,44 @@ class DivisionDeleteView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, D
 
     def form_valid(self, form):
         messages.success(self.request, f'Division "{self.object.name}" deleted.')
+        return super().form_valid(form)
+
+# ── Section CRUD ──────────────────────────────────────────────────────────────
+
+class SectionListView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, ListView):
+    model = Section
+    context_object_name = 'sections'
+    template_name = 'organization/section_list.html'
+    ordering = ['division__department__name', 'division__name', 'name']
+
+
+class SectionCreateView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, CreateView):
+    model = Section
+    form_class = SectionForm
+    template_name = 'organization/section_form.html'
+    success_url = reverse_lazy('organization:section_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Section "{form.instance.name}" created.')
+        return super().form_valid(form)
+
+
+class SectionUpdateView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, UpdateView):
+    model = Section
+    form_class = SectionForm
+    template_name = 'organization/section_form.html'
+    success_url = reverse_lazy('organization:section_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Section "{form.instance.name}" updated.')
+        return super().form_valid(form)
+
+
+class SectionDeleteView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, DeleteView):
+    model = Section
+    template_name = 'organization/section_confirm_delete.html'
+    success_url = reverse_lazy('organization:section_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Section "{self.object.name}" deleted.')
         return super().form_valid(form)

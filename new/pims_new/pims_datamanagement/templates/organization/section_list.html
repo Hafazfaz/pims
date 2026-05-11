@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Sections | PIMS Administration{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Sections</h2>
+            <p class="text-sm text-slate-500 font-medium">Manage sections within divisions</p>
+        </div>
+        <a href="{% url 'organization:section_create' %}"
+           class="inline-flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-indigo-600 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all uppercase tracking-widest">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+            <span>Add Section</span>
+        </a>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead>
+                <tr class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-800">
+                    <th class="px-8 py-5">Section</th>
+                    <th class="px-8 py-5">Division</th>
+                    <th class="px-8 py-5">Department</th>
+                    <th class="px-8 py-5 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium">
+                {% for s in sections %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-8 py-5 font-bold text-slate-900">{{ s.name }}</td>
+                    <td class="px-8 py-5 text-slate-600">{{ s.division.name }}</td>
+                    <td class="px-8 py-5 text-slate-600">{{ s.division.department.name }}</td>
+                    <td class="px-8 py-5 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="{% url 'organization:section_edit' pk=s.pk %}" class="px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-600 text-[10px] font-bold rounded transition-all uppercase tracking-widest">Edit</a>
+                            <a href="{% url 'organization:section_delete' pk=s.pk %}" class="px-3 py-1.5 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 text-[10px] font-bold rounded transition-all uppercase tracking-widest">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-8 py-16 text-center text-slate-400 italic">No sections defined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
