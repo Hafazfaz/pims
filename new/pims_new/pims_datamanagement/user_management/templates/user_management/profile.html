@@ -87,23 +87,17 @@
                 <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
                     <div class="p-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
                         <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Digital Signature</h3>
-                        <div class="flex items-center gap-3">
-                            {% if active_signature %}
-                                {% if active_signature.is_verified %}
-                                    <span class="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Verified</span>
-                                {% else %}
-                                    <span class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Pending Verification</span>
-                                {% endif %}
+                        {% if active_signature %}
+                            {% if active_signature.is_verified %}
+                                <span class="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Verified</span>
                             {% else %}
-                                <span class="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Not Uploaded</span>
+                                <span class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Pending Verification</span>
                             {% endif %}
-                            <button @click="$dispatch('open-sig-modal')"
-                                    class="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-colors">
-                                {% if active_signature %}Edit{% else %}Add{% endif %} Signature
-                            </button>
-                        </div>
+                        {% else %}
+                            <span class="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Not Uploaded</span>
+                        {% endif %}
                     </div>
-                    <div class="p-8">
+                    <div class="p-8 space-y-10">
                         {% if active_signature %}
                             <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 w-full">Current Active Signature</p>
@@ -113,203 +107,96 @@
                                          class="max-h-32 w-auto grayscale pointer-events-none" />
                                 </div>
                             </div>
-                        {% else %}
-                            <div class="flex flex-col items-center justify-center py-12 text-slate-400">
-                                <svg class="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-2.828 1.172H7v-2a4 4 0 011.172-2.828z"/>
-                                </svg>
-                                <p class="text-sm font-bold">No signature on file</p>
-                                <p class="text-xs mt-1">Click "Add Signature" to get started</p>
-                            </div>
                         {% endif %}
+                        <div x-data="{ mode: 'draw' }" class="space-y-6">
+                            <!-- Mode Toggle -->
+                            <div class="flex gap-2">
+                                <button type="button" @click="mode = 'draw'"
+                                        :class="mode === 'draw' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'"
+                                        class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors">Draw</button>
+                                <button type="button" @click="mode = 'upload'"
+                                        :class="mode === 'upload' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'"
+                                        class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors">Upload</button>
+                            </div>
+
+                            <!-- Draw -->
+                            <div x-show="mode === 'draw'">
+                                <form method="post" id="signature-form" class="space-y-4">
+                                    {% csrf_token %}
+                                    {{ signature_form.signature_data }}
+                                    <div class="border-2 border-dashed border-slate-300 rounded-xl overflow-hidden bg-white/50 relative">
+                                        <canvas id="signature-pad" class="w-full h-48 cursor-crosshair touch-none"></canvas>
+                                        <div class="absolute bottom-4 right-4">
+                                            <button type="button" id="clear-signature"
+                                                    class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors shadow-sm">Clear</button>
+                                        </div>
+                                    </div>
+                                    <button type="submit" id="save-signature"
+                                            class="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition-all">
+                                        Save Signature
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Upload -->
+                            <div x-show="mode === 'upload'">
+                                <form method="post" enctype="multipart/form-data" class="space-y-4">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="signature_data" value="">
+                                    <input type="file" name="image" accept="image/*"
+                                           class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-slate-900 file:text-white hover:file:bg-black transition-all cursor-pointer" />
+                                    <p class="text-[10px] text-slate-400 italic">Upload a clear image of your handwritten signature (PNG, JPG).</p>
+                                    <button type="submit"
+                                            class="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition-all">
+                                        Upload Signature
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <script>
+<script>
   document.addEventListener("DOMContentLoaded", function () {
     const canvas = document.getElementById("signature-pad");
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const clearButton = document.getElementById("clear-signature");
     const form = document.getElementById("signature-form");
-    const signatureInput = document.querySelector(
-      'input[name="signature_data"]',
-    );
+    const signatureInput = document.querySelector('input[name="signature_data"]');
+    let isDrawing = false, hasSignature = false;
 
-    let isDrawing = false;
-    let hasSignature = false;
-
-    // Resize canvas taking into account device pixel ratio
     function resizeCanvas() {
       const ratio = Math.max(window.devicePixelRatio || 1, 1);
       canvas.width = canvas.offsetWidth * ratio;
       canvas.height = canvas.offsetHeight * ratio;
       ctx.scale(ratio, ratio);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#0f172a"; // slate-900
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#0f172a";
     }
-
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
-    function getMousePos(e) {
+    function getPos(e) {
       const rect = canvas.getBoundingClientRect();
-      // Mouse event or Touch event
-      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
-      };
+      return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
     }
+    canvas.addEventListener("mousedown", e => { isDrawing = true; hasSignature = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); });
+    canvas.addEventListener("mousemove", e => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+    canvas.addEventListener("mouseup", () => isDrawing = false);
+    canvas.addEventListener("mouseout", () => isDrawing = false);
+    canvas.addEventListener("touchstart", e => { isDrawing = true; hasSignature = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }, { passive: false });
+    canvas.addEventListener("touchmove", e => { if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }, { passive: false });
+    canvas.addEventListener("touchend", () => isDrawing = false);
 
-    function startDrawing(e) {
-      isDrawing = true;
-      hasSignature = true;
-      const pos = getMousePos(e);
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-      e.preventDefault();
-    }
-
-    function draw(e) {
-      if (!isDrawing) return;
-      const pos = getMousePos(e);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      e.preventDefault();
-    }
-
-    function stopDrawing() {
-      isDrawing = false;
-    }
-
-    canvas.addEventListener("mousedown", startDrawing);
-    canvas.addEventListener("mousemove", draw);
-    canvas.addEventListener("mouseup", stopDrawing);
-    canvas.addEventListener("mouseout", stopDrawing);
-
-    canvas.addEventListener("touchstart", startDrawing, { passive: false });
-    canvas.addEventListener("touchmove", draw, { passive: false });
-    canvas.addEventListener("touchend", stopDrawing, { passive: false });
-
-    clearButton.addEventListener("click", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      hasSignature = false;
-    });
-
+    clearButton.addEventListener("click", () => { ctx.clearRect(0, 0, canvas.width, canvas.height); hasSignature = false; });
     form.addEventListener("submit", function (e) {
-      if (!hasSignature) {
-        e.preventDefault();
-        alert("Please provide a signature first.");
-        return;
-      }
-
-      // Export to base64 and set to hidden input
+      if (!hasSignature) { e.preventDefault(); alert("Please draw your signature first."); return; }
       signatureInput.value = canvas.toDataURL("image/png");
     });
   });
-    </script>
-
-<!-- Signature Modal -->
-<div x-data="{ open: false, tab: 'draw' }"
-     @open-sig-modal.window="open = true; tab = 'draw'; $nextTick(() => window.dispatchEvent(new Event('open-sig-modal')))"
-     x-show="open" x-cloak
-     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-     @keydown.escape.window="open = false">
-    <div @click.outside="open = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Update Signature</h3>
-            <button type="button" @click="open = false" class="text-slate-400 hover:text-slate-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="flex border-b border-slate-100">
-            <button type="button" @click="tab = 'draw'"
-                    :class="tab === 'draw' ? 'border-b-2 border-slate-900 text-slate-900' : 'text-slate-400'"
-                    class="flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors">Draw</button>
-            <button type="button" @click="tab = 'upload'"
-                    :class="tab === 'upload' ? 'border-b-2 border-slate-900 text-slate-900' : 'text-slate-400'"
-                    class="flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors">Upload</button>
-        </div>
-
-        <!-- Draw Tab -->
-        <div x-show="tab === 'draw'" class="p-6">
-            <form method="post" id="modal-sig-form" class="space-y-4">
-                {% csrf_token %}
-                <input type="hidden" name="signature_data" id="modal-sig-data">
-                <div class="border-2 border-dashed border-slate-300 rounded-xl overflow-hidden bg-white relative">
-                    <canvas id="modal-sig-pad" class="w-full h-44 cursor-crosshair touch-none"></canvas>
-                    <button type="button" id="modal-clear-sig"
-                            class="absolute bottom-3 right-3 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-[9px] font-black uppercase tracking-widest rounded-lg">Clear</button>
-                </div>
-                <button type="submit"
-                        class="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-colors">
-                    Save Signature
-                </button>
-            </form>
-        </div>
-
-        <!-- Upload Tab -->
-        <div x-show="tab === 'upload'" class="p-6">
-            <form method="post" enctype="multipart/form-data" class="space-y-4">
-                {% csrf_token %}
-                <input type="hidden" name="signature_data" value="">
-                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Signature Image</label>
-                <input type="file" name="image" accept="image/*"
-                       class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-slate-900 file:text-white hover:file:bg-black transition-all cursor-pointer" />
-                <p class="text-[10px] text-slate-400 italic">Upload a clear image of your handwritten signature (PNG, JPG).</p>
-                <button type="submit"
-                        class="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-colors">
-                    Upload Signature
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const canvas = document.getElementById('modal-sig-pad');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let drawing = false;
-
-    function resize() {
-        const r = window.devicePixelRatio || 1;
-        canvas.width = canvas.offsetWidth * r;
-        canvas.height = canvas.offsetHeight * r;
-        ctx.scale(r, r);
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.lineWidth = 2.5; ctx.strokeStyle = '#0f172a';
-    }
-    resize();
-    window.addEventListener('open-sig-modal', () => setTimeout(resize, 50));
-
-    function pos(e) {
-        const rect = canvas.getBoundingClientRect();
-        const cx = e.clientX || (e.touches && e.touches[0].clientX);
-        const cy = e.clientY || (e.touches && e.touches[0].clientY);
-        return { x: cx - rect.left, y: cy - rect.top };
-    }
-    canvas.addEventListener('mousedown', e => { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); });
-    canvas.addEventListener('mousemove', e => { if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
-    canvas.addEventListener('mouseup', () => drawing = false);
-    canvas.addEventListener('touchstart', e => { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); });
-    canvas.addEventListener('touchmove', e => { if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); });
-    canvas.addEventListener('touchend', () => drawing = false);
-
-    document.getElementById('modal-clear-sig').addEventListener('click', () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
-
-    document.getElementById('modal-sig-form').addEventListener('submit', function (e) {
-        document.getElementById('modal-sig-data').value = canvas.toDataURL('image/png');
-    });
-});
+</script>
 </script>
 {% endblock %}
