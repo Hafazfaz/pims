@@ -152,7 +152,7 @@
                                                 </label>
                                                 <div x-show="route" x-collapse class="mt-4 space-y-3">
                                                     {# Hidden input holds the actual staff ID submitted with the form #}
-                                                    <input type="hidden" name="send_to" id="send_to_value">
+                                                    <input type="hidden" name="send_to" id="send_to_value" x-bind:disabled="!route">
                                                     <div class="relative">
                                                         <input type="text"
                                                                id="send_to_search"
