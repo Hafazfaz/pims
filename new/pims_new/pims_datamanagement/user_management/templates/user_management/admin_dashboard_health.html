@@ -176,7 +176,7 @@
                                     <div class="flex items-center justify-between text-[11px] p-1.5 hover:bg-slate-50 rounded transition-colors">
                                         <div class="flex items-center space-x-2">
                                             <div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
-                                            <span class="font-bold text-slate-600 lowercase">{{ entry.details.username|default:entry.user.username|default:"unknown" }}</span>
+                                            <span class="font-bold text-slate-600 lowercase">{{ entry.display_username }}</span>
                                         </div>
                                         <span class="text-[9px] text-slate-400 font-bold">{{ entry.timestamp|timesince }} ago</span>
                                     </div>

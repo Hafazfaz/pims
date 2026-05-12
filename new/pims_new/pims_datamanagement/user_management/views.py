@@ -480,7 +480,13 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         # Recent Audit Log Entries
         recent_failed_logins = AuditLogEntry.objects.filter(
             action="LOGIN_FAILED"
-        ).order_by("-timestamp")[:5]
+        ).select_related("user").order_by("-timestamp")[:5]
+        for entry in recent_failed_logins:
+            entry.display_username = (
+                (entry.details or {}).get("username")
+                or (entry.user.username if entry.user else None)
+                or "unknown"
+            )
         recent_locked_accounts = AuditLogEntry.objects.filter(
             action="ACCOUNT_LOCKED"
         ).order_by("-timestamp")[:5]
