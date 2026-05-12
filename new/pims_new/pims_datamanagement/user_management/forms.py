@@ -32,13 +32,13 @@ class UserCreateForm(forms.ModelForm):
                 department_id = int(self.data.get('department'))
                 self.fields['unit'].queryset = Unit.objects.filter(department_id=department_id)
                 self.fields['division'].queryset = Division.objects.filter(department_id=department_id)
-                self.fields['section'].queryset = Section.objects.filter(division__department_id=department_id)
+                self.fields['section'].queryset = Section.objects.filter(department_id=department_id)
             except (ValueError, TypeError):
                 pass
         elif self.instance.pk and hasattr(self.instance, 'staff') and self.instance.staff.department:
             self.fields['unit'].queryset = self.instance.staff.department.units.all()
             self.fields['division'].queryset = self.instance.staff.department.divisions.all()
-            self.fields['section'].queryset = Section.objects.filter(division__department=self.instance.staff.department)
+            self.fields['section'].queryset = Section.objects.filter(department=self.instance.staff.department)
         else:
             self.fields['unit'].queryset = Unit.objects.all()
             self.fields['division'].queryset = Division.objects.all()
