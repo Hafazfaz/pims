@@ -217,7 +217,7 @@ class SectionListView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, List
     model = Section
     context_object_name = 'sections'
     template_name = 'organization/section_list.html'
-    ordering = ['division__department__name', 'division__name', 'name']
+    ordering = ['department__name', 'name']
 
 
 class SectionCreateView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, CreateView):

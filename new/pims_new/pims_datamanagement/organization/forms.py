@@ -48,7 +48,7 @@ class DivisionForm(forms.ModelForm):
 class SectionForm(forms.ModelForm):
     class Meta:
         model = Section
-        fields = ['name', 'division', 'head']
+        fields = ['name', 'department', 'head']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

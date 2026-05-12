@@ -64,43 +64,23 @@ UNFOLD = {
         "show_all_applications": False,
         "navigation": [
             {
-                "title": "Records Management",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Files",
-                        "icon": "folder",
-                        "link": "/admin/document_management/file/",
-                        "permission": lambda request: request.user.is_superuser,
-                    },
-                    {
-                        "title": "Documents",
-                        "icon": "description",
-                        "link": "/admin/document_management/document/",
-                        "permission": lambda request: request.user.is_superuser,
-                    },
-                    {
-                        "title": "File Movements",
-                        "icon": "swap_horiz",
-                        "link": "/admin/document_management/filemovement/",
-                        "permission": lambda request: request.user.is_superuser,
-                    },
-                    {
-                        "title": "Access Requests",
-                        "icon": "lock_open",
-                        "link": "/admin/document_management/fileaccessrequest/",
-                        "permission": lambda request: request.user.is_superuser,
-                    },
-                ],
-            },
-            {
-                "title": "Organisation",
+                "title": "Management",
                 "separator": True,
                 "items": [
                     {
                         "title": "Departments",
                         "icon": "account_tree",
                         "link": "/admin/organization/department/",
+                    },
+                    {
+                        "title": "Divisions",
+                        "icon": "layers",
+                        "link": "/admin/organization/division/",
+                    },
+                    {
+                        "title": "Sections",
+                        "icon": "grid_view",
+                        "link": "/admin/organization/section/",
                     },
                     {
                         "title": "Units",

@@ -16,9 +16,9 @@
                 {% if form.name.errors %}<p class="text-[10px] text-red-500">{{ form.name.errors.0 }}</p>{% endif %}
             </div>
             <div class="space-y-1.5">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Division *</label>
-                {{ form.division|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" }}
-                {% if form.division.errors %}<p class="text-[10px] text-red-500">{{ form.division.errors.0 }}</p>{% endif %}
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Department *</label>
+                {{ form.department|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" }}
+                {% if form.department.errors %}<p class="text-[10px] text-red-500">{{ form.department.errors.0 }}</p>{% endif %}
             </div>
             <div class="space-y-1.5">
                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Section Head</label>
