@@ -130,10 +130,12 @@
                                         </div>
                                     </div>
                                 {% else %}
+                                    {% if field.name != 'send_to' %}
                                     <label for="{{ field.id_for_label }}"
                                            class="block text-xs font-black text-slate-900 uppercase tracking-widest">
                                         {{ field.label }}
                                     </label>
+                                    {% endif %}
                                     <div class="relative group">
                                         {% if field.name == 'minute_content' %}
                                             {{ field|add_class:"form-control summernote" }}
@@ -142,28 +144,36 @@
                                                 {{ field|add_class:"block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-slate-900 file:text-white hover:file:bg-black transition-all cursor-pointer" }}
                                             </div>
                                         {% elif field.name == 'send_to' %}
-                                            {# Hidden input holds the actual staff ID submitted with the form #}
-                                            <input type="hidden" name="send_to" id="send_to_value">
-                                            <div x-data="{ selected: '' }">
-                                                <div class="relative">
-                                                    <input type="text"
-                                                           id="send_to_search"
-                                                           placeholder="Search by name, email, username or department…"
-                                                           autocomplete="off"
-                                                           hx-get="{% url 'document_management:staff_search' %}"
-                                                           hx-trigger="keyup changed delay:300ms"
-                                                           hx-target="#send_to_results"
-                                                           name="q"
-                                                           class="block w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-nigeria-green focus:bg-white outline-none transition-all font-medium placeholder:text-slate-400" />
-                                                    <button type="button"
-                                                            id="send_to_clear"
-                                                            onclick="clearSendTo()"
-                                                            class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors text-xs font-bold uppercase">
-                                                        ✕ Clear
-                                                    </button>
+                                            <div x-data="{ route: false }">
+                                                <label class="flex items-center gap-3 cursor-pointer select-none">
+                                                    <input type="checkbox" x-model="route"
+                                                           class="w-4 h-4 text-nigeria-green border-slate-300 rounded focus:ring-nigeria-green cursor-pointer" />
+                                                    <span class="text-xs font-black text-slate-900 uppercase tracking-widest">Route to staff / Add note</span>
+                                                </label>
+                                                <div x-show="route" x-collapse class="mt-4 space-y-3">
+                                                    {# Hidden input holds the actual staff ID submitted with the form #}
+                                                    <input type="hidden" name="send_to" id="send_to_value">
+                                                    <div class="relative">
+                                                        <input type="text"
+                                                               id="send_to_search"
+                                                               placeholder="Search by name, email, username or department…"
+                                                               autocomplete="off"
+                                                               hx-get="{% url 'document_management:staff_search' %}"
+                                                               hx-trigger="keyup changed delay:300ms"
+                                                               hx-target="#send_to_results"
+                                                               name="q"
+                                                               class="block w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-nigeria-green focus:bg-white outline-none transition-all font-medium placeholder:text-slate-400" />
+                                                        <button type="button" id="send_to_clear" onclick="clearSendTo()"
+                                                                class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 text-xs font-bold uppercase">✕ Clear</button>
+                                                    </div>
+                                                    <div id="send_to_results" class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm empty:hidden"></div>
+                                                    <div>
+                                                        <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Note <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+                                                        <textarea name="movement_note" rows="3"
+                                                                  placeholder="Add a covering note…"
+                                                                  class="block w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-nigeria-green focus:bg-white outline-none transition-all resize-none placeholder:text-slate-400"></textarea>
+                                                    </div>
                                                 </div>
-                                                <div id="send_to_results"
-                                                     class="mt-1 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm empty:hidden"></div>
                                             </div>
                                             <script>
                                             function selectStaff(id, name) {
