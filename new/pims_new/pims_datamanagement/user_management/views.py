@@ -825,7 +825,8 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         with transaction.atomic():
             user = form.save(commit=False)
-            user.set_password(form.cleaned_data["password"])
+            temp_password = form.cleaned_data["password"]
+            user.set_password(temp_password)
             user.must_change_password = True
             user.save()
 

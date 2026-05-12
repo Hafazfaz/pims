@@ -33,7 +33,7 @@ class Division(models.Model):
 
 class Section(models.Model):
     name = models.CharField(max_length=100)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='sections', null=True, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='sections')
     head = models.OneToOneField(
         'Staff',
         on_delete=models.SET_NULL,
