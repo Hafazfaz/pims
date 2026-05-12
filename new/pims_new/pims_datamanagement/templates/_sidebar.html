@@ -58,6 +58,20 @@
 
                     <!-- Moved from Registry (restricted to registry staff only) -->
                     {% if user.staff.is_registry %}
+                        <a href="{% url 'document_management:messages' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'messages' or url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                            <i class="fas fa-envelope w-4 text-center"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider">Messages</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if user.staff.is_registry %}
+            <!-- FILES -->
+            <div>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Files</p>
+                <div class="space-y-0.5">
                         <a href="{% url 'document_management:staff_folder_list' %}?status=pending_activation"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'staff_folder_list' and request.GET.status == 'pending_activation' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-clock w-4 text-center"></i>
@@ -81,6 +95,23 @@
                             <i class="fas fa-folder-plus w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Create File</span>
                         </a>
+                        <a href="{% url 'document_management:outgoing_dispatches' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'outgoing-dispatches' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                            <i class="fas fa-paper-plane w-4 text-center"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider">Outgoing Dispatches</span>
+                        </a>
+                </div>
+            </div>
+
+            <!-- TOOLS -->
+            <div>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tools</p>
+                <div class="space-y-0.5">
+                        <a href="{% url 'document_management:record_explorer' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                            <i class="fas fa-search w-4 text-center"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider">Record Explorer</span>
+                        </a>
                         <a href="{% url 'document_management:access_request_list' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'access-requests' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-key w-4 text-center"></i>
@@ -89,24 +120,14 @@
                                 <span class="text-[9px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full">{{ pending_access_count }}</span>
                             {% endif %}
                         </a>
-                        <a href="{% url 'document_management:record_explorer' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                            <i class="fas fa-search w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Record Explorer</span>
-                        </a>
-                        <a href="{% url 'document_management:outgoing_dispatches' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'outgoing-dispatches' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                            <i class="fas fa-paper-plane w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Outgoing Dispatches</span>
-                        </a>
                         <a href="{% url 'document_management:document_type_list' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'document-types' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-tags w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Document Types</span>
                         </a>
-                    {% endif %}
                 </div>
             </div>
+            {% endif %}
 
             <!-- HOD -->
             {% if user.staff.is_hod and not user.staff.is_registry and not user.staff.is_md %}

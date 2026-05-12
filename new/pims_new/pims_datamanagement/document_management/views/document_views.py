@@ -540,6 +540,8 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
     template_name = "document_management/document_create.html"
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("user_management:login")
         self.file_obj = get_object_or_404(File, pk=self.kwargs.get('file_pk'))
         
         staff_user = getattr(request.user, 'staff', None)
@@ -558,8 +560,11 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
              return super().dispatch(request, *args, **kwargs)
 
         has_permission = False
-        
-        if self.file_obj.file_type == 'personal':
+
+        if staff_user and staff_user.is_registry:
+            has_permission = True
+
+        elif self.file_obj.file_type == 'personal':
             if self.file_obj.owner == staff_user:
                 has_permission = True
         
@@ -611,7 +616,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         form.instance.file = self.file_obj
         form.instance.uploaded_by = self.request.user
         
-        if self.file_obj.active_dispatch_document:
+        if getattr(self.file_obj, 'active_dispatch_document', None):
             is_custodian = hasattr(self.request.user, 'staff') and self.file_obj.current_location == self.request.user.staff
             if is_custodian:
                 if form.instance.parent == self.file_obj.active_dispatch_document:
@@ -638,8 +643,18 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 
         send_to_staff = form.cleaned_data.get('send_to')
         if send_to_staff:
+            from_location = getattr(self.request.user, 'staff', None)
             self.file_obj.current_location = send_to_staff
             self.file_obj.save()
+
+            FileMovement.objects.create(
+                file=self.file_obj,
+                sent_by=self.request.user,
+                from_location=from_location,
+                sent_to=send_to_staff,
+                action="sent",
+                document=document,
+            )
             
             log_action(
                 self.request.user,

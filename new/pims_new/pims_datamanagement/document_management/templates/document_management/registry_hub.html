@@ -36,95 +36,84 @@
                 {% endif %}
             </div>
         </div>
-        <!-- Summary Cards with Icons -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Files</p>
-                    <i class="fas fa-folder text-slate-200 text-xl"></i>
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Active Files</p>
+                <div class="flex items-end justify-between">
+                    <p class="text-3xl font-bold text-slate-900">{{ total_files_count|default:0 }}</p>
+                    <i class="fas fa-folder text-slate-200 text-2xl"></i>
                 </div>
-                <p class="text-4xl font-bold text-slate-900">{{ total_files_count|default:0 }}</p>
             </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Pending Activation</p>
-                    <i class="fas fa-hourglass-half text-amber-200 text-xl"></i>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-2">Pending Activation</p>
+                <div class="flex items-end justify-between">
+                    <p class="text-3xl font-bold {% if pending_activation_files.count > 0 %}text-amber-500{% else %}text-slate-900{% endif %}">{{ pending_activation_files.count|default:0 }}</p>
+                    <i class="fas fa-hourglass-half text-amber-200 text-2xl"></i>
                 </div>
-                <p class="text-4xl font-bold text-amber-600">{{ pending_activation_files.count|default:0 }}</p>
             </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Archived</p>
-                    <i class="fas fa-archive text-slate-200 text-xl"></i>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Archived</p>
+                <div class="flex items-end justify-between">
+                    <p class="text-3xl font-bold text-slate-900">{{ archived_files.count|default:0 }}</p>
+                    <i class="fas fa-archive text-slate-200 text-2xl"></i>
                 </div>
-                <p class="text-4xl font-bold text-slate-900">{{ archived_files.count|default:0 }}</p>
             </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Files Out</p>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-bold text-blue-500 uppercase tracking-widest mb-2">Files Out</p>
+                <div class="flex items-end justify-between">
+                    <p class="text-3xl font-bold text-blue-600">{{ outgoing_files_count|default:0 }}</p>
+                    <i class="fas fa-share-square text-blue-200 text-2xl"></i>
                 </div>
-                <p class="text-4xl font-bold text-blue-600">{{ outgoing_files_count|default:0 }}</p>
             </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 {% if outgoing_overdue_count > 0 %}border-l-[6px] border-l-red-600{% endif %}">
-                <div class="flex justify-between items-start mb-2">
-                    <p class="text-[10px] font-bold text-red-600 uppercase tracking-widest">Overdue</p>
-                    <i class="fas fa-exclamation-triangle text-red-200 text-xl"></i>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 {% if outgoing_overdue_count > 0 %}border-l-4 border-l-red-500{% endif %}">
+                <p class="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-2">Overdue</p>
+                <div class="flex items-end justify-between">
+                    <p class="text-3xl font-bold {% if outgoing_overdue_count > 0 %}text-red-600{% else %}text-slate-900{% endif %}">{{ outgoing_overdue_count|default:0 }}</p>
+                    <i class="fas fa-exclamation-triangle text-red-200 text-2xl"></i>
                 </div>
-                <p class="text-4xl font-bold {% if outgoing_overdue_count > 0 %}text-red-600{% else %}text-slate-900{% endif %}">
-                    {{ outgoing_overdue_count|default:0 }}
-                </p>
             </div>
-            {% if user.is_superuser or user.staff.is_registry %}
-                <a href="{% url 'document_management:document_type_list' %}"
-                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all group cursor-pointer block h-full">
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest group-hover:text-indigo-700">Doc Types</p>
-                        <i class="fas fa-tags text-indigo-200 group-hover:text-indigo-500 transition-colors text-xl"></i>
-                    </div>
-                    <div class="flex items-center justify-between mt-auto">
-                        <p class="text-xs font-bold text-slate-500 uppercase">Manage Categories</p>
-                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
-                    </div>
-                </a>
-                <a href="{% url 'organization:division_list' %}"
-                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-nigeria-green hover:shadow-md transition-all group cursor-pointer block h-full">
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="text-[10px] font-bold text-nigeria-green uppercase tracking-widest group-hover:text-nigeria-dark">Divisions</p>
-                        <i class="fas fa-layer-group text-nigeria-light group-hover:text-nigeria-green transition-colors text-xl"></i>
-                    </div>
-                    <div class="flex items-center justify-between mt-auto">
-                        <p class="text-xs font-bold text-slate-500 uppercase">Manage Structure</p>
-                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-nigeria-green transition-colors"></i>
-                    </div>
-                </a>
-                <a href="{% url 'organization:section_list' %}"
-                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-amber-500 hover:shadow-md transition-all group cursor-pointer block h-full">
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest group-hover:text-amber-700">Sections</p>
-                        <i class="fas fa-th-large text-amber-200 group-hover:text-amber-500 transition-colors text-xl"></i>
-                    </div>
-                    <div class="flex items-center justify-between mt-auto">
-                        <p class="text-xs font-bold text-slate-500 uppercase">Manage Structure</p>
-                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-amber-500 transition-colors"></i>
-                    </div>
-                </a>
-            {% endif %}
+        </div>
+
+        {% if user.is_superuser or user.staff.is_registry %}
+        <!-- Admin Action Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <a href="{% url 'document_management:document_type_list' %}"
+               class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all group flex items-center justify-between">
+                <div>
+                    <p class="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Doc Types</p>
+                    <p class="text-xs font-bold text-slate-500">Manage Categories</p>
+                </div>
+                <i class="fas fa-tags text-indigo-200 group-hover:text-indigo-400 transition-colors text-2xl"></i>
+            </a>
+            <a href="{% url 'organization:division_list' %}"
+               class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:border-nigeria-green hover:shadow-md transition-all group flex items-center justify-between">
+                <div>
+                    <p class="text-[9px] font-bold text-nigeria-green uppercase tracking-widest mb-1">Divisions</p>
+                    <p class="text-xs font-bold text-slate-500">Manage Structure</p>
+                </div>
+                <i class="fas fa-layer-group text-nigeria-light group-hover:text-nigeria-green transition-colors text-2xl"></i>
+            </a>
+            <a href="{% url 'organization:section_list' %}"
+               class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:border-amber-400 hover:shadow-md transition-all group flex items-center justify-between">
+                <div>
+                    <p class="text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-1">Sections</p>
+                    <p class="text-xs font-bold text-slate-500">Manage Structure</p>
+                </div>
+                <i class="fas fa-th-large text-amber-200 group-hover:text-amber-400 transition-colors text-2xl"></i>
+            </a>
             {% if user.staff.is_registry %}
-                <a href="{% url 'document_management:staff_without_files' %}"
-                   class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all group cursor-pointer block h-full">
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest group-hover:text-blue-700">Staff Without Files</p>
-                        <i class="fas fa-user-secret text-blue-200 group-hover:text-blue-500 transition-colors text-xl"></i>
-                    </div>
-                    <div class="flex items-center justify-between mt-auto">
-                        <p class="text-4xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                            {{ staff_without_files_count|default:0 }}
-                        </p>
-                        <i class="fas fa-chevron-right text-slate-300 group-hover:text-blue-500 transition-colors"></i>
-                    </div>
-                </a>
+            <a href="{% url 'document_management:staff_without_files' %}"
+               class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group flex items-center justify-between">
+                <div>
+                    <p class="text-[9px] font-bold text-blue-600 uppercase tracking-widest mb-1">Staff Without Files</p>
+                    <p class="text-3xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{{ staff_without_files_count|default:0 }}</p>
+                </div>
+                <i class="fas fa-user-slash text-blue-200 group-hover:text-blue-400 transition-colors text-2xl"></i>
+            </a>
             {% endif %}
         </div>
+        {% endif %}
 
         <!-- Active Records Search & List -->
         <div x-data="{ open: true }"

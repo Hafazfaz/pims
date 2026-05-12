@@ -211,10 +211,11 @@ class StaffSearchView(LoginRequiredMixin, View):
                 Q(user__username__icontains=query) |
                 Q(user__first_name__icontains=query) |
                 Q(user__last_name__icontains=query) |
+                Q(user__email__icontains=query) |
                 Q(department__name__icontains=query)
             )
         
-        staff_members = queryset.select_related('user', 'department', 'designation').order_by('user__first_name')[:10]
+        staff_members = queryset.select_related('user', 'department', 'designation', 'unit').order_by('user__first_name')[:10]
 
         return render(request, 'document_management/partials/staff_search_results.html', {
             'staff_members': staff_members,

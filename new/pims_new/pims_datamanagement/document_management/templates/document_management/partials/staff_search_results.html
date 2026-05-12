@@ -1,40 +1,31 @@
 {% if staff_members %}
-    <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200">
-            <tr>
-                <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Name</th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Department</th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Email</th>
-                <th class="px-4 py-2 text-right"></th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-            {% for staff in staff_members %}
-                <tr class="hover:bg-slate-50 transition-colors cursor-pointer"
-                    onclick="selectStaff('{{ staff.id }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}')">
-                    <td class="px-4 py-3">
-                        <div class="font-semibold text-slate-800">{{ staff.user.get_full_name|default:staff.user.username }}</div>
-                        <div class="text-xs text-slate-500">{{ staff.designation.name|default:"-" }}</div>
-                    </td>
-                    <td class="px-4 py-3 text-slate-600">{{ staff.department.name|default:"-" }}</td>
-                    <td class="px-4 py-3 text-slate-600">{{ staff.user.email|default:"-" }}</td>
-                    <td class="px-4 py-3 text-right">
-                        <button type="button"
-                                class="px-3 py-1 bg-nigeria-green text-white text-xs font-bold rounded-lg hover:bg-nigeria-dark transition-colors"
-                                onclick="event.stopPropagation(); selectStaff('{{ staff.id }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}')">
-                            Select
-                        </button>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="divide-y divide-slate-100">
+        {% for staff in staff_members %}
+            <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold text-slate-900 text-sm">{{ staff.user.get_full_name|default:staff.user.username }}</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">@{{ staff.user.username }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                        {% if staff.user.email %}<span class="text-[10px] text-slate-500">{{ staff.user.email }}</span>{% endif %}
+                        {% if staff.department %}<span class="text-[10px] text-slate-500">· {{ staff.department.name }}</span>{% endif %}
+                        {% if staff.designation %}<span class="text-[10px] text-slate-500">· {{ staff.designation.name }}</span>{% endif %}
+                        {% if staff.unit %}<span class="text-[10px] text-slate-500">· {{ staff.unit.name }}</span>{% endif %}
+                    </div>
+                </div>
+                <button type="button"
+                        class="ml-3 shrink-0 px-3 py-1.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors"
+                        onclick="(window.selectStaffForNote || window.selectStaff)('{{ staff.user.pk }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}')">
+                    Select
+                </button>
+            </div>
+        {% endfor %}
+    </div>
 {% else %}
     {% if query %}
-        <div class="p-4 text-center text-sm text-amber-600 bg-amber-50 rounded-lg">
-            No staff members found matching "{{ query }}".
-        </div>
+        <div class="p-4 text-center text-sm text-amber-600 bg-amber-50 rounded-lg">No staff found matching "{{ query }}".</div>
     {% else %}
-        <div class="p-4 text-center text-sm text-slate-500">Type to search for staff...</div>
+        <div class="p-4 text-center text-sm text-slate-400">Type to search by name, email, username or department…</div>
     {% endif %}
 {% endif %}

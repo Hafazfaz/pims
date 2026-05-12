@@ -110,6 +110,15 @@
                                     Add Document
                                 </a>
                             {% endif %}
+                            {% if can_send_file %}
+                                <button @click="$dispatch('open-send-note')"
+                                        class="px-6 py-3 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-blue-700 transition-all shadow-md flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                    </svg>
+                                    Send Note
+                                </button>
+                            {% endif %}
                             {% if user.staff.is_registry or file.owner == user.staff or file.created_by == user %}
                                 <button @click="activeTab = 'settings'"
                                         :class="activeTab === 'settings' ? 'border-nigeria-green text-nigeria-green border-b-2' : 'text-slate-400 hover:text-slate-600'"
@@ -840,4 +849,80 @@
         document.getElementById('send-button').disabled = true;
     }
     </script>
+
+<!-- Send Note Modal -->
+<div x-data="{ open: false, staffId: '', staffName: '' }"
+     @open-send-note.window="open = true"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+     @keydown.escape.window="open = false">
+    <div @click.outside="open = false"
+         class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Send Note</h3>
+            <button @click="open = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form method="post" action="{{ file.get_absolute_url }}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="send_file">
+            <input type="hidden" name="recipient" x-bind:value="staffId" id="note-recipient-id">
+
+            <!-- Staff Search -->
+            <div>
+                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Send To</label>
+                <div x-show="!staffName">
+                    <input type="text"
+                           name="q"
+                           placeholder="Search by name, email or username…"
+                           autocomplete="off"
+                           hx-get="{% url 'document_management:staff_search' %}"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-target="#note-staff-results"
+                           class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400" />
+                    <div id="note-staff-results"
+                         class="mt-1 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm empty:hidden max-h-48 overflow-y-auto"></div>
+                </div>
+                <div x-show="staffName" class="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+                    <span class="text-sm font-bold text-blue-800" x-text="staffName"></span>
+                    <button type="button" @click="staffId = ''; staffName = ''" class="text-[10px] font-bold text-blue-500 hover:text-red-500 uppercase">Change</button>
+                </div>
+            </div>
+
+            <!-- Note -->
+            <div>
+                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Note</label>
+                <textarea name="movement_note" rows="4"
+                          placeholder="Write your note here…"
+                          class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all resize-none placeholder:text-slate-400"></textarea>
+            </div>
+
+            <button type="submit"
+                    x-bind:disabled="!staffId"
+                    class="w-full py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                Send Note
+            </button>
+        </form>
+    </div>
+</div>
+<script>
+function selectStaffForNote(id, name) {
+    const modal = document.querySelector('[\\@open-send-note\\.window]')?.__x?.$data
+        || Alpine.$data(document.querySelector('[x-data*="staffId"]'));
+    // Use Alpine store via event
+    window.dispatchEvent(new CustomEvent('note-staff-selected', { detail: { id, name } }));
+    document.getElementById('note-staff-results').innerHTML = '';
+}
+document.addEventListener('alpine:init', () => {
+    document.addEventListener('note-staff-selected', e => {
+        document.querySelectorAll('[x-data]').forEach(el => {
+            if (el.__x && 'staffId' in el.__x.$data) {
+                el.__x.$data.staffId = e.detail.id;
+                el.__x.$data.staffName = e.detail.name;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
