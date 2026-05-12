@@ -5,7 +5,7 @@ from audit_log.models import AuditLogEntry  # Import for admin health dashboard
 from audit_log.utils import log_action  # Import audit logging utility
 from django.conf import settings  # Add this import
 from django.contrib import messages
-from django.contrib.auth import login, update_session_auth_hash
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.hashers import make_password  # Import make_password
@@ -58,6 +58,16 @@ PASSWORD_HISTORY_LIMIT = 5
 
 # Configuration for Email OTP
 ENABLE_EMAIL_OTP = False
+
+
+class CustomLogoutView(View):
+    def get(self, request):
+        logout(request)
+        return redirect("user_management:login")
+
+    def post(self, request):
+        logout(request)
+        return redirect("user_management:login")
 
 
 class CustomLoginView(LoginView):
