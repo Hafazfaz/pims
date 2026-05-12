@@ -216,7 +216,7 @@
 
 <!-- Signature Modal -->
 <div x-data="{ open: false, tab: 'draw' }"
-     @open-sig-modal.window="open = true; tab = 'draw'"
+     @open-sig-modal.window="open = true; tab = 'draw'; $nextTick(() => window.dispatchEvent(new Event('open-sig-modal')))"
      x-show="open" x-cloak
      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
      @keydown.escape.window="open = false">
@@ -288,6 +288,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ctx.lineWidth = 2.5; ctx.strokeStyle = '#0f172a';
     }
     resize();
+    window.addEventListener('open-sig-modal', () => setTimeout(resize, 50));
 
     function pos(e) {
         const rect = canvas.getBoundingClientRect();
