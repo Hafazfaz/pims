@@ -5,7 +5,8 @@ from organization.models import StaffSignature, Department, Unit, Designation, D
 CustomUser = get_user_model()
 
 class SignatureUploadForm(forms.ModelForm):
-    signature_data = forms.CharField(required=True, widget=forms.HiddenInput())
+    signature_data = forms.CharField(required=False, widget=forms.HiddenInput())
+    image = forms.ImageField(required=False, label="Upload Signature Image")
 
     class Meta:
         model = StaffSignature

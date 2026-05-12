@@ -791,8 +791,12 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
 
             signature = form.save(commit=False)
 
+            uploaded_image = form.cleaned_data.get("image")
             sig_data = form.cleaned_data.get("signature_data")
-            if sig_data and "," in sig_data:
+
+            if uploaded_image:
+                signature.image = uploaded_image
+            elif sig_data and "," in sig_data:
                 format, imgstr = sig_data.split(";base64,")
                 ext = format.split("/")[-1]
                 data = ContentFile(
@@ -800,9 +804,12 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
                     name=f"{staff.user.username}_sig_{uuid.uuid4().hex[:8]}.{ext}",
                 )
                 signature.image = data
+            else:
+                messages.error(request, "Please draw or upload a signature.")
+                return redirect("user_management:profile")
 
             signature.staff = staff
-            signature.is_active = True  # Will deactivate others in save()
+            signature.is_active = True
             signature.save()
 
             log_action(request.user, "SIGNATURE_UPLOADED", request=request)
