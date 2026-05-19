@@ -260,6 +260,18 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+
+# Celery Beat Schedule — periodic tasks
+CELERY_BEAT_SCHEDULE = {
+    "send-file-retention-reminders": {
+        "task": "document_management.tasks.send_file_retention_reminders",
+        "schedule": 21600,  # every 6 hours
+    },
+    "send-urgent-document-reminders": {
+        "task": "document_management.tasks.send_urgent_document_reminders",
+        "schedule": 3600,  # every 1 hour
+    },
+}
 # Summernote Configuration
 SUMMERNOTE_CONFIG = {
     "iframe": True,
