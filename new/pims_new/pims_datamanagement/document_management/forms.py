@@ -187,6 +187,14 @@ class DocumentForm(forms.ModelForm):
             "attachment": "Upload Attachment",
         }
 
+    priority = forms.ChoiceField(
+        choices=Document.PRIORITY_CHOICES,
+        required=False,
+        initial='normal',
+        label="Priority",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
     include_signature = forms.BooleanField(
         required=False,
         label="Attach Digital Signature",
@@ -206,6 +214,12 @@ class DocumentForm(forms.ModelForm):
         
         if not can_sign:
             self.fields.pop('include_signature', None)
+
+    def clean_priority(self):
+        priority = self.cleaned_data.get('priority', 'normal')
+        if priority not in dict(Document.PRIORITY_CHOICES):
+            return 'normal'
+        return priority
 
     def clean(self):
         cleaned_data = super().clean()
@@ -312,6 +326,13 @@ class FileUpdateForm(forms.ModelForm):
 
 class DocumentUploadForm(forms.ModelForm):
     # This form allows uploading an attachment to an existing file
+    priority = forms.ChoiceField(
+        choices=Document.PRIORITY_CHOICES,
+        required=False,
+        initial='normal',
+        label="Priority",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
     file = forms.ModelChoiceField(
         queryset=File.objects.all().order_by('title'),
         empty_label="Select a File",

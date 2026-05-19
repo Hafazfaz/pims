@@ -246,6 +246,17 @@ class Document(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     status_reason = models.TextField(blank=True, null=True, help_text="Reason for approval or rejection")
     
+    # Priority / Urgency
+    PRIORITY_CHOICES = [
+        ('normal', 'Normal'),
+        ('high', 'High Priority'),
+        ('urgent', 'Urgent'),
+    ]
+    priority = models.CharField(
+        max_length=10, choices=PRIORITY_CHOICES, default='normal',
+        help_text="Urgency level of this document."
+    )
+
     # Granular Access Control
     shared_with = models.ManyToManyField(
         settings.AUTH_USER_MODEL, 
@@ -308,6 +319,23 @@ class Document(models.Model):
         elif self.attachment:
             return f"Attachment for {self.file.title} at {self.uploaded_at.strftime('%Y-%m-%d')}"
         return f"Empty document entry for {self.file.title}"
+
+
+class DocumentSignature(models.Model):
+    """Records a digital signature applied to a document."""
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='signatures')
+    signatory = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='document_signatures')
+    signature_record = models.ForeignKey("organization.StaffSignature", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    note = models.TextField(blank=True, help_text="Context or reason for signing")
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = [('document', 'signatory')]
+
+    def __str__(self):
+        return f"Signature by {self.signatory.get_full_name()} on {self.document}"
 
 
 class FileMovement(models.Model):
