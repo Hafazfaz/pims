@@ -135,9 +135,28 @@ def can_delete_document(user, document):
     return is_registry(user) or document.uploaded_by == user
 
 
+def can_view_document_content(user):
+    """
+    Who can view the actual contents of documents (minute_content, attachments).
+    Only HODs, Supervisors, Executives, and MD — NOT registry or general staff.
+    """
+    if user.is_superuser:
+        return True
+    staff = get_staff(user)
+    if not staff:
+        return False
+    return staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md
+
+
 def can_view_document(user, document):
-    """Anyone who can view the file can view its documents."""
-    return can_view_file(user, document.file)
+    """
+    Who can view a document's detail page.
+    Only HODs, Supervisors, and Executives can view document contents.
+    Registry and general staff cannot view document contents.
+    """
+    if not can_view_file(user, document.file):
+        return False
+    return can_view_document_content(user)
 
 
 # ---------------------------------------------------------------------------
