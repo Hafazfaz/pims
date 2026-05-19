@@ -271,7 +271,8 @@ class FileApproveActivationView(RegistryRequiredMixin, View):
 
 
 class StaffFolderHubView(RegistryRequiredMixin, DetailView):
-    """Registry-only view: full picture of a staff member's file, documents, and approval chains."""
+    """Registry-only view: full picture of a staff member's file, documents, and approval chains.
+    Registry staff can see document metadata but NOT contents (per MD directive)."""
     model = Staff
     template_name = "document_management/staff_folder_hub.html"
     context_object_name = "staff_member"
@@ -287,6 +288,7 @@ class StaffFolderHubView(RegistryRequiredMixin, DetailView):
         staff = self.object
         personal_file = File.objects.filter(file_type='personal', owner=staff).first()
         context['personal_file'] = personal_file
+        context['can_view_content'] = False  # Registry cannot view document contents
         if personal_file:
             context['documents'] = personal_file.documents.select_related('uploaded_by').order_by('-uploaded_at')
             context['active_chain'] = ApprovalChain.objects.filter(file=personal_file, status='active').first()
@@ -390,7 +392,8 @@ class CloseMovementView(RegistryRequiredMixin, View):
 
 
 class RegistryFileView(RegistryRequiredMixin, View):
-    """Registry view of any file — shows documents, approval chains, and dispatch history."""
+    """Registry view of any file — shows documents, approval chains, and dispatch history.
+    Registry staff can see document metadata but NOT contents (per MD directive)."""
 
     def get(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
@@ -400,6 +403,9 @@ class RegistryFileView(RegistryRequiredMixin, View):
         movements = file_obj.movements.select_related(
             'sent_by', 'sent_to__user', 'sent_to__designation', 'document'
         ).order_by('-moved_at')
+
+        # Registry cannot view document contents per MD directive
+        can_view_content = False
 
         return render(request, "document_management/registry_file_view.html", {
             "file": file_obj,
@@ -411,6 +417,7 @@ class RegistryFileView(RegistryRequiredMixin, View):
             "movements": movements[:5],
             "movements_total": movements.count(),
             "movements_all": movements,
+            "can_view_content": can_view_content,
         })
 
 

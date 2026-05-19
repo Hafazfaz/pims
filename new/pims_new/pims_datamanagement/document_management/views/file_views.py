@@ -546,27 +546,26 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 file_obj.save(update_fields=["current_location"])
 
     def can_view_original(self, file, user):
+        """
+        Who can view actual document contents (minute_content, attachments).
+        Only HODs, Supervisors, Executives, and MD.
+        Registry staff and general staff cannot view document contents.
+        """
         if user.is_superuser:
             return True
         staff = getattr(user, "staff", None)
         if not staff:
             return False
 
+        # Registry staff cannot view document contents
         if staff.is_registry:
+            return False
+
+        # Only HODs, supervisors, executives, and MD can view contents
+        if staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md:
             return True
 
-        if file.current_location == staff:
-            return True
-
-        has_access = (
-            FileAccessRequest.objects.filter(
-                file=file, requested_by=user, status="approved"
-            )
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
-
-        return has_access
+        return False
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1344,6 +1343,7 @@ class InboxRefDocView(HTMXLoginRequiredMixin, View):
     """Read-only view of a single reference document shared with the inbox recipient."""
 
     def get(self, request, pk):
+        from ..permissions import can_view_document_content
         from document_management.models import Document
 
         doc = get_object_or_404(Document, pk=pk)
@@ -1351,8 +1351,14 @@ class InboxRefDocView(HTMXLoginRequiredMixin, View):
         if not doc.shared_with.filter(pk=request.user.pk).exists():
             messages.error(request, "You do not have access to this document.")
             return redirect("document_management:inbox")
+
+        can_view_content = can_view_document_content(request.user)
+
         return render(
-            request, "document_management/inbox_ref_doc.html", {"document": doc}
+            request, "document_management/inbox_ref_doc.html", {
+                "document": doc,
+                "can_view_content": can_view_content,
+            }
         )
 
 
@@ -1360,6 +1366,8 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
     """Read-only view of the file sent via a movement — shows all documents and reference files."""
 
     def get(self, request, pk):
+        from ..permissions import can_view_document_content
+
         movement = get_object_or_404(FileMovement, pk=pk)
         staff = getattr(request.user, "staff", None)
 
@@ -1377,6 +1385,8 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
             .order_by("-uploaded_at")
         )
 
+        can_view_content = can_view_document_content(request.user)
+
         return render(
             request,
             "document_management/inbox_file_view.html",
@@ -1385,6 +1395,7 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
                 "file": file_obj,
                 "all_documents": all_documents,
                 "reference_docs": reference_docs,
+                "can_view_content": can_view_content,
             },
         )
 
@@ -1393,6 +1404,8 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
     """Detail view for a document received via FileMovement — shows movement context, sender info, references, other docs."""
 
     def get(self, request, pk):
+        from ..permissions import can_view_document_content
+
         movement = get_object_or_404(FileMovement, pk=pk)
         staff = getattr(request.user, "staff", None)
 
@@ -1443,6 +1456,8 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
             "sent_by", "sent_to__user", "from_location__user", "document"
         ).order_by("-moved_at")
 
+        can_view_content = can_view_document_content(request.user)
+
         return render(
             request,
             "document_management/inbox_document_detail.html",
@@ -1455,6 +1470,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
                 "reference_docs": reference_docs,
                 "movement_history": movement_history,
                 "file_movement_history": file_movement_history,
+                "can_view_content": can_view_content,
                 "can_approve": bool(
                     staff and (staff.is_hod or staff.is_effective_supervisor)
                 ),

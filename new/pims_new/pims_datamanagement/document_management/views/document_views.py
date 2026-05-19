@@ -52,6 +52,7 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         document = form.save(commit=False)
+        document.priority = form.cleaned_data.get('priority', 'normal')
         file_obj = document.file
         user = self.request.user
         staff = getattr(user, 'staff', None)
@@ -142,11 +143,16 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         except Staff.DoesNotExist:
             return False
 
+        # Only HODs, Supervisors, Executives, and MD can view document contents
+        # Registry and general staff cannot view document contents
+        from ..permissions import can_view_document_content
+        if not can_view_document_content(user):
+            return False
+
         if staff_user == file_obj.current_location:
             return True
 
-        if staff_user and staff_user.is_registry:
-            return True
+        # Registry content restriction is already enforced above
 
         active_request = FileAccessRequest.objects.filter(
             file=file_obj,
@@ -473,13 +479,19 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
 
 class DocumentDownloadView(LoginRequiredMixin, View):
     """
-    Serves a document attachment only if the user has approved access to the file
-    (read_only or read_write), is the owner/custodian, registry, or the uploader.
+    Serves a document attachment only if the user is HOD, Supervisor, Executive, or MD.
+    Registry staff and general staff cannot download document contents.
     """
     def get(self, request, pk):
         document = get_object_or_404(Document, pk=pk)
         file_obj = document.file
         user = request.user
+
+        # Enforce content access restriction
+        from ..permissions import can_view_document_content
+        if not can_view_document_content(user):
+            messages.error(request, "You do not have permission to download this document.")
+            return redirect(file_obj.get_absolute_url())
 
         # Check permission
         allowed = False
@@ -488,13 +500,15 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         if user.is_superuser:
             allowed = True
         elif staff:
-            if staff.is_registry or staff == file_obj.owner or staff == file_obj.current_location:
-                allowed = True
-            elif staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department:
-                allowed = True
+            if staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md:
+                if staff == file_obj.owner or staff == file_obj.current_location:
+                    allowed = True
+                elif staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department:
+                    allowed = True
         
         if not allowed and document.uploaded_by == user:
-            allowed = True
+            if staff and (staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md):
+                allowed = True
 
         if not allowed:
             allowed = FileAccessRequest.objects.filter(
@@ -615,6 +629,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.file = self.file_obj
         form.instance.uploaded_by = self.request.user
+        form.instance.priority = form.cleaned_data.get('priority', 'normal')
         
         if getattr(self.file_obj, 'active_dispatch_document', None):
             is_custodian = hasattr(self.request.user, 'staff') and self.file_obj.current_location == self.request.user.staff
@@ -624,6 +639,22 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
         response = super().form_valid(form)
         document = self.object
+
+        # Send notifications for urgent/high priority documents
+        if document.priority in ('urgent', 'high'):
+            from organization.models import Staff as StaffModel
+            from document_management.views.base import EXCLUDE_REGISTRY_Q
+            urgent_recipients = StaffModel.objects.exclude(
+                EXCLUDE_REGISTRY_Q
+            ).exclude(user=self.request.user).select_related('user')
+            priority_label = dict(Document.PRIORITY_CHOICES).get(document.priority, document.priority)
+            for recipient_staff in urgent_recipients:
+                create_notification(
+                    user=recipient_staff.user,
+                    message=f"{priority_label.upper()} Document: '{document.title or 'Untitled'}' added to file {self.file_obj.file_number} by {self.request.user.get_full_name() or self.request.user.username}.",
+                    obj=self.file_obj,
+                    link=self.file_obj.get_absolute_url(),
+                )
         
         if form.cleaned_data.get('include_signature'):
             try:
