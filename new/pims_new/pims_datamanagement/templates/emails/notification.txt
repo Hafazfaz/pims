@@ -1,0 +1,10 @@
+Subject: {{ subject }}
+
+Dear {{ user.get_full_name|default:user.username }},
+
+{{ message }}
+
+{% if link %}View details: {{ link }}{% endif %}
+
+Thank you,
+The PIMS Team

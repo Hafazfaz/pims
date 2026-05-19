@@ -1,0 +1,16 @@
+Subject: PIMS Reminder: File {{ file.file_number }} – Action Required
+
+Dear {{ user.get_full_name|default:user.username }},
+
+This is a reminder that the following file has been in your custody for {{ duration_days }} day(s):
+
+  File Number: {{ file.file_number }}
+  Title: {{ file.title }}
+  Days in Custody: {{ duration_days }}
+
+Please take the necessary action on this file (review, approve, forward, or return to registry).
+
+You can view this file at: {{ file_url }}
+
+Thank you,
+The PIMS Team

@@ -1,8 +1,12 @@
 from .models import Notification
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from user_management.models import CustomUser
 
-def create_notification(user, message, obj=None, link=None, recipient_list=None):
+
+def create_notification(user, message, obj=None, link=None, recipient_list=None, send_email=False):
     """
     Helper function to create a Notification.
     
@@ -12,6 +16,7 @@ def create_notification(user, message, obj=None, link=None, recipient_list=None)
     link: An explicit URL for the notification (optional).
     recipient_list: A list of additional CustomUser objects to send the notification to.
                     If None, only 'user' receives it.
+    send_email: If True, also sends an email notification.
     """
     content_type = None
     object_id = None
@@ -28,6 +33,10 @@ def create_notification(user, message, obj=None, link=None, recipient_list=None)
         link=link
     )
 
+    # Send email if requested
+    if send_email and user.email:
+        _send_notification_email(user, message, link)
+
     # Handle additional recipients for escalation (e.g., admins)
     if recipient_list:
         for recipient in recipient_list:
@@ -39,6 +48,32 @@ def create_notification(user, message, obj=None, link=None, recipient_list=None)
                     object_id=object_id,
                     link=link
                 )
+                if send_email and recipient.email:
+                    _send_notification_email(recipient, message, link)
+
+
+def _send_notification_email(user, message, link=None):
+    """Send an email notification to a user."""
+    try:
+        subject = "PIMS Notification"
+        context = {
+            'user': user,
+            'message': message,
+            'site_name': 'PIMS',
+            'link': f"{settings.BASE_URL}{link}" if link else None,
+        }
+        html_message = render_to_string('emails/notification.html', context)
+        text_message = render_to_string('emails/notification.txt', context)
+        send_mail(
+            subject=subject,
+            message=text_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=True,
+        )
+    except Exception:
+        pass
 
 
 def notify_admins_of_critical_event(message, obj=None, link=None):
