@@ -3,22 +3,31 @@ def environment_callback(request):
 
 
 def dashboard_callback(request, context):
-    from document_management.models import File, Document
-    from organization.models import Staff, Department
-    from user_management.models import CustomUser
     from django.utils import timezone
+    from document_management.models import Document, File
+    from organization.models import Department, Staff
 
     today = timezone.now().date()
-    context.update({
-        "kpis": [
-            {"title": "Total Files", "value": File.objects.count(), "icon": "folder"},
-            {"title": "Active Files", "value": File.objects.filter(status="active").count(), "icon": "folder_open"},
-            {"title": "Pending Activation", "value": File.objects.filter(status="pending_activation").count(), "icon": "pending"},
-            {"title": "Total Staff", "value": Staff.objects.count(), "icon": "badge"},
-            {"title": "Departments", "value": Department.objects.count(), "icon": "account_tree"},
-            {"title": "Documents Today", "value": Document.objects.filter(uploaded_at__date=today).count(), "icon": "description"},
-        ],
-    })
+    context.update(
+        {
+            "kpis": [
+                {"title": "Total Files", "value": File.objects.count(), "icon": "folder"},
+                {"title": "Active Files", "value": File.objects.filter(status="active").count(), "icon": "folder_open"},
+                {
+                    "title": "Pending Activation",
+                    "value": File.objects.filter(status="pending_activation").count(),
+                    "icon": "pending",
+                },
+                {"title": "Total Staff", "value": Staff.objects.count(), "icon": "badge"},
+                {"title": "Departments", "value": Department.objects.count(), "icon": "account_tree"},
+                {
+                    "title": "Documents Today",
+                    "value": Document.objects.filter(uploaded_at__date=today).count(),
+                    "icon": "description",
+                },
+            ],
+        }
+    )
     return context
 
 
@@ -38,10 +47,10 @@ UNFOLD = {
     ],
     "COLORS": {
         "font": {
-            "subtle-light": "100 116 139",    # slate-500
-            "subtle-dark": "148 163 184",     # slate-400
-            "default-light": "15 23 42",      # slate-900
-            "default-dark": "226 232 240",    # slate-200
+            "subtle-light": "100 116 139",  # slate-500
+            "subtle-dark": "148 163 184",  # slate-400
+            "default-light": "15 23 42",  # slate-900
+            "default-dark": "226 232 240",  # slate-200
             "important-light": "0 0 0",
             "important-dark": "255 255 255",
         },
