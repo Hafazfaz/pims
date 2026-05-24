@@ -1,19 +1,21 @@
 import os
+
 import django
 
 # Set up Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pims_datamanagement.settings")
 django.setup()
 
+from audit_log.models import AuditLogEntry  # noqa: E402
 from document_management.models import Document, File, FileAccessRequest  # noqa: E402
+from notifications.models import Notification  # noqa: E402
 from organization.models import Department, Designation, Staff, Unit  # noqa: E402
 from user_management.models import CustomUser  # noqa: E402
-from audit_log.models import AuditLogEntry  # noqa: E402
-from notifications.models import Notification  # noqa: E402
+
 
 def verify_fixtures():
     print("--- Verifying Fixtures ---")
-    
+
     counts = {
         "Users": CustomUser.objects.count(),
         "Departments": Department.objects.count(),
@@ -41,6 +43,7 @@ def verify_fixtures():
         print("\n[SUCCESS] All verification assertions passed!")
     except AssertionError as e:
         print(f"\n[FAILURE] Verification failed: {e}")
+
 
 if __name__ == "__main__":
     verify_fixtures()
