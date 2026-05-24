@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organization', '0002_department_head_unit_head_alter_staff_department_and_more'),
+        ("organization", "0002_department_head_unit_head_alter_staff_department_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='staff',
-            name='staff_type',
-            field=models.CharField(choices=[('permanent', 'Permanent'), ('locum', 'Locum'), ('contract', 'Contract'), ('nysc', 'NYSC')], default='permanent', max_length=20),
+            model_name="staff",
+            name="staff_type",
+            field=models.CharField(
+                choices=[("permanent", "Permanent"), ("locum", "Locum"), ("contract", "Contract"), ("nysc", "NYSC")],
+                default="permanent",
+                max_length=20,
+            ),
         ),
     ]

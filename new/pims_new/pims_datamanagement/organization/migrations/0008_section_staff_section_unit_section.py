@@ -5,28 +5,44 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organization', '0007_add_division_model'),
+        ("organization", "0007_add_division_model"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Section',
+            name="Section",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('division', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sections', to='organization.division')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=100)),
+                (
+                    "division",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="sections", to="organization.division"
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='staff',
-            name='section',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='staff_members', to='organization.section'),
+            model_name="staff",
+            name="section",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="staff_members",
+                to="organization.section",
+            ),
         ),
         migrations.AddField(
-            model_name='unit',
-            name='section',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='units', to='organization.section'),
+            model_name="unit",
+            name="section",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="units",
+                to="organization.section",
+            ),
         ),
     ]

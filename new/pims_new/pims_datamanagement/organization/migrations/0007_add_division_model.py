@@ -5,28 +5,46 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organization', '0006_add_is_supervisor'),
+        ("organization", "0006_add_is_supervisor"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Division',
+            name="Division",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('department', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='divisions', to='organization.department')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=100)),
+                (
+                    "department",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="divisions",
+                        to="organization.department",
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='staff',
-            name='division',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='staff_members', to='organization.division'),
+            model_name="staff",
+            name="division",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="staff_members",
+                to="organization.division",
+            ),
         ),
         migrations.AddField(
-            model_name='unit',
-            name='division',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='units', to='organization.division'),
+            model_name="unit",
+            name="division",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="units",
+                to="organization.division",
+            ),
         ),
     ]

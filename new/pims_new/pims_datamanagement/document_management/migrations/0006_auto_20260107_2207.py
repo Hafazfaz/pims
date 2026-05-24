@@ -2,17 +2,18 @@
 
 from django.db import migrations
 
+
 def fix_attachment_paths(apps, schema_editor):
-    Document = apps.get_model('document_management', 'Document')
+    Document = apps.get_model("document_management", "Document")
     for document in Document.objects.all():
-        if document.attachment and document.attachment.name.startswith('attachments/'):
-            document.attachment.name = document.attachment.name[len('attachments/'):]
-            document.save(update_fields=['attachment'])
+        if document.attachment and document.attachment.name.startswith("attachments/"):
+            document.attachment.name = document.attachment.name[len("attachments/") :]
+            document.save(update_fields=["attachment"])
+
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0005_alter_file_status'),
+        ("document_management", "0005_alter_file_status"),
     ]
 
     operations = [

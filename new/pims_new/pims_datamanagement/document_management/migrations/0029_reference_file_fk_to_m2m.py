@@ -4,19 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0028_drop_versioning_add_reference_file'),
+        ("document_management", "0028_drop_versioning_add_reference_file"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='approvalchain',
-            name='reference_file',
+            model_name="approvalchain",
+            name="reference_file",
         ),
         migrations.AddField(
-            model_name='approvalchain',
-            name='reference_files',
-            field=models.ManyToManyField(blank=True, help_text='Optional references to previously created or dispatched files.', related_name='referenced_in_chains', to='document_management.file'),
+            model_name="approvalchain",
+            name="reference_files",
+            field=models.ManyToManyField(
+                blank=True,
+                help_text="Optional references to previously created or dispatched files.",
+                related_name="referenced_in_chains",
+                to="document_management.file",
+            ),
         ),
     ]

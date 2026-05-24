@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0019_approvalchain_approvalstep'),
+        ("document_management", "0019_approvalchain_approvalstep"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='file',
-            name='active_dispatch_document',
+            model_name="file",
+            name="active_dispatch_document",
         ),
     ]

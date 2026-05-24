@@ -5,25 +5,38 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0026_approvalchain_document_fk'),
+        ("document_management", "0026_approvalchain_document_fk"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='filemovement',
-            name='closed_at',
+            model_name="filemovement",
+            name="closed_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='filemovement',
-            name='file_reference',
-            field=models.ForeignKey(blank=True, help_text='Another file referenced at end of movement.', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='movement_file_refs', to='document_management.file'),
+            model_name="filemovement",
+            name="file_reference",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Another file referenced at end of movement.",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="movement_file_refs",
+                to="document_management.file",
+            ),
         ),
         migrations.AddField(
-            model_name='filemovement',
-            name='version_reference',
-            field=models.ForeignKey(blank=True, help_text='Previous version of a document referenced at end of movement.', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='movement_version_refs', to='document_management.document'),
+            model_name="filemovement",
+            name="version_reference",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Previous version of a document referenced at end of movement.",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="movement_version_refs",
+                to="document_management.document",
+            ),
         ),
     ]

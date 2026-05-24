@@ -6,33 +6,59 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0038_file_section'),
-        ('organization', '0011_alter_section_department'),
+        ("document_management", "0038_file_section"),
+        ("organization", "0011_alter_section_department"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='priority',
-            field=models.CharField(choices=[('normal', 'Normal'), ('high', 'High Priority'), ('urgent', 'Urgent')], default='normal', help_text='Urgency level of this document.', max_length=10),
+            model_name="document",
+            name="priority",
+            field=models.CharField(
+                choices=[("normal", "Normal"), ("high", "High Priority"), ("urgent", "Urgent")],
+                default="normal",
+                help_text="Urgency level of this document.",
+                max_length=10,
+            ),
         ),
         migrations.CreateModel(
-            name='DocumentSignature',
+            name="DocumentSignature",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('ip_address', models.GenericIPAddressField(blank=True, null=True)),
-                ('note', models.TextField(blank=True, help_text='Context or reason for signing')),
-                ('document', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='signatures', to='document_management.document')),
-                ('signatory', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='document_signatures', to=settings.AUTH_USER_MODEL)),
-                ('signature_record', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='organization.staffsignature')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("ip_address", models.GenericIPAddressField(blank=True, null=True)),
+                ("note", models.TextField(blank=True, help_text="Context or reason for signing")),
+                (
+                    "document",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="signatures",
+                        to="document_management.document",
+                    ),
+                ),
+                (
+                    "signatory",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="document_signatures",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "signature_record",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="organization.staffsignature",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
-                'unique_together': {('document', 'signatory')},
+                "ordering": ["-created_at"],
+                "unique_together": {("document", "signatory")},
             },
         ),
     ]

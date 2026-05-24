@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0006_auto_20260107_2207'),
+        ("document_management", "0006_auto_20260107_2207"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='document',
-            name='attachment',
-            field=models.FileField(blank=True, null=True, upload_to=''),
+            model_name="document",
+            name="attachment",
+            field=models.FileField(blank=True, null=True, upload_to=""),
         ),
     ]

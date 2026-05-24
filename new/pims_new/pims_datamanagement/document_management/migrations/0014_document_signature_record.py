@@ -5,16 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0013_file_active_dispatch_document'),
-        ('organization', '0005_staffsignature'),
+        ("document_management", "0013_file_active_dispatch_document"),
+        ("organization", "0005_staffsignature"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='signature_record',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='signed_documents', to='organization.staffsignature'),
+            model_name="document",
+            name="signature_record",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="signed_documents",
+                to="organization.staffsignature",
+            ),
         ),
     ]

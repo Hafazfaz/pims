@@ -4,19 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0029_reference_file_fk_to_m2m'),
+        ("document_management", "0029_reference_file_fk_to_m2m"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='approvalchain',
-            name='reference_files',
+            model_name="approvalchain",
+            name="reference_files",
         ),
         migrations.AddField(
-            model_name='approvalchain',
-            name='reference_documents',
-            field=models.ManyToManyField(blank=True, help_text='Other documents from this file referenced at dispatch time.', related_name='referenced_in_chains', to='document_management.document'),
+            model_name="approvalchain",
+            name="reference_documents",
+            field=models.ManyToManyField(
+                blank=True,
+                help_text="Other documents from this file referenced at dispatch time.",
+                related_name="referenced_in_chains",
+                to="document_management.document",
+            ),
         ),
     ]

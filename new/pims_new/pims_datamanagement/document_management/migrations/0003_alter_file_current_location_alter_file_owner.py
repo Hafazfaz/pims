@@ -5,21 +5,31 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0002_alter_file_status'),
-        ('organization', '0002_department_head_unit_head_alter_staff_department_and_more'),
+        ("document_management", "0002_alter_file_status"),
+        ("organization", "0002_department_head_unit_head_alter_staff_department_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='file',
-            name='current_location',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='files_at_location', to='organization.staff'),
+            model_name="file",
+            name="current_location",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="files_at_location",
+                to="organization.staff",
+            ),
         ),
         migrations.AlterField(
-            model_name='file',
-            name='owner',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='owned_files', to='organization.staff'),
+            model_name="file",
+            name="owner",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="owned_files",
+                to="organization.staff",
+            ),
         ),
     ]

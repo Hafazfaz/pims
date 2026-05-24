@@ -5,16 +5,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organization', '0010_remove_section_division_section_department'),
+        ("organization", "0010_remove_section_division_section_department"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='section',
-            name='department',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='sections', to='organization.department'),
+            model_name="section",
+            name="department",
+            field=models.ForeignKey(
+                default=1,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="sections",
+                to="organization.department",
+            ),
             preserve_default=False,
         ),
     ]

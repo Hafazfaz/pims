@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0022_chain_on_document'),
+        ("document_management", "0022_chain_on_document"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='approvalchain',
-            name='dispatch_message',
+            model_name="approvalchain",
+            name="dispatch_message",
             field=models.TextField(blank=True),
         ),
     ]

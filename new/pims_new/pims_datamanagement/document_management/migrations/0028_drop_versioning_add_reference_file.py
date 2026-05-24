@@ -5,23 +5,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0027_movement_close_fields'),
+        ("document_management", "0027_movement_close_fields"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='document',
-            name='previous_version',
+            model_name="document",
+            name="previous_version",
         ),
         migrations.RemoveField(
-            model_name='document',
-            name='version',
+            model_name="document",
+            name="version",
         ),
         migrations.AddField(
-            model_name='approvalchain',
-            name='reference_file',
-            field=models.ForeignKey(blank=True, help_text='Optional reference to a previously created or dispatched file.', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='referenced_in_chains', to='document_management.file'),
+            model_name="approvalchain",
+            name="reference_file",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Optional reference to a previously created or dispatched file.",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="referenced_in_chains",
+                to="document_management.file",
+            ),
         ),
     ]

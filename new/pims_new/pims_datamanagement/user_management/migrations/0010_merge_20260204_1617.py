@@ -4,11 +4,9 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('user_management', '0006_grant_audit_and_create_perms'),
-        ('user_management', '0009_customuser_last_session_key'),
+        ("user_management", "0006_grant_audit_and_create_perms"),
+        ("user_management", "0009_customuser_last_session_key"),
     ]
 
-    operations = [
-    ]
+    operations = []

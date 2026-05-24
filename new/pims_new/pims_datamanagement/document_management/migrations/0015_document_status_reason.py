@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0014_document_signature_record'),
+        ("document_management", "0014_document_signature_record"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='status_reason',
-            field=models.TextField(blank=True, help_text='Reason for approval or rejection', null=True),
+            model_name="document",
+            name="status_reason",
+            field=models.TextField(blank=True, help_text="Reason for approval or rejection", null=True),
         ),
     ]

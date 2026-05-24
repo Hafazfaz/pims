@@ -4,23 +4,18 @@ from django.db import migrations
 
 
 def reset_rw_to_readonly(apps, schema_editor):
-    FileAccessRequest = apps.get_model('document_management', 'FileAccessRequest')
-    File = apps.get_model('document_management', 'File')
+    FileAccessRequest = apps.get_model("document_management", "FileAccessRequest")
+    File = apps.get_model("document_management", "File")
     # Reset all read_write to read_only except file owners
-    owner_user_ids = File.objects.filter(
-        owner__isnull=False
-    ).values_list('owner__user_id', flat=True)
-    FileAccessRequest.objects.filter(
-        access_type='read_write'
-    ).exclude(
-        requested_by_id__in=owner_user_ids
-    ).update(access_type='read_only')
+    owner_user_ids = File.objects.filter(owner__isnull=False).values_list("owner__user_id", flat=True)
+    FileAccessRequest.objects.filter(access_type="read_write").exclude(requested_by_id__in=owner_user_ids).update(
+        access_type="read_only"
+    )
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0032_movement_document_fk'),
+        ("document_management", "0032_movement_document_fk"),
     ]
 
     operations = [

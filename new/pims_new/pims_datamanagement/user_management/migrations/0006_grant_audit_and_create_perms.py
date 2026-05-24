@@ -1,24 +1,25 @@
 from django.db import migrations
 
+
 def assign_permissions(apps, schema_editor):
-    Group = apps.get_model('auth', 'Group')
-    Permission = apps.get_model('auth', 'Permission')
+    Group = apps.get_model("auth", "Group")
+    Permission = apps.get_model("auth", "Permission")
 
     # Get the relevant permissions
     try:
-        view_auditlog = Permission.objects.get(codename='view_auditlogentry')
+        view_auditlog = Permission.objects.get(codename="view_auditlogentry")
     except Permission.DoesNotExist:
         # Fallback if content type needs to be specified or if it's not created yet
         # AuditLogEntry is in audit_log app
-        view_auditlog = Permission.objects.filter(codename='view_auditlogentry').first()
+        view_auditlog = Permission.objects.filter(codename="view_auditlogentry").first()
 
     try:
-        create_file = Permission.objects.get(codename='create_file')
+        create_file = Permission.objects.get(codename="create_file")
     except Permission.DoesNotExist:
-        create_file = Permission.objects.filter(codename='create_file').first()
+        create_file = Permission.objects.filter(codename="create_file").first()
 
-    groups_to_get_audit = ['Registry', 'HOD/HOU']
-    groups_to_get_create = ['Staff']
+    groups_to_get_audit = ["Registry", "HOD/HOU"]
+    groups_to_get_create = ["Staff"]
 
     for group_name in groups_to_get_audit:
         try:
@@ -40,9 +41,9 @@ def assign_permissions(apps, schema_editor):
 
     # Remove view_file and view_document from Staff group
     try:
-        staff_group = Group.objects.get(name='Staff')
-        view_file_perm = Permission.objects.filter(codename='view_file').first()
-        view_doc_perm = Permission.objects.filter(codename='view_document').first()
+        staff_group = Group.objects.get(name="Staff")
+        view_file_perm = Permission.objects.filter(codename="view_file").first()
+        view_doc_perm = Permission.objects.filter(codename="view_document").first()
         if view_file_perm:
             staff_group.permissions.remove(view_file_perm)
         if view_doc_perm:
@@ -51,17 +52,18 @@ def assign_permissions(apps, schema_editor):
     except Group.DoesNotExist:
         pass
 
+
 def unassign_permissions(apps, schema_editor):
-    Group = apps.get_model('auth', 'Group')
-    Permission = apps.get_model('auth', 'Permission')
+    Group = apps.get_model("auth", "Group")
+    Permission = apps.get_model("auth", "Permission")
 
-    view_auditlog = Permission.objects.filter(codename='view_auditlogentry').first()
-    create_file = Permission.objects.filter(codename='create_file').first()
-    view_file_perm = Permission.objects.filter(codename='view_file').first()
-    view_doc_perm = Permission.objects.filter(codename='view_document').first()
+    view_auditlog = Permission.objects.filter(codename="view_auditlogentry").first()
+    create_file = Permission.objects.filter(codename="create_file").first()
+    view_file_perm = Permission.objects.filter(codename="view_file").first()
+    view_doc_perm = Permission.objects.filter(codename="view_document").first()
 
-    groups_to_get_audit = ['Staff', 'Registry', 'HOD/HOU']
-    groups_to_get_create = ['Staff']
+    groups_to_get_audit = ["Staff", "Registry", "HOD/HOU"]
+    groups_to_get_create = ["Staff"]
 
     for group_name in groups_to_get_audit:
         try:
@@ -78,10 +80,10 @@ def unassign_permissions(apps, schema_editor):
                 group.permissions.remove(create_file)
         except Group.DoesNotExist:
             pass
-    
+
     # Re-add view permissions if unassigning (optional, but for completeness)
     try:
-        staff_group = Group.objects.get(name='Staff')
+        staff_group = Group.objects.get(name="Staff")
         if view_file_perm:
             staff_group.permissions.add(view_file_perm)
         if view_doc_perm:
@@ -89,12 +91,12 @@ def unassign_permissions(apps, schema_editor):
     except Group.DoesNotExist:
         pass
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
-        ('user_management', '0005_assign_mvp_permissions'),
-        ('audit_log', '0001_initial'),
-        ('document_management', '0001_initial'),
+        ("user_management", "0005_assign_mvp_permissions"),
+        ("audit_log", "0001_initial"),
+        ("document_management", "0001_initial"),
     ]
 
     operations = [

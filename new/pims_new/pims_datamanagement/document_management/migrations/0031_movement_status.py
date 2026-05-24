@@ -4,15 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0030_reference_documents_m2m'),
+        ("document_management", "0030_reference_documents_m2m"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='filemovement',
-            name='status',
-            field=models.CharField(choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('forwarded', 'Forwarded')], default='pending', max_length=20),
+            model_name="filemovement",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("pending", "Pending"),
+                    ("approved", "Approved"),
+                    ("rejected", "Rejected"),
+                    ("forwarded", "Forwarded"),
+                ],
+                default="pending",
+                max_length=20,
+            ),
         ),
     ]

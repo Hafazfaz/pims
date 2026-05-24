@@ -4,15 +4,52 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('audit_log', '0001_initial'),
+        ("audit_log", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='auditlogentry',
-            name='action',
-            field=models.CharField(choices=[('LOGIN', 'User Logged In'), ('LOGOUT', 'User Logged Out'), ('LOGIN_FAILED', 'User Login Failed'), ('PASSWORD_CHANGED', 'User Password Changed'), ('ACCOUNT_LOCKED', 'User Account Locked'), ('ACCOUNT_UNLOCKED', 'User Account Unlocked'), ('FILE_CREATED', 'File Created'), ('FILE_UPDATED', 'File Updated'), ('FILE_ACTIVATED', 'File Activated'), ('FILE_CLOSED', 'File Closed'), ('FILE_ARCHIVED', 'File Archived'), ('FILE_SENT', 'File Sent'), ('DOCUMENT_ADDED', 'Document Added'), ('DOCUMENT_UPDATED', 'Document Updated'), ('DOCUMENT_APPROVED', 'Document Approved'), ('DOCUMENT_REJECTED', 'Document Rejected'), ('DOCUMENT_FORWARDED', 'Document Forwarded'), ('DOCUMENT_DELETED', 'Document Deleted'), ('CHAIN_CREATED', 'Approval Chain Created'), ('CHAIN_STARTED', 'Approval Chain Started'), ('CHAIN_STEP_APPROVED', 'Chain Step Approved'), ('CHAIN_STEP_REJECTED', 'Chain Step Rejected'), ('CHAIN_DELETED', 'Approval Chain Deleted'), ('CHAIN_TEMPLATE_SAVED', 'Chain Template Saved'), ('CHAIN_TEMPLATE_DELETED', 'Chain Template Deleted'), ('CHAIN_APPLIED', 'Chain Template Applied'), ('ACCESS_REQUEST_SUBMITTED', 'Access Request Submitted'), ('ACCESS_REQUEST_APPROVED', 'Access Request Approved'), ('ACCESS_REQUEST_REJECTED', 'Access Request Rejected'), ('FILE_ACTIVATION_REQUESTED', 'File Activation Requested'), ('MOVEMENT_CLOSED', 'Movement Closed'), ('USER_CREATED', 'User Created'), ('USER_UPDATED', 'User Updated'), ('USER_DELETED', 'User Deleted')], max_length=50),
+            model_name="auditlogentry",
+            name="action",
+            field=models.CharField(
+                choices=[
+                    ("LOGIN", "User Logged In"),
+                    ("LOGOUT", "User Logged Out"),
+                    ("LOGIN_FAILED", "User Login Failed"),
+                    ("PASSWORD_CHANGED", "User Password Changed"),
+                    ("ACCOUNT_LOCKED", "User Account Locked"),
+                    ("ACCOUNT_UNLOCKED", "User Account Unlocked"),
+                    ("FILE_CREATED", "File Created"),
+                    ("FILE_UPDATED", "File Updated"),
+                    ("FILE_ACTIVATED", "File Activated"),
+                    ("FILE_CLOSED", "File Closed"),
+                    ("FILE_ARCHIVED", "File Archived"),
+                    ("FILE_SENT", "File Sent"),
+                    ("DOCUMENT_ADDED", "Document Added"),
+                    ("DOCUMENT_UPDATED", "Document Updated"),
+                    ("DOCUMENT_APPROVED", "Document Approved"),
+                    ("DOCUMENT_REJECTED", "Document Rejected"),
+                    ("DOCUMENT_FORWARDED", "Document Forwarded"),
+                    ("DOCUMENT_DELETED", "Document Deleted"),
+                    ("CHAIN_CREATED", "Approval Chain Created"),
+                    ("CHAIN_STARTED", "Approval Chain Started"),
+                    ("CHAIN_STEP_APPROVED", "Chain Step Approved"),
+                    ("CHAIN_STEP_REJECTED", "Chain Step Rejected"),
+                    ("CHAIN_DELETED", "Approval Chain Deleted"),
+                    ("CHAIN_TEMPLATE_SAVED", "Chain Template Saved"),
+                    ("CHAIN_TEMPLATE_DELETED", "Chain Template Deleted"),
+                    ("CHAIN_APPLIED", "Chain Template Applied"),
+                    ("ACCESS_REQUEST_SUBMITTED", "Access Request Submitted"),
+                    ("ACCESS_REQUEST_APPROVED", "Access Request Approved"),
+                    ("ACCESS_REQUEST_REJECTED", "Access Request Rejected"),
+                    ("FILE_ACTIVATION_REQUESTED", "File Activation Requested"),
+                    ("MOVEMENT_CLOSED", "Movement Closed"),
+                    ("USER_CREATED", "User Created"),
+                    ("USER_UPDATED", "User Updated"),
+                    ("USER_DELETED", "User Deleted"),
+                ],
+                max_length=50,
+            ),
         ),
     ]

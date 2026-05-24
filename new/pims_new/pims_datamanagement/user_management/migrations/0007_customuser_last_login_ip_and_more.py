@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('user_management', '0006_customuser_failed_login_attempts_and_more'),
+        ("user_management", "0006_customuser_failed_login_attempts_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='customuser',
-            name='last_login_ip',
+            model_name="customuser",
+            name="last_login_ip",
             field=models.GenericIPAddressField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='customuser',
-            name='last_password_change',
+            model_name="customuser",
+            name="last_password_change",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

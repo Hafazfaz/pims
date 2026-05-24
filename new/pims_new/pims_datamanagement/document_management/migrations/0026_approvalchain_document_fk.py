@@ -5,15 +5,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0025_document_status_in_transit_rejected'),
+        ("document_management", "0025_document_status_in_transit_rejected"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='approvalchain',
-            name='document',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='approval_chains', to='document_management.document'),
+            model_name="approvalchain",
+            name="document",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="approval_chains",
+                to="document_management.document",
+            ),
         ),
     ]

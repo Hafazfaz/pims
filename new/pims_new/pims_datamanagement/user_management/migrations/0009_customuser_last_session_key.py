@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('user_management', '0008_passwordhistory'),
+        ("user_management", "0008_passwordhistory"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='customuser',
-            name='last_session_key',
+            model_name="customuser",
+            name="last_session_key",
             field=models.CharField(blank=True, max_length=40, null=True),
         ),
     ]

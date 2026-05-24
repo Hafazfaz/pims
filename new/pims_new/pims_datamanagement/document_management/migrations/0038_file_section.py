@@ -5,16 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0037_add_division_to_file'),
-        ('organization', '0008_section_staff_section_unit_section'),
+        ("document_management", "0037_add_division_to_file"),
+        ("organization", "0008_section_staff_section_unit_section"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='file',
-            name='section',
-            field=models.ForeignKey(blank=True, help_text='Optional: associate file with a section.', null=True, on_delete=django.db.models.deletion.SET_NULL, to='organization.section'),
+            model_name="file",
+            name="section",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Optional: associate file with a section.",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="organization.section",
+            ),
         ),
     ]

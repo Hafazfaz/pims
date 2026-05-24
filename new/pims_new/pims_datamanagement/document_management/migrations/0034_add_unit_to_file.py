@@ -5,16 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0033_reset_rw_access_to_readonly'),
-        ('organization', '0006_add_is_supervisor'),
+        ("document_management", "0033_reset_rw_access_to_readonly"),
+        ("organization", "0006_add_is_supervisor"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='file',
-            name='unit',
-            field=models.ForeignKey(blank=True, help_text='Optional: narrow policy file to a specific unit within the department.', null=True, on_delete=django.db.models.deletion.SET_NULL, to='organization.unit'),
+            model_name="file",
+            name="unit",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Optional: narrow policy file to a specific unit within the department.",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="organization.unit",
+            ),
         ),
     ]

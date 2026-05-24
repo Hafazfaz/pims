@@ -4,15 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0001_initial'),
+        ("document_management", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='file',
-            name='status',
-            field=models.CharField(choices=[('inactive', 'Inactive'), ('pending_activation', 'Pending Activation'), ('active', 'Active'), ('closed', 'Closed')], default='inactive', max_length=20),
+            model_name="file",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("inactive", "Inactive"),
+                    ("pending_activation", "Pending Activation"),
+                    ("active", "Active"),
+                    ("closed", "Closed"),
+                ],
+                default="inactive",
+                max_length=20,
+            ),
         ),
     ]

@@ -5,15 +5,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0007_alter_document_attachment'),
+        ("document_management", "0007_alter_document_attachment"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='parent',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='replies', to='document_management.document'),
+            model_name="document",
+            name="parent",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="replies",
+                to="document_management.document",
+            ),
         ),
     ]

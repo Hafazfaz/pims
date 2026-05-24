@@ -1,8 +1,9 @@
 from django.db import migrations
 
+
 def create_roles(apps, schema_editor):
-    Group = apps.get_model('auth', 'Group')
-    Permission = apps.get_model('auth', 'Permission')
+    Group = apps.get_model("auth", "Group")
+    Permission = apps.get_model("auth", "Permission")
 
     # Define roles and their initial permissions
     roles_permissions = {
@@ -18,7 +19,7 @@ def create_roles(apps, schema_editor):
         group, created = Group.objects.get_or_create(name=role_name)
         if created:
             print(f"Created Group: {role_name}")
-        
+
         # Assign permissions (this part will be expanded later)
         for perm_codename in permissions_list:
             try:
@@ -27,8 +28,9 @@ def create_roles(apps, schema_editor):
             except Permission.DoesNotExist:
                 print(f"Warning: Permission '{perm_codename}' not found for role '{role_name}'.")
 
+
 def remove_roles(apps, schema_editor):
-    Group = apps.get_model('auth', 'Group')
+    Group = apps.get_model("auth", "Group")
     for role_name in ["Administrator", "Registry", "HOD/HOU", "Staff", "Executives", "MD"]:
         try:
             group = Group.objects.get(name=role_name)
@@ -37,11 +39,14 @@ def remove_roles(apps, schema_editor):
         except Group.DoesNotExist:
             pass
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
-        ('user_management', '0002_customuser_must_change_password'),
-        ('auth', '0012_alter_user_first_name_max_length'), # Dependency on auth migrations for Group and Permission models
+        ("user_management", "0002_customuser_must_change_password"),
+        (
+            "auth",
+            "0012_alter_user_first_name_max_length",
+        ),  # Dependency on auth migrations for Group and Permission models
     ]
 
     operations = [

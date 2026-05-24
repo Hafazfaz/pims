@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0010_document_title_file_external_party_alter_file_owner'),
+        ("document_management", "0010_document_title_file_external_party_alter_file_owner"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='fileaccessrequest',
-            name='access_type',
-            field=models.CharField(choices=[('read_only', 'Read Only'), ('read_write', 'Read & Write')], default='read_only', max_length=20),
+            model_name="fileaccessrequest",
+            name="access_type",
+            field=models.CharField(
+                choices=[("read_only", "Read Only"), ("read_write", "Read & Write")], default="read_only", max_length=20
+            ),
         ),
     ]

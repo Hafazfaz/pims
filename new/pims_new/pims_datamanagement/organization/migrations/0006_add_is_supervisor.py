@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organization', '0005_staffsignature'),
+        ("organization", "0005_staffsignature"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='staff',
-            name='is_supervisor',
-            field=models.BooleanField(default=False, help_text='Designates this staff member as a supervisor.'),
+            model_name="staff",
+            name="is_supervisor",
+            field=models.BooleanField(default=False, help_text="Designates this staff member as a supervisor."),
         ),
     ]

@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0015_document_status_reason'),
+        ("document_management", "0015_document_status_reason"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='document',
-            name='status',
-            field=models.CharField(choices=[('pending', 'Pending'), ('approved', 'Approved'), ('cancelled', 'Cancelled')], default='pending', max_length=20),
+            model_name="document",
+            name="status",
+            field=models.CharField(
+                choices=[("pending", "Pending"), ("approved", "Approved"), ("cancelled", "Cancelled")],
+                default="pending",
+                max_length=20,
+            ),
         ),
     ]

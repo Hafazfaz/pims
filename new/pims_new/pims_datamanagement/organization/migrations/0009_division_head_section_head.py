@@ -5,20 +5,31 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organization', '0008_section_staff_section_unit_section'),
+        ("organization", "0008_section_staff_section_unit_section"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='division',
-            name='head',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='headed_division', to='organization.staff'),
+            model_name="division",
+            name="head",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="headed_division",
+                to="organization.staff",
+            ),
         ),
         migrations.AddField(
-            model_name='section',
-            name='head',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='headed_section', to='organization.staff'),
+            model_name="section",
+            name="head",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="headed_section",
+                to="organization.staff",
+            ),
         ),
     ]

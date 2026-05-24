@@ -2,29 +2,41 @@
 
 from django.db import migrations
 
+
 def assign_permissions(apps, schema_editor):
     """
     Assigns the defined MVP permissions to the respective roles.
     """
-    Group = apps.get_model('auth', 'Group')
-    Permission = apps.get_model('auth', 'Permission')
+    Group = apps.get_model("auth", "Group")
+    Permission = apps.get_model("auth", "Permission")
 
     # Define permissions for each role
     # Note: Django automatically adds 'add_', 'change_', 'delete_', 'view_' permissions
     # We are using our custom permissions and Django's view permissions.
     PERMISSIONS_MAP = {
-        'Registry': [
-            'create_file', 'activate_file', 'close_file', 'send_file',
-            'add_minute', 'add_attachment',
-            'view_file', 'view_document',
+        "Registry": [
+            "create_file",
+            "activate_file",
+            "close_file",
+            "send_file",
+            "add_minute",
+            "add_attachment",
+            "view_file",
+            "view_document",
         ],
-        'HOD/HOU': [
-            'send_file', 'add_minute', 'add_attachment',
-            'view_file', 'view_document',
+        "HOD/HOU": [
+            "send_file",
+            "add_minute",
+            "add_attachment",
+            "view_file",
+            "view_document",
         ],
-        'Staff': [
-            'send_file', 'add_minute', 'add_attachment',
-            'view_file', 'view_document',
+        "Staff": [
+            "send_file",
+            "add_minute",
+            "add_attachment",
+            "view_file",
+            "view_document",
         ],
     }
 
@@ -39,7 +51,7 @@ def assign_permissions(apps, schema_editor):
                     permissions_to_add.append(perm)
                 except Permission.DoesNotExist:
                     print(f"Warning: Permission '{codename}' not found. Skipping.")
-            
+
             group.permissions.add(*permissions_to_add)
             print(f"Assigned permissions to {role_name} group.")
 
@@ -51,22 +63,33 @@ def unassign_permissions(apps, schema_editor):
     """
     Reverts the permission assignments.
     """
-    Group = apps.get_model('auth', 'Group')
-    Permission = apps.get_model('auth', 'Permission')
+    Group = apps.get_model("auth", "Group")
+    Permission = apps.get_model("auth", "Permission")
 
     PERMISSIONS_MAP = {
-        'Registry': [
-            'create_file', 'activate_file', 'close_file', 'send_file',
-            'add_minute', 'add_attachment',
-            'view_file', 'view_document',
+        "Registry": [
+            "create_file",
+            "activate_file",
+            "close_file",
+            "send_file",
+            "add_minute",
+            "add_attachment",
+            "view_file",
+            "view_document",
         ],
-        'HOD/HOU': [
-            'send_file', 'add_minute', 'add_attachment',
-            'view_file', 'view_document',
+        "HOD/HOU": [
+            "send_file",
+            "add_minute",
+            "add_attachment",
+            "view_file",
+            "view_document",
         ],
-        'Staff': [
-            'send_file', 'add_minute', 'add_attachment',
-            'view_file', 'view_document',
+        "Staff": [
+            "send_file",
+            "add_minute",
+            "add_attachment",
+            "view_file",
+            "view_document",
         ],
     }
 
@@ -80,20 +103,19 @@ def unassign_permissions(apps, schema_editor):
                     permissions_to_remove.append(perm)
                 except Permission.DoesNotExist:
                     pass  # Ignore if permission doesn't exist
-            
+
             group.permissions.remove(*permissions_to_remove)
             print(f"Removed permissions from {role_name} group.")
 
         except Group.DoesNotExist:
-            pass # Ignore if group doesn't exist
+            pass  # Ignore if group doesn't exist
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('user_management', '0004_assign_admin_permissions'),
+        ("user_management", "0004_assign_admin_permissions"),
         # Add dependency on the document_management migration that creates the permissions
-        ('document_management', '0001_initial'),
+        ("document_management", "0001_initial"),
     ]
 
     operations = [

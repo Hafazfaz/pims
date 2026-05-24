@@ -5,20 +5,25 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0023_add_dispatch_message'),
+        ("document_management", "0023_add_dispatch_message"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='previous_version',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='next_versions', to='document_management.document'),
+            model_name="document",
+            name="previous_version",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="next_versions",
+                to="document_management.document",
+            ),
         ),
         migrations.AddField(
-            model_name='document',
-            name='version',
+            model_name="document",
+            name="version",
             field=models.PositiveIntegerField(default=1),
         ),
     ]

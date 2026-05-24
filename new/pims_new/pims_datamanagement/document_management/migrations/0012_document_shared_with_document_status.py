@@ -5,21 +5,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0011_fileaccessrequest_access_type'),
+        ("document_management", "0011_fileaccessrequest_access_type"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='shared_with',
-            field=models.ManyToManyField(blank=True, help_text='Users who have been granted specific access to view this document.', related_name='shared_documents', to=settings.AUTH_USER_MODEL),
+            model_name="document",
+            name="shared_with",
+            field=models.ManyToManyField(
+                blank=True,
+                help_text="Users who have been granted specific access to view this document.",
+                related_name="shared_documents",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='document',
-            name='status',
-            field=models.CharField(choices=[('pending', 'Pending'), ('approved', 'Approved'), ('cancelled', 'Cancelled')], default='approved', max_length=20),
+            model_name="document",
+            name="status",
+            field=models.CharField(
+                choices=[("pending", "Pending"), ("approved", "Approved"), ("cancelled", "Cancelled")],
+                default="approved",
+                max_length=20,
+            ),
         ),
     ]

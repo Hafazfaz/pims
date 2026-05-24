@@ -5,26 +5,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0009_document_has_signature_file_created_by_and_more'),
-        ('organization', '0004_staff_signature'),
+        ("document_management", "0009_document_has_signature_file_created_by_and_more"),
+        ("organization", "0004_staff_signature"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='document',
-            name='title',
+            model_name="document",
+            name="title",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='file',
-            name='external_party',
-            field=models.CharField(blank=True, help_text='Name of external organization (for Corporate/External Policy files)', max_length=255, null=True),
+            model_name="file",
+            name="external_party",
+            field=models.CharField(
+                blank=True,
+                help_text="Name of external organization (for Corporate/External Policy files)",
+                max_length=255,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='file',
-            name='owner',
-            field=models.ForeignKey(blank=True, help_text='Assigned Staff (Required for Personal Files)', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='owned_files', to='organization.staff'),
+            model_name="file",
+            name="owner",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Assigned Staff (Required for Personal Files)",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="owned_files",
+                to="organization.staff",
+            ),
         ),
     ]

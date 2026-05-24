@@ -5,15 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('document_management', '0012_document_shared_with_document_status'),
+        ("document_management", "0012_document_shared_with_document_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='file',
-            name='active_dispatch_document',
-            field=models.ForeignKey(blank=True, help_text='The specific document that triggered the current dispatch.', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='active_dispatches', to='document_management.document'),
+            model_name="file",
+            name="active_dispatch_document",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="The specific document that triggered the current dispatch.",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="active_dispatches",
+                to="document_management.document",
+            ),
         ),
     ]
