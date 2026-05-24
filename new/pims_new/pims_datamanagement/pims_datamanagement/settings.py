@@ -10,8 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pims_datamanagement.unfold_config import UNFOLD
-
 import os
 from pathlib import Path
 
@@ -28,15 +26,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY", "django-insecure-8v16rhfy)8)r1!+_g5f^e*0a23=4qmxqyzwb)948vs=*qn93hq"
-)
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is required")
 
-DEBUG = os.environ.get("DEBUG", "true").lower() in ["true", "1", "yes"]
+DEBUG = os.environ.get("DEBUG", "false").lower() in ["true", "1", "yes"]
 
-ALLOWED_HOSTS = os.environ.get(
-    "ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1"
-).split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -116,7 +112,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("POSTGRES_DB_NAME", "pims_db"),
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "12345"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     },
@@ -200,7 +196,7 @@ else:  # Port 587 or other
     ]
 
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "your-password")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 BASE_URL = "pims.fmcabuja.gov.ng"
@@ -213,7 +209,7 @@ AUTHENTICATION_BACKENDS = [
 SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Explicitly set session engine
-SESSION_FLUSH_AT_LOGIN = False  # Allow multiple concurrent sessions
+SESSION_FLUSH_AT_LOGIN = True
 
 # Axes settings
 # AXES_FAILURE_LIMIT = 3
@@ -253,9 +249,7 @@ X_FRAME_OPTIONS = "DENY"
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get(
-    "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
-)
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
