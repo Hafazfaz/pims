@@ -1,15 +1,16 @@
-from .models import Notification
-from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from user_management.models import CustomUser
+
+from .models import Notification
 
 
 def create_notification(user, message, obj=None, link=None, recipient_list=None, send_email=False):
     """
     Helper function to create a Notification.
-    
+
     user: The user who the notification is for.
     message: The notification message.
     obj: The object related to the notification (optional).
@@ -25,13 +26,7 @@ def create_notification(user, message, obj=None, link=None, recipient_list=None,
         object_id = obj.pk
 
     # Create notification for the primary user
-    Notification.objects.create(
-        user=user,
-        message=message,
-        content_type=content_type,
-        object_id=object_id,
-        link=link
-    )
+    Notification.objects.create(user=user, message=message, content_type=content_type, object_id=object_id, link=link)
 
     # Send email if requested
     if send_email and user.email:
@@ -40,13 +35,9 @@ def create_notification(user, message, obj=None, link=None, recipient_list=None,
     # Handle additional recipients for escalation (e.g., admins)
     if recipient_list:
         for recipient in recipient_list:
-            if recipient != user: # Avoid duplicate notifications if primary user is also in recipient_list
+            if recipient != user:  # Avoid duplicate notifications if primary user is also in recipient_list
                 Notification.objects.create(
-                    user=recipient,
-                    message=message,
-                    content_type=content_type,
-                    object_id=object_id,
-                    link=link
+                    user=recipient, message=message, content_type=content_type, object_id=object_id, link=link
                 )
                 if send_email and recipient.email:
                     _send_notification_email(recipient, message, link)
@@ -57,13 +48,13 @@ def _send_notification_email(user, message, link=None):
     try:
         subject = "PIMS Notification"
         context = {
-            'user': user,
-            'message': message,
-            'site_name': 'PIMS',
-            'link': f"{settings.BASE_URL}{link}" if link else None,
+            "user": user,
+            "message": message,
+            "site_name": "PIMS",
+            "link": f"{settings.BASE_URL}{link}" if link else None,
         }
-        html_message = render_to_string('emails/notification.html', context)
-        text_message = render_to_string('emails/notification.txt', context)
+        html_message = render_to_string("emails/notification.html", context)
+        text_message = render_to_string("emails/notification.txt", context)
         send_mail(
             subject=subject,
             message=text_message,
@@ -83,9 +74,4 @@ def notify_admins_of_critical_event(message, obj=None, link=None):
     admin_users = CustomUser.objects.filter(is_active=True, is_superuser=True)
     if admin_users.exists():
         for admin_user in admin_users:
-            create_notification(
-                user=admin_user,
-                message=message,
-                obj=obj,
-                link=link
-            )
+            create_notification(user=admin_user, message=message, obj=obj, link=link)
