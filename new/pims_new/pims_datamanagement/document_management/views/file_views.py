@@ -239,6 +239,12 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             return ["document_management/partials/_my_files_list.html"]
         return [self.template_name]
 
+    def dispatch(self, request, *args, **kwargs):
+        staff_user = self.get_staff_user()
+        if staff_user and staff_user.is_registry:
+            return redirect("home")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self):
         staff_user = self.get_staff_user()
         if not staff_user:
