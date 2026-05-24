@@ -1,20 +1,18 @@
-from django.db.models.signals import pre_save, post_save
-from django.dispatch import receiver
 from django.contrib.auth.models import Group
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
 
 
 def _get_hod_group():
-    group, _ = Group.objects.get_or_create(name='HOD/HOU')
+    group, _ = Group.objects.get_or_create(name="HOD/HOU")
     return group
 
 
 def _is_still_head(staff):
     """Return True if staff is still head of any dept or unit."""
     from .models import Department, Unit
-    return (
-        Department.objects.filter(head=staff).exists() or
-        Unit.objects.filter(head=staff).exists()
-    )
+
+    return Department.objects.filter(head=staff).exists() or Unit.objects.filter(head=staff).exists()
 
 
 def _handle_head_change(old_head, new_head):
@@ -25,7 +23,7 @@ def _handle_head_change(old_head, new_head):
         old_head.user.groups.remove(group)
 
 
-@receiver(pre_save, sender='organization.Department')
+@receiver(pre_save, sender="organization.Department")
 def department_head_pre_save(sender, instance, **kwargs):
     if not instance.pk:
         instance._old_head = None
@@ -36,13 +34,13 @@ def department_head_pre_save(sender, instance, **kwargs):
         instance._old_head = None
 
 
-@receiver(post_save, sender='organization.Department')
+@receiver(post_save, sender="organization.Department")
 def department_head_post_save(sender, instance, **kwargs):
-    old_head = getattr(instance, '_old_head', None)
+    old_head = getattr(instance, "_old_head", None)
     _handle_head_change(old_head, instance.head)
 
 
-@receiver(pre_save, sender='organization.Unit')
+@receiver(pre_save, sender="organization.Unit")
 def unit_head_pre_save(sender, instance, **kwargs):
     if not instance.pk:
         instance._old_head = None
@@ -53,7 +51,7 @@ def unit_head_pre_save(sender, instance, **kwargs):
         instance._old_head = None
 
 
-@receiver(post_save, sender='organization.Unit')
+@receiver(post_save, sender="organization.Unit")
 def unit_head_post_save(sender, instance, **kwargs):
-    old_head = getattr(instance, '_old_head', None)
+    old_head = getattr(instance, "_old_head", None)
     _handle_head_change(old_head, instance.head)
