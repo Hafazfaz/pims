@@ -1,18 +1,20 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
 from django.http import HttpResponse
-from django.urls import reverse_lazy
-from django.contrib import messages
 from django.shortcuts import redirect
+from django.urls import reverse_lazy
 
 # Reusable Q filter to exclude registry staff
-EXCLUDE_REGISTRY_Q = Q(designation__name__icontains='registry') | Q(user__groups__name__iexact='Registry')
+EXCLUDE_REGISTRY_Q = Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
+
 
 class HTMXLoginRequiredMixin(LoginRequiredMixin):
     """
     Forces a full page redirect to the login page for HTMX requests
     when the user is not authenticated.
     """
+
     def handle_no_permission(self):
         if self.request.headers.get("HX-Request"):
             response = HttpResponse()
@@ -28,7 +30,7 @@ class RegistryRequiredMixin(HTMXLoginRequiredMixin, UserPassesTestMixin):
         user = self.request.user
         if user.is_superuser:
             return True
-        return hasattr(user, 'staff') and user.staff.is_registry
+        return hasattr(user, "staff") and user.staff.is_registry
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:

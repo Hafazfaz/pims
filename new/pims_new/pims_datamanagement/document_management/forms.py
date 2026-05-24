@@ -1,8 +1,7 @@
 from django import forms
 from django.db.models import Q
-from organization.models import Staff, Unit, Division, Section
+from organization.models import Division, Section, Staff, Unit
 from user_management.models import CustomUser
-
 
 from .models import Document, DocumentType, File, FileAccessRequest
 
@@ -47,7 +46,7 @@ class FileForm(forms.ModelForm):
         required=False,
         initial="internal",
         widget=forms.RadioSelect(attrs={"class": "flex space-x-6", "x-model": "policyType"}),
-        label="Policy Range"
+        label="Policy Range",
     )
 
     def __init__(self, *args, **kwargs):
@@ -81,13 +80,17 @@ class FileForm(forms.ModelForm):
                         designation__name__icontains="registry"
                     ).order_by("user__username")
                 elif creator_staff.is_hod:
-                    self.fields["owner"].queryset = Staff.objects.filter(
-                        department=creator_staff.headed_department
-                    ).exclude(user=self.user).order_by("user__username")
+                    self.fields["owner"].queryset = (
+                        Staff.objects.filter(department=creator_staff.headed_department)
+                        .exclude(user=self.user)
+                        .order_by("user__username")
+                    )
                 elif creator_staff.is_unit_manager:
-                    self.fields["owner"].queryset = Staff.objects.filter(
-                        unit=creator_staff.headed_unit
-                    ).exclude(user=self.user).order_by("user__username")
+                    self.fields["owner"].queryset = (
+                        Staff.objects.filter(unit=creator_staff.headed_unit)
+                        .exclude(user=self.user)
+                        .order_by("user__username")
+                    )
                 else:
                     self.fields["owner"].queryset = Staff.objects.filter(user=self.user)
 
@@ -121,7 +124,8 @@ class FileForm(forms.ModelForm):
                 existing = existing.exclude(pk=self.instance.pk)
             if existing.exists():
                 raise forms.ValidationError(
-                    f"A personal record folder already exists for {owner}. Only one personal folder is allowed per staff member."
+                    f"A personal record folder already exists for {owner}. "
+                    f"Only one personal folder is allowed per staff member."
                 )
             cleaned_data["department"] = None
             cleaned_data["unit"] = None
@@ -130,14 +134,18 @@ class FileForm(forms.ModelForm):
         elif file_type == "policy":
             if policy_range == "internal":
                 if not department:
-                    raise forms.ValidationError({"department": "Please select a department for this internal policy folder."})
+                    raise forms.ValidationError(
+                        {"department": "Please select a department for this internal policy folder."}
+                    )
                 # Validate unit belongs to selected department
                 if unit and unit.department != department:
                     raise forms.ValidationError({"unit": "Selected unit does not belong to the chosen department."})
                 cleaned_data["external_party"] = None
             else:
                 if not external_party:
-                    raise forms.ValidationError({"external_party": "Please specify the external organization or party name."})
+                    raise forms.ValidationError(
+                        {"external_party": "Please specify the external organization or party name."}
+                    )
                 cleaned_data["department"] = None
                 cleaned_data["unit"] = None
             cleaned_data["owner"] = None
@@ -151,7 +159,7 @@ class DocumentForm(forms.ModelForm):
         required=False,
         label="Send To (Route File)",
         help_text="Optionally route this file to another staff member for review or approval.",
-        widget=forms.Select(attrs={"class": "form-select"})
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
     document_type = forms.ModelChoiceField(
         queryset=DocumentType.objects.all(),
@@ -190,35 +198,35 @@ class DocumentForm(forms.ModelForm):
     priority = forms.ChoiceField(
         choices=Document.PRIORITY_CHOICES,
         required=False,
-        initial='normal',
+        initial="normal",
         label="Priority",
-        widget=forms.Select(attrs={"class": "form-select"})
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     include_signature = forms.BooleanField(
         required=False,
         label="Attach Digital Signature",
-        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        
+
         # Only HODs or Unit Managers can see the signature checkbox
         can_sign = False
-        if self.user and hasattr(self.user, 'staff'):
+        if self.user and hasattr(self.user, "staff"):
             staff = self.user.staff
             if staff.is_hod or staff.is_unit_manager or staff.is_registry:
                 can_sign = True
-        
+
         if not can_sign:
-            self.fields.pop('include_signature', None)
+            self.fields.pop("include_signature", None)
 
     def clean_priority(self):
-        priority = self.cleaned_data.get('priority', 'normal')
+        priority = self.cleaned_data.get("priority", "normal")
         if priority not in dict(Document.PRIORITY_CHOICES):
-            return 'normal'
+            return "normal"
         return priority
 
     def clean(self):
@@ -227,12 +235,9 @@ class DocumentForm(forms.ModelForm):
         attachment = cleaned_data.get("attachment")
 
         if not minute_content and not attachment:
-            raise forms.ValidationError(
-                "Please provide either minute content or an attachment."
-            )
+            raise forms.ValidationError("Please provide either minute content or an attachment.")
 
         return cleaned_data
-
 
 
 class SendFileForm(forms.Form):
@@ -268,12 +273,11 @@ class SendFileForm(forms.Form):
 
         if self.user and self.user.is_authenticated:
             from document_management.views.base import EXCLUDE_REGISTRY_Q
-            base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.user).select_related('user')
+
+            base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.user).select_related("user")
 
             if staff:
-                if staff.is_registry:
-                    eligible = base_qs
-                elif staff.is_hod or staff.is_md or staff.is_executive:
+                if staff.is_registry or staff.is_hod or staff.is_md or staff.is_executive:
                     eligible = base_qs
                 elif staff.is_effective_supervisor and (not file_obj or file_obj.owner != staff):
                     # Supervisor sending someone else's file → other supervisors + direct heads
@@ -295,14 +299,17 @@ class SendFileForm(forms.Form):
             else:
                 eligible = base_qs
 
-            self.fields['recipient'].queryset = CustomUser.objects.filter(
-                staff__in=eligible
-            ).order_by('last_name', 'first_name')
+            self.fields["recipient"].queryset = CustomUser.objects.filter(staff__in=eligible).order_by(
+                "last_name", "first_name"
+            )
         else:
-            self.fields['recipient'].queryset = CustomUser.objects.none()
+            self.fields["recipient"].queryset = CustomUser.objects.none()
 
         if file_obj and document:
-            self.fields['reference_documents'].queryset = file_obj.documents.exclude(pk=document.pk).order_by('-uploaded_at')
+            self.fields["reference_documents"].queryset = file_obj.documents.exclude(pk=document.pk).order_by(
+                "-uploaded_at"
+            )
+
 
 class FileUpdateForm(forms.ModelForm):
     class Meta:
@@ -324,17 +331,18 @@ class FileUpdateForm(forms.ModelForm):
         title = self.cleaned_data["title"]
         return title.upper()  # Enforce uppercase for title
 
+
 class DocumentUploadForm(forms.ModelForm):
     # This form allows uploading an attachment to an existing file
     priority = forms.ChoiceField(
         choices=Document.PRIORITY_CHOICES,
         required=False,
-        initial='normal',
+        initial="normal",
         label="Priority",
-        widget=forms.Select(attrs={"class": "form-select"})
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
     file = forms.ModelChoiceField(
-        queryset=File.objects.all().order_by('title'),
+        queryset=File.objects.all().order_by("title"),
         empty_label="Select a File",
         widget=forms.Select(attrs={"class": "form-control"}),
         label="Associate with File",
@@ -379,17 +387,17 @@ class DocumentUploadForm(forms.ModelForm):
                 staff_user = Staff.objects.get(user=self.user)
                 if staff_user.is_registry:
                     # Registry can upload documents to ANY file
-                    self.fields['file'].queryset = File.objects.all().order_by('title')
+                    self.fields["file"].queryset = File.objects.all().order_by("title")
                 else:
                     # Users can upload documents to files they own or are currently at their location
-                    self.fields['file'].queryset = File.objects.filter(
+                    self.fields["file"].queryset = File.objects.filter(
                         Q(owner=staff_user) | Q(current_location=staff_user)
-                    ).order_by('title')
+                    ).order_by("title")
             except Staff.DoesNotExist:
                 # If not a staff user, no files to select (shouldn't happen with LoginRequiredMixin)
-                self.fields['file'].queryset = File.objects.none()
+                self.fields["file"].queryset = File.objects.none()
         else:
-            self.fields['file'].queryset = File.objects.none()
+            self.fields["file"].queryset = File.objects.none()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -399,14 +407,13 @@ class DocumentUploadForm(forms.ModelForm):
             raise forms.ValidationError("Please provide either a document upload or minute content.")
         return cleaned_data
 
+
 class FileAccessRequestForm(forms.ModelForm):
     class Meta:
         model = FileAccessRequest
         fields = ["access_type", "reason"]
         widgets = {
-            "access_type": forms.RadioSelect(
-                attrs={"class": "form-check-input"}
-            ),
+            "access_type": forms.RadioSelect(attrs={"class": "form-check-input"}),
             "reason": forms.Textarea(
                 attrs={
                     "class": "form-control",

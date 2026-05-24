@@ -1,7 +1,9 @@
-from django.utils import timezone
-from .models import File
-from organization.models import Department
 from audit_log.models import AuditLogEntry
+from django.utils import timezone
+from organization.models import Department
+
+from .models import File
+
 
 def get_daily_file_movement_report(date=None):
     """
@@ -10,33 +12,28 @@ def get_daily_file_movement_report(date=None):
     """
     if date is None:
         date = timezone.now().date()
-    
+
     # Files created on this date
     created_files = File.objects.filter(created_at__date=date)
-    
+
     # Files activated on this date (based on AuditLog)
-    activated_logs = AuditLogEntry.objects.filter(
-        action='FILE_ACTIVATED', 
-        timestamp__date=date
-    )
-    activated_files_ids = activated_logs.values_list('object_id', flat=True)
+    activated_logs = AuditLogEntry.objects.filter(action="FILE_ACTIVATED", timestamp__date=date)
+    activated_files_ids = activated_logs.values_list("object_id", flat=True)
     activated_files = File.objects.filter(pk__in=activated_files_ids)
 
     # Files moved (sent) on this date (based on AuditLog)
-    moved_logs = AuditLogEntry.objects.filter(
-        action='FILE_SENT',
-        timestamp__date=date
-    )
+    moved_logs = AuditLogEntry.objects.filter(action="FILE_SENT", timestamp__date=date)
     moved_files_stats = moved_logs.count()
-    
+
     return {
-        'date': date,
-        'created_count': created_files.count(),
-        'activated_count': activated_files.count(),
-        'moved_count': moved_files_stats,
-        'created_files': created_files,
-        'activated_files': activated_files,
+        "date": date,
+        "created_count": created_files.count(),
+        "activated_count": activated_files.count(),
+        "moved_count": moved_files_stats,
+        "created_files": created_files,
+        "activated_files": activated_files,
     }
+
 
 def get_department_performance_report(days=30):
     """
@@ -44,23 +41,25 @@ def get_department_performance_report(days=30):
     """
     report_data = []
     departments = Department.objects.all()
-    
+
     for dept in departments:
         # Files owned by this department (or staff in it)
         dept_files = File.objects.filter(department=dept)
-        
+
         # Total active files
-        active_count = dept_files.filter(status='active').count()
-        
+        active_count = dept_files.filter(status="active").count()
+
         # Detailed: Find files currently located in this department (bottleneck analysis)
         # Assuming current_location (Staff) maps to this department
         files_currently_with_dept = File.objects.filter(current_location__department=dept).count()
-        
-        report_data.append({
-            'department': dept.name,
-            'total_files_owned': dept_files.count(),
-            'active_files': active_count,
-            'files_currently_pending': files_currently_with_dept,
-        })
-        
+
+        report_data.append(
+            {
+                "department": dept.name,
+                "total_files_owned": dept_files.count(),
+                "active_files": active_count,
+                "files_currently_pending": files_currently_with_dept,
+            }
+        )
+
     return report_data

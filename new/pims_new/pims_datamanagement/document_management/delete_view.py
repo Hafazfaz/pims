@@ -12,47 +12,41 @@ class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
     Delete a document from a file.
     Only Registry or users with active Read-Write access can delete documents.
     """
-    
+
     def test_func(self):
-        document = get_object_or_404(Document, pk=self.kwargs['pk'])
+        document = get_object_or_404(Document, pk=self.kwargs["pk"])
         file_obj = document.file
         user = self.request.user
-        
+
         # Registry can always delete
         try:
             if user.staff.is_registry:
                 return True
         except AttributeError:
             pass
-        
+
         # Check for active read-write access
         active_access = FileAccessRequest.objects.filter(
-            file=file_obj,
-            requested_by=user,
-            status='approved',
-            access_type='read_write'
+            file=file_obj, requested_by=user, status="approved", access_type="read_write"
         ).first()
-        
-        if active_access and active_access.is_active:
-            return True
-        
-        return False
-    
+
+        return bool(active_access and active_access.is_active)
+
     def post(self, request, pk):
         document = get_object_or_404(Document, pk=pk)
         file_obj = document.file
-        
+
         # Log the deletion
         log_action(
             request.user,
             "DOCUMENT_DELETED",
             request=request,
             obj=document,
-            details={"file": file_obj.file_number, "title": document.title or "Untitled"}
+            details={"file": file_obj.file_number, "title": document.title or "Untitled"},
         )
-        
+
         # Delete the document
         document.delete()
-        
+
         messages.success(request, "Document deleted successfully.")
-        return redirect('document_management:file_detail', pk=file_obj.pk)
+        return redirect("document_management:file_detail", pk=file_obj.pk)

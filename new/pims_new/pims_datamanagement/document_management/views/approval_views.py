@@ -1,37 +1,39 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import CreateView, View, DetailView, ListView
-from django.shortcuts import get_object_or_404, redirect, render
-from django.contrib import messages
-from django.utils import timezone
-from django.urls import reverse_lazy
-from django.http import JsonResponse
 import json
-from ..models import File, ApprovalChain, ApprovalStep, ChainTemplate, ChainTemplateStep
-from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
-from notifications.utils import create_notification
+
 from audit_log.utils import log_action
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views.generic import ListView, View
+from notifications.utils import create_notification
+
+from ..models import ApprovalChain, ApprovalStep, ChainTemplate, ChainTemplateStep, File
+from .base import HTMXLoginRequiredMixin, RegistryRequiredMixin
 
 
 def _make_review_token(step):
-    import hmac as _hmac, hashlib
+    import hashlib
+    import hmac as _hmac
+
     from django.conf import settings
-    return _hmac.new(
-        settings.SECRET_KEY.encode(),
-        f"approval-review-{step.pk}".encode(),
-        hashlib.sha256
-    ).hexdigest()
 
-
+    return _hmac.new(settings.SECRET_KEY.encode(), f"approval-review-{step.pk}".encode(), hashlib.sha256).hexdigest()
 
 
 def _notify_approver(step):
     """Notify the approver that it's their turn."""
     from django.urls import reverse
+
     token = _make_review_token(step)
-    review_url = reverse('document_management:step_review', kwargs={'step_pk': step.pk, 'token': token})
+    review_url = reverse("document_management:step_review", kwargs={"step_pk": step.pk, "token": token})
     create_notification(
         user=step.approver.user,
-        message=f"You have a pending approval for '{step.chain._get_file().file_number}' (Step {step.order}). Click to review.",
+        message=(
+            f"You have a pending approval for "
+            f"'{step.chain._get_file().file_number}' (Step {step.order}). "
+            f"Click to review."
+        ),
         obj=step.chain._get_file(),
         link=review_url,
     )
@@ -51,12 +53,13 @@ class ApprovalReviewView(HTMXLoginRequiredMixin, View):
     """Token-gated document review page for approvers. Token = HMAC of step_pk."""
 
     def _valid_token(self, step, token):
-        import hmac, hashlib
+        import hashlib
+        import hmac
+
         from django.conf import settings
+
         expected = hmac.new(
-            settings.SECRET_KEY.encode(),
-            f"approval-review-{step.pk}".encode(),
-            hashlib.sha256
+            settings.SECRET_KEY.encode(), f"approval-review-{step.pk}".encode(), hashlib.sha256
         ).hexdigest()
         return hmac.compare_digest(expected, token)
 
@@ -65,30 +68,40 @@ class ApprovalReviewView(HTMXLoginRequiredMixin, View):
         if not self._valid_token(step, token):
             messages.error(request, "Invalid or expired review link.")
             return redirect("document_management:my_chains")
-        if step.approver != getattr(request.user, 'staff', None):
+        if step.approver != getattr(request.user, "staff", None):
             messages.error(request, "This review link is not for your account.")
             return redirect("document_management:my_chains")
         chain = step.chain
         file_obj = chain._get_file()
 
         # Collect all versions of the dispatched document
-        from document_management.models import ApprovalChain as AC
+        from document_management.models import ApprovalChain
+
         dispatched_doc = chain.document
         all_versions = [dispatched_doc] if dispatched_doc else []
 
         # Attach per-document conversation data (dispatches + approval steps)
-        from document_management.models import ApprovalChain as AC
         for v in all_versions:
-            v_chains = AC.objects.filter(document=v).prefetch_related('steps__approver__user').select_related('created_by').order_by('created_at')
+            v_chains = (
+                ApprovalChain.objects.filter(document=v)
+                .prefetch_related("steps__approver__user")
+                .select_related("created_by")
+                .order_by("created_at")
+            )
             v.version_dispatches = list(v_chains)
 
-        return render(request, "document_management/approval_review.html", {
-            "step": step, "chain": chain,
-            "document": chain.document,
-            "token": token,
-            "file": file_obj,
-            "all_versions": all_versions,
-        })
+        return render(
+            request,
+            "document_management/approval_review.html",
+            {
+                "step": step,
+                "chain": chain,
+                "document": chain.document,
+                "token": token,
+                "file": file_obj,
+                "all_versions": all_versions,
+            },
+        )
 
 
 class AllActiveChainsView(RegistryRequiredMixin, ListView):
@@ -96,9 +109,12 @@ class AllActiveChainsView(RegistryRequiredMixin, ListView):
     context_object_name = "chains"
 
     def get_queryset(self):
-        return ApprovalChain.objects.filter(
-            status='active'
-        ).select_related('file', 'file__owner__user', 'created_by').prefetch_related('steps__approver__user').order_by('-created_at')
+        return (
+            ApprovalChain.objects.filter(status="active")
+            .select_related("file", "file__owner__user", "created_by")
+            .prefetch_related("steps__approver__user")
+            .order_by("-created_at")
+        )
 
 
 class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
@@ -107,25 +123,35 @@ class MyApprovalChainsView(HTMXLoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        staff = getattr(self.request.user, 'staff', None)
+        staff = getattr(self.request.user, "staff", None)
         if not staff:
             return ApprovalChain.objects.none()
         from django.db.models import Q
-        return ApprovalChain.objects.filter(
-            Q(file__owner=staff) | Q(created_by=self.request.user) | Q(steps__approver=staff)
-        ).distinct().select_related('file', 'document').prefetch_related('steps').order_by('-created_at')
+
+        return (
+            ApprovalChain.objects.filter(
+                Q(file__owner=staff) | Q(created_by=self.request.user) | Q(steps__approver=staff)
+            )
+            .distinct()
+            .select_related("file", "document")
+            .prefetch_related("steps")
+            .order_by("-created_at")
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        staff = getattr(self.request.user, 'staff', None)
-        context['staff'] = staff
+        staff = getattr(self.request.user, "staff", None)
+        context["staff"] = staff
         # Annotate each current step with its review URL
         from django.urls import reverse
-        for chain in context['chains']:
+
+        for chain in context["chains"]:
             for step in chain.steps.all():
-                if step.approver == staff and step.order == chain.current_step and chain.status == 'active':
+                if step.approver == staff and step.order == chain.current_step and chain.status == "active":
                     token = _make_review_token(step)
-                    step.review_url = reverse('document_management:step_review', kwargs={'step_pk': step.pk, 'token': token})
+                    step.review_url = reverse(
+                        "document_management:step_review", kwargs={"step_pk": step.pk, "token": token}
+                    )
                 else:
                     step.review_url = None
         return context
@@ -137,8 +163,9 @@ class ApprovalChainBuilderView(HTMXLoginRequiredMixin, View):
     def get(self, request, file_pk):
         from django.shortcuts import render
         from organization.models import Staff as StaffModel
+
         file_obj = get_object_or_404(File, pk=file_pk)
-        staff = getattr(request.user, 'staff', None)
+        staff = getattr(request.user, "staff", None)
 
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can build an approval chain.")
@@ -149,16 +176,22 @@ class ApprovalChainBuilderView(HTMXLoginRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         from document_management.views.base import EXCLUDE_REGISTRY_Q
-        approver_choices = StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(
-            user=request.user
-        ).select_related('user', 'designation', 'department').order_by('user__last_name')
 
-        return render(request, 'document_management/chain_builder.html', {
-            'file': file_obj,
-            'approver_choices': approver_choices,
-        })
+        approver_choices = (
+            StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q)
+            .exclude(user=request.user)
+            .select_related("user", "designation", "department")
+            .order_by("user__last_name")
+        )
 
-
+        return render(
+            request,
+            "document_management/chain_builder.html",
+            {
+                "file": file_obj,
+                "approver_choices": approver_choices,
+            },
+        )
 
 
 class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
@@ -166,13 +199,13 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
 
     def post(self, request, file_pk):
         file_obj = get_object_or_404(File, pk=file_pk)
-        staff = getattr(request.user, 'staff', None)
+        staff = getattr(request.user, "staff", None)
 
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can set up an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
-        if file_obj.status not in ('active', 'inactive'):
+        if file_obj.status not in ("active", "inactive"):
             messages.error(request, "File must be active or inactive to start an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
@@ -180,36 +213,43 @@ class ApprovalChainCreateView(HTMXLoginRequiredMixin, View):
             messages.error(request, "This file already has an approval chain.")
             return redirect(file_obj.get_absolute_url())
 
-        approver_ids = [a for a in request.POST.getlist('approvers') if a]
+        approver_ids = [a for a in request.POST.getlist("approvers") if a]
         if not approver_ids:
             messages.error(request, "Please select at least one approver.")
             return redirect(file_obj.get_absolute_url())
 
         from organization.models import Staff
-        chain = ApprovalChain.objects.create(file=file_obj, created_by=request.user, status='draft')
+
+        chain = ApprovalChain.objects.create(file=file_obj, created_by=request.user, status="draft")
         for order, staff_id in enumerate(approver_ids, start=1):
             approver = get_object_or_404(Staff, pk=staff_id)
             ApprovalStep.objects.create(chain=chain, approver=approver, order=order)
 
         messages.success(request, "Approval chain created. You can now start it.")
-        log_action(request.user, 'CHAIN_CREATED', request=request, obj=file_obj,
-                   details={'chain_id': chain.pk, 'steps': len(approver_ids)})
+        log_action(
+            request.user,
+            "CHAIN_CREATED",
+            request=request,
+            obj=file_obj,
+            details={"chain_id": chain.pk, "steps": len(approver_ids)},
+        )
         return redirect(file_obj.get_absolute_url())
 
 
 def _grant_chain_read_access(chain):
     """Grant read-only FileAccessRequest to all approvers in the chain."""
     from document_management.models import FileAccessRequest
+
     file_obj = chain._get_file()
     for step in chain.steps.all():
         FileAccessRequest.objects.get_or_create(
             file=file_obj,
             requested_by=step.approver.user,
             defaults={
-                'reason': f'Auto-granted: approval chain step {step.order}',
-                'access_type': 'read_only',
-                'status': 'approved',
-            }
+                "reason": f"Auto-granted: approval chain step {step.order}",
+                "access_type": "read_only",
+                "status": "approved",
+            },
         )
 
 
@@ -219,12 +259,12 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
     def post(self, request, file_pk):
         file_obj = get_object_or_404(File, pk=file_pk)
         # Find draft chain on any document in this file
-        chain = ApprovalChain.objects.filter(file=file_obj, status='draft').first()
+        chain = ApprovalChain.objects.filter(file=file_obj, status="draft").first()
         if not chain:
             messages.error(request, "No draft chain found for this file.")
             return redirect(file_obj.get_absolute_url())
 
-        staff = getattr(request.user, 'staff', None)
+        staff = getattr(request.user, "staff", None)
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can start the approval chain.")
             return redirect(file_obj.get_absolute_url())
@@ -233,15 +273,15 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
             messages.error(request, "Add at least one approver before starting.")
             return redirect(file_obj.get_absolute_url())
 
-        first_step = chain.steps.order_by('order').first()
-        chain.status = 'active'
+        first_step = chain.steps.order_by("order").first()
+        chain.status = "active"
         chain.current_step = first_step.order
         chain.save()
 
         # Mark document as in_transit
         if chain.document:
-            chain.document.status = 'in_transit'
-            chain.document.save(update_fields=['status'])
+            chain.document.status = "in_transit"
+            chain.document.save(update_fields=["status"])
 
         # Grant read-only access to all approvers in the chain
         _grant_chain_read_access(chain)
@@ -252,8 +292,13 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
 
         _notify_approver(first_step)
         messages.success(request, f"Chain started. File dispatched to {first_step.approver} in read-only mode.")
-        log_action(request.user, 'CHAIN_STARTED', request=request, obj=file_obj,
-                   details={'chain_id': chain.pk, 'first_approver': str(first_step.approver)})
+        log_action(
+            request.user,
+            "CHAIN_STARTED",
+            request=request,
+            obj=file_obj,
+            details={"chain_id": chain.pk, "first_approver": str(first_step.approver)},
+        )
         return redirect(file_obj.get_absolute_url())
 
 
@@ -264,7 +309,7 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
         step = get_object_or_404(ApprovalStep, pk=step_pk)
         chain = step.chain
         file_obj = chain._get_file()
-        staff = getattr(request.user, 'staff', None)
+        staff = getattr(request.user, "staff", None)
 
         if step.approver != staff:
             messages.error(request, "You are not the assigned approver for this step.")
@@ -277,40 +322,59 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
         # Enforce signature
         active_sig = staff.get_active_signature() if staff else None
         if not active_sig:
-            messages.error(request, "You must have an active signature to action this step. Please upload one in your profile.")
+            messages.error(
+                request, "You must have an active signature to action this step. Please upload one in your profile."
+            )
             return redirect(file_obj.get_absolute_url())
 
-        action = request.POST.get('action')
-        note = request.POST.get('note', '').strip()
+        action = request.POST.get("action")
+        note = request.POST.get("note", "").strip()
         step.note = note
         step.signature = active_sig
         step.actioned_at = timezone.now()
 
-        if action == 'approve':
-            step.status = 'approved'
+        if action == "approve":
+            step.status = "approved"
             step.save()
             chain.advance()
-            if chain.status == 'active':
+            if chain.status == "active":
                 next_step = chain.get_current_step()
                 if next_step:
                     _notify_approver(next_step)
-            elif chain.status == 'closed':
-                _notify_owner(chain, f"Approval chain for '{chain.document or chain._get_file().file_number}' has been completed. File returned to registry.")
-            log_action(request.user, 'CHAIN_STEP_APPROVED', request=request, obj=file_obj,
-                       details={'chain_id': chain.pk, 'step': step.order})
+            elif chain.status == "closed":
+                _notify_owner(
+                    chain,
+                    (
+                        f"Approval chain for "
+                        f"'{chain.document or chain._get_file().file_number}' "
+                        f"has been completed. File returned to registry."
+                    ),
+                )
+            log_action(
+                request.user,
+                "CHAIN_STEP_APPROVED",
+                request=request,
+                obj=file_obj,
+                details={"chain_id": chain.pk, "step": step.order},
+            )
             messages.success(request, "Step approved.")
-        elif action == 'reject':
-            step.status = 'rejected'
+        elif action == "reject":
+            step.status = "rejected"
             step.save()
             chain.reject_to_previous(step.order)
             _notify_owner(chain, f"Step {step.order} was rejected. Note: {step.note or 'No reason given'}")
-            log_action(request.user, 'CHAIN_STEP_REJECTED', request=request, obj=file_obj,
-                       details={'chain_id': chain.pk, 'step': step.order, 'note': note})
+            log_action(
+                request.user,
+                "CHAIN_STEP_REJECTED",
+                request=request,
+                obj=file_obj,
+                details={"chain_id": chain.pk, "step": step.order, "note": note},
+            )
             messages.warning(request, "Step rejected. File sent back.")
         else:
             messages.error(request, "Invalid action.")
 
-        return redirect(reverse_lazy('document_management:my_chains'))
+        return redirect(reverse_lazy("document_management:my_chains"))
 
 
 class ApprovalChainDeleteView(HTMXLoginRequiredMixin, View):
@@ -318,67 +382,78 @@ class ApprovalChainDeleteView(HTMXLoginRequiredMixin, View):
 
     def post(self, request, file_pk):
         file_obj = get_object_or_404(File, pk=file_pk)
-        chain = ApprovalChain.objects.filter(file=file_obj, status='draft').first()
+        chain = ApprovalChain.objects.filter(file=file_obj, status="draft").first()
         if not chain:
             messages.error(request, "No draft chain found.")
             return redirect(file_obj.get_absolute_url())
 
-        staff = getattr(request.user, 'staff', None)
+        staff = getattr(request.user, "staff", None)
         if file_obj.owner != staff and file_obj.created_by != request.user:
             messages.error(request, "Only the file owner can delete the chain.")
             return redirect(file_obj.get_absolute_url())
 
         chain.delete()
         messages.success(request, "Approval chain deleted.")
-        log_action(request.user, 'CHAIN_DELETED', request=request, obj=file_obj)
+        log_action(request.user, "CHAIN_DELETED", request=request, obj=file_obj)
         return redirect(file_obj.get_absolute_url())
 
 
 class ChainTemplateListView(RegistryRequiredMixin, ListView):
     model = ChainTemplate
-    template_name = 'document_management/chain_template_list.html'
-    context_object_name = 'templates'
+    template_name = "document_management/chain_template_list.html"
+    context_object_name = "templates"
 
     def get_queryset(self):
-        return ChainTemplate.objects.select_related('department', 'created_by').prefetch_related('steps').order_by('-created_at')
+        return (
+            ChainTemplate.objects.select_related("department", "created_by")
+            .prefetch_related("steps")
+            .order_by("-created_at")
+        )
 
 
 class ChainTemplateBuilderView(RegistryRequiredMixin, View):
     """Canvas-based chain template builder for admin/registry."""
 
     def get(self, request, pk=None):
-        from organization.models import Department, Designation, Staff as StaffModel
+        from organization.models import Department, Designation
+        from organization.models import Staff as StaffModel
+
         template = get_object_or_404(ChainTemplate, pk=pk) if pk else None
-        departments = Department.objects.all().order_by('name')
-        designations = Designation.objects.all().order_by('level')
-        staff_list = StaffModel.objects.select_related('user', 'designation', 'department').order_by('user__last_name')
+        departments = Department.objects.all().order_by("name")
+        designations = Designation.objects.all().order_by("level")
+        staff_list = StaffModel.objects.select_related("user", "designation", "department").order_by("user__last_name")
 
         existing_steps = []
         if template:
             for step in template.steps.all():
-                existing_steps.append({
-                    'order': step.order,
-                    'role_type': step.role_type,
-                    'department_scope': step.department_scope,
-                    'specific_department_id': step.specific_department_id,
-                    'designation_id': step.designation_id,
-                    'staff_id': step.staff_id,
-                    'label': str(step),
-                })
+                existing_steps.append(
+                    {
+                        "order": step.order,
+                        "role_type": step.role_type,
+                        "department_scope": step.department_scope,
+                        "specific_department_id": step.specific_department_id,
+                        "designation_id": step.designation_id,
+                        "staff_id": step.staff_id,
+                        "label": str(step),
+                    }
+                )
 
-        return render(request, 'document_management/chain_template_builder.html', {
-            'template': template,
-            'departments': departments,
-            'designations': designations,
-            'staff_list': staff_list,
-            'existing_steps_json': json.dumps(existing_steps),
-        })
+        return render(
+            request,
+            "document_management/chain_template_builder.html",
+            {
+                "template": template,
+                "departments": departments,
+                "designations": designations,
+                "staff_list": staff_list,
+                "existing_steps_json": json.dumps(existing_steps),
+            },
+        )
 
     def post(self, request, pk=None):
-        from organization.models import Department, Designation, Staff as StaffModel
-        name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
-        dept_id = request.POST.get('department') or None
+        name = request.POST.get("name", "").strip()
+        description = request.POST.get("description", "").strip()
+        dept_id = request.POST.get("department") or None
 
         if not name:
             messages.error(request, "Template name is required.")
@@ -393,11 +468,10 @@ class ChainTemplateBuilderView(RegistryRequiredMixin, View):
             tmpl.steps.all().delete()
         else:
             tmpl = ChainTemplate.objects.create(
-                name=name, description=description,
-                department_id=dept_id, created_by=request.user
+                name=name, description=description, department_id=dept_id, created_by=request.user
             )
 
-        steps_json = request.POST.get('steps_json', '[]')
+        steps_json = request.POST.get("steps_json", "[]")
         try:
             steps = json.loads(steps_json)
         except json.JSONDecodeError:
@@ -407,73 +481,74 @@ class ChainTemplateBuilderView(RegistryRequiredMixin, View):
             ChainTemplateStep.objects.create(
                 template=tmpl,
                 order=i,
-                role_type=step.get('role_type', 'specific_person'),
-                department_scope=step.get('department_scope', 'sender'),
-                specific_department_id=step.get('specific_department_id') or None,
-                designation_id=step.get('designation_id') or None,
-                staff_id=step.get('staff_id') or None,
+                role_type=step.get("role_type", "specific_person"),
+                department_scope=step.get("department_scope", "sender"),
+                specific_department_id=step.get("specific_department_id") or None,
+                designation_id=step.get("designation_id") or None,
+                staff_id=step.get("staff_id") or None,
             )
 
         messages.success(request, f"Chain template '{tmpl.name}' saved.")
-        log_action(request.user, 'CHAIN_TEMPLATE_SAVED', request=request,
-                   details={'template': tmpl.name, 'template_id': tmpl.pk})
-        return redirect(reverse_lazy('document_management:chain_template_list'))
+        log_action(
+            request.user,
+            "CHAIN_TEMPLATE_SAVED",
+            request=request,
+            details={"template": tmpl.name, "template_id": tmpl.pk},
+        )
+        return redirect(reverse_lazy("document_management:chain_template_list"))
 
 
 class ChainTemplateDeleteView(RegistryRequiredMixin, View):
     def post(self, request, pk):
         tmpl = get_object_or_404(ChainTemplate, pk=pk)
-        log_action(request.user, 'CHAIN_TEMPLATE_DELETED', request=request,
-                   details={'template': tmpl.name})
+        log_action(request.user, "CHAIN_TEMPLATE_DELETED", request=request, details={"template": tmpl.name})
         tmpl.delete()
         messages.success(request, "Template deleted.")
-        return redirect(reverse_lazy('document_management:chain_template_list'))
+        return redirect(reverse_lazy("document_management:chain_template_list"))
 
 
 class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
     """Staff applies a chain template to a specific document when dispatching."""
 
     def post(self, request, file_pk):
-        from document_management.models import FileAccessRequest, Document
         from django.db.models import Q
+
+        from document_management.models import Document, FileAccessRequest
+
         file_obj = get_object_or_404(File, pk=file_pk)
-        staff = getattr(request.user, 'staff', None)
+        staff = getattr(request.user, "staff", None)
 
         if not staff:
             messages.error(request, "Staff profile not found.")
             return redirect(file_obj.get_absolute_url())
 
         # Permission check: personal files → owner only; policy files → HOD only
-        if file_obj.file_type == 'personal':
+        if file_obj.file_type == "personal":
             if file_obj.owner != staff:
                 messages.error(request, "Only the file owner can dispatch documents from a personal file.")
                 return redirect(file_obj.get_absolute_url())
-        elif file_obj.file_type == 'policy':
-            if not (staff.is_hod and staff.department == file_obj.department):
-                messages.error(request, "Only the HOD of the department can dispatch documents from a policy file.")
-                return redirect(file_obj.get_absolute_url())
+        elif file_obj.file_type == "policy" and not (staff.is_hod and staff.department == file_obj.department):
+            messages.error(request, "Only the HOD of the department can dispatch documents from a policy file.")
+            return redirect(file_obj.get_absolute_url())
 
         # Must have read+write access
-        is_hod_of_policy = (
-            file_obj.file_type == 'policy' and
-            staff.is_hod and
-            staff.department == file_obj.department
-        )
+        is_hod_of_policy = file_obj.file_type == "policy" and staff.is_hod and staff.department == file_obj.department
         has_rw = (
-            file_obj.owner == staff or
-            file_obj.current_location == staff or
-            is_hod_of_policy or
-            FileAccessRequest.objects.filter(
-                file=file_obj, requested_by=request.user,
-                status='approved', access_type='read_write'
-            ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+            file_obj.owner == staff
+            or file_obj.current_location == staff
+            or is_hod_of_policy
+            or FileAccessRequest.objects.filter(
+                file=file_obj, requested_by=request.user, status="approved", access_type="read_write"
+            )
+            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+            .exists()
         )
         if not has_rw:
             messages.error(request, "You need read & write access to dispatch a chain.")
             return redirect(file_obj.get_absolute_url())
 
-        template_id = request.POST.get('template_id')
-        document_id = request.POST.get('document_id')
+        template_id = request.POST.get("template_id")
+        document_id = request.POST.get("document_id")
 
         tmpl = get_object_or_404(ChainTemplate, pk=template_id, is_active=True)
         document = get_object_or_404(Document, pk=document_id, file=file_obj)
@@ -482,20 +557,23 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
             messages.error(request, f"Chain template '{tmpl.name}' has no steps defined.")
             return redirect(file_obj.get_absolute_url())
 
-        if document.approval_chains.filter(status__in=['draft', 'active']).exists():
+        if document.approval_chains.filter(status__in=["draft", "active"]).exists():
             messages.error(request, "This document already has an active approval chain.")
             return redirect(file_obj.get_absolute_url())
 
-        dispatch_message = request.POST.get('dispatch_message', '').strip()
-        reference_doc_ids = request.POST.getlist('reference_documents')
+        dispatch_message = request.POST.get("dispatch_message", "").strip()
+        reference_doc_ids = request.POST.getlist("reference_documents")
 
         chain = ApprovalChain.objects.create(
-            document=document, file=file_obj,
-            created_by=request.user, status='draft',
+            document=document,
+            file=file_obj,
+            created_by=request.user,
+            status="draft",
             dispatch_message=dispatch_message,
         )
         if reference_doc_ids:
             from document_management.models import Document as Doc
+
             chain.reference_documents.set(Doc.objects.filter(pk__in=reference_doc_ids, file=file_obj))
         unresolved = []
         for step in tmpl.steps.all():
@@ -507,7 +585,12 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
 
         if chain.steps.count() == 0:
             chain.delete()
-            messages.error(request, "No approvers could be resolved for this chain template. Check that the required staff (HOD, unit manager, etc.) are assigned.")
+            messages.error(
+                request,
+                "No approvers could be resolved for this chain template. "
+                "Check that the required staff (HOD, unit manager, etc.) "
+                "are assigned.",
+            )
             return redirect(file_obj.get_absolute_url())
 
         if unresolved:
@@ -515,6 +598,11 @@ class ApplyChainTemplateView(HTMXLoginRequiredMixin, View):
         else:
             messages.success(request, f"Chain '{tmpl.name}' applied to document. Start it to dispatch.")
 
-        log_action(request.user, 'CHAIN_APPLIED', request=request, obj=file_obj,
-                   details={'template': tmpl.name, 'document': str(document)})
+        log_action(
+            request.user,
+            "CHAIN_APPLIED",
+            request=request,
+            obj=file_obj,
+            details={"template": tmpl.name, "document": str(document)},
+        )
         return redirect(file_obj.get_absolute_url())

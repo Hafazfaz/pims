@@ -4,13 +4,14 @@ Central permission/policy rules for document management.
 All role-based checks should be defined here as plain functions.
 Views import and call these instead of duplicating logic inline.
 """
-from django.utils import timezone
-from django.db.models import Q
 
+from django.db.models import Q
+from django.utils import timezone
 
 # ---------------------------------------------------------------------------
 # Role helpers
 # ---------------------------------------------------------------------------
+
 
 def get_staff(user):
     return getattr(user, "staff", None)
@@ -45,6 +46,7 @@ def is_executive(user):
 # File permissions
 # ---------------------------------------------------------------------------
 
+
 def can_create_file(user):
     """Only registry staff can create files."""
     return is_registry(user)
@@ -59,16 +61,18 @@ def can_view_file(user, file):
         return False
     if file.owner == staff or file.current_location == staff:
         return True
-    if file.file_type == "policy":
-        if (is_hod(user) or is_unit_manager(user)) and file.department == staff.department:
-            return True
+    if file.file_type == "policy" and (is_hod(user) or is_unit_manager(user)) and file.department == staff.department:
+        return True
     if file.file_type == "personal" and is_hod(user) and file.owner and file.owner.department == staff.department:
         return True
     # Approved access request
     from document_management.models import FileAccessRequest
-    return FileAccessRequest.objects.filter(
-        file=file, requested_by=user, status="approved"
-    ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+
+    return (
+        FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved")
+        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+        .exists()
+    )
 
 
 def can_activate_file(user, file):
@@ -96,9 +100,10 @@ def can_send_file(user, file):
 # Document permissions
 # ---------------------------------------------------------------------------
 
+
 def can_add_document(user, file):
     """Registry or current custodian with RW access can add documents."""
-    if not file.status == "active":
+    if file.status != "active":
         return False
     if file.is_in_active_chain:
         return False
@@ -108,9 +113,12 @@ def can_add_document(user, file):
     if not staff or file.current_location != staff:
         return False
     from document_management.models import FileAccessRequest
-    return FileAccessRequest.objects.filter(
-        file=file, requested_by=user, status="approved", access_type="read_write"
-    ).filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).exists()
+
+    return (
+        FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved", access_type="read_write")
+        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+        .exists()
+    )
 
 
 def can_dispatch_document(user, file):
@@ -163,6 +171,7 @@ def can_view_document(user, document):
 # Dispatch recipient rules
 # ---------------------------------------------------------------------------
 
+
 def get_dispatch_recipients(user, file):
     """
     Returns a Staff queryset of valid recipients for dispatching a document.
@@ -172,10 +181,13 @@ def get_dispatch_recipients(user, file):
     Regular staff → unit manager if exists, else HOD.
     """
     from organization.models import Staff
+
     from document_management.views.base import EXCLUDE_REGISTRY_Q
 
-    base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=user).select_related(
-        "user", "designation", "department", "unit"
+    base_qs = (
+        Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
+        .exclude(user=user)
+        .select_related("user", "designation", "department", "unit")
     )
     staff = get_staff(user)
     if not staff:
