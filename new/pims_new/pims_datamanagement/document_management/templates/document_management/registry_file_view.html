@@ -55,8 +55,10 @@
                             {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
                             {{ doc.get_status_display }}
                         </span>
+                        {% if can_view_content %}
                         <a href="{% url 'document_management:document_detail' pk=doc.pk %}"
                            class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700 transition-colors">View</a>
+                        {% endif %}
                     </div>
                 </div>
                 {% empty %}
@@ -173,7 +175,9 @@
                             <p class="text-[10px] text-slate-400">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"—" }} · {{ doc.uploaded_at|date:"d M Y, H:i" }}</p>
                         </div>
                     </div>
+                    {% if can_view_content %}
                     <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700 shrink-0">View</a>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
