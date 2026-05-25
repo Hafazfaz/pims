@@ -244,7 +244,9 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
-        queryset = File.objects.filter(Q(owner=staff_user) | Q(created_by=self.request.user)).distinct()
+        queryset = File.objects.filter(
+            Q(owner=staff_user) | Q(created_by=self.request.user) | Q(current_location=staff_user)
+        ).distinct()
 
         if not staff_user.is_registry:
             queryset = queryset.filter(status="active")

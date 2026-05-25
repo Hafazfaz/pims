@@ -114,9 +114,15 @@
                     </path>
                 </svg>
             </div>
-            <h5 class="text-sm font-black text-slate-400 uppercase tracking-[0.3em] italic mb-2">Registry Archive Empty</h5>
+            <h5 class="text-sm font-black text-slate-400 uppercase tracking-[0.3em] italic mb-2">
+                {% if user.staff.is_registry %}Registry Archive Empty{% else %}No Records Found{% endif %}
+            </h5>
             <p class="text-xs text-slate-400 font-medium italic">
-                No personal records have been generated or assigned to your identity yet.
+                {% if user.staff.is_registry %}
+                    No personal records have been generated or assigned to your identity yet.
+                {% else %}
+                    You have no files assigned or dispatched to you yet.
+                {% endif %}
             </p>
         </div>
     {% endfor %}
