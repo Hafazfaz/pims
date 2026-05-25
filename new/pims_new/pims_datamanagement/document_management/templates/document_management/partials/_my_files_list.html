@@ -56,9 +56,13 @@
                                             <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                             </svg>
+                                            {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md %}
                                             <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="font-bold text-slate-700 text-sm hover:text-nigeria-green hover:underline transition-colors">
                                                 {% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}
                                             </a>
+                                            {% else %}
+                                            <span class="font-bold text-slate-700 text-sm">{% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}</span>
+                                            {% endif %}
                                         </div>
                                     </td>
                                     <td class="px-8 py-5">
@@ -68,10 +72,14 @@
                                         <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
                                     </td>
                                     <td class="px-8 py-5 text-right">
-                                        {% if doc.attachment %}
-                                            <a href="{% url 'document_management:document_download' doc.pk %}" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
+                                        {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md %}
+                                            {% if doc.attachment %}
+                                                <a href="{% url 'document_management:document_download' doc.pk %}" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
+                                            {% else %}
+                                                <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
+                                            {% endif %}
                                         {% else %}
-                                            <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
+                                            <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">{% if doc.attachment %}Attachment{% else %}Digital Entry{% endif %}</span>
                                         {% endif %}
                                     </td>
                                 </tr>
