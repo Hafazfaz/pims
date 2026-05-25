@@ -249,7 +249,7 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         ).distinct()
 
         if not staff_user.is_registry:
-            queryset = queryset.filter(status="active")
+            queryset = queryset.exclude(status__in=["inactive", "closed"])
 
         search_query = self.request.GET.get("q")
         if search_query:
