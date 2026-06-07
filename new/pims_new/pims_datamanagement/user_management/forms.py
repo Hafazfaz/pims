@@ -24,6 +24,7 @@ class UserCreateForm(forms.ModelForm):
     designation = forms.ModelChoiceField(queryset=Designation.objects.all(), required=True)
     staff_type = forms.ChoiceField(choices=[("permanent", "Permanent"), ("contract", "Contract")], required=True)
     is_supervisor = forms.BooleanField(required=False)
+    can_set_urgent_priority = forms.BooleanField(required=False, label="Can mark documents as Urgent/High Priority")
     password = forms.CharField(widget=forms.PasswordInput, required=True)
 
     class Meta:
