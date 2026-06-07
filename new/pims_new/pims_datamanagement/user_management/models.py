@@ -10,6 +10,11 @@ class CustomUser(AbstractUser):
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     last_session_key = models.CharField(max_length=40, null=True, blank=True)  # Max length for session keys
 
+    class Meta(AbstractUser.Meta):
+        permissions = [
+            ("can_set_urgent_priority", "Can mark documents as Urgent or High Priority"),
+        ]
+
 
 class UserSession(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="active_sessions")
