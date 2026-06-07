@@ -795,10 +795,18 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             )
 
             # Assign to Staff group so they get baseline permissions
-            from django.contrib.auth.models import Group
+            from django.contrib.auth.models import Group, Permission
 
             staff_group, _ = Group.objects.get_or_create(name="Staff")
             user.groups.add(staff_group)
+
+            # Assign urgent priority permission if selected
+            if form.cleaned_data.get("can_set_urgent_priority"):
+                urgent_perm = Permission.objects.get(
+                    content_type__app_label="user_management",
+                    codename="can_set_urgent_priority",
+                )
+                user.user_permissions.add(urgent_perm)
 
             log_action(
                 self.request.user,
