@@ -694,7 +694,10 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.file = self.file_obj
         form.instance.uploaded_by = self.request.user
-        form.instance.priority = form.cleaned_data.get("priority", "normal")
+        priority = form.cleaned_data.get("priority", "normal")
+        if priority in ("urgent", "high") and not self.request.user.has_perm("user_management.can_set_urgent_priority"):
+            priority = "normal"
+        form.instance.priority = priority
 
         if getattr(self.file_obj, "active_dispatch_document", None):
             is_custodian = (
