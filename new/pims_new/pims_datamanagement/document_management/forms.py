@@ -223,6 +223,10 @@ class DocumentForm(forms.ModelForm):
         if not can_sign:
             self.fields.pop("include_signature", None)
 
+        # Restrict priority field for users without urgent permission
+        if self.user and not self.user.has_perm("user_management.can_set_urgent_priority"):
+            self.fields.pop("priority", None)
+
     def clean_priority(self):
         priority = self.cleaned_data.get("priority", "normal")
         if priority not in dict(Document.PRIORITY_CHOICES):
@@ -380,6 +384,10 @@ class DocumentUploadForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+
+        # Restrict priority field for users without urgent permission
+        if self.user and not self.user.has_perm("user_management.can_set_urgent_priority"):
+            self.fields.pop("priority", None)
 
         # Filter files that the current user has access to for association
         if self.user and self.user.is_authenticated:
