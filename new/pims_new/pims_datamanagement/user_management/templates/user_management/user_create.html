@@ -13,6 +13,20 @@
     #dept-dropdown::-webkit-scrollbar { width: 4px; }
     #dept-dropdown::-webkit-scrollbar-track { background: #f1f5f9; }
     #dept-dropdown::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .searchable-select-wrapper { position: relative; }
+    .searchable-select-wrapper input[type="text"] {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        outline: none;
+        margin-bottom: 2px;
+        box-sizing: border-box;
+        background: #f8fafc;
+    }
+    .searchable-select-wrapper input[type="text"]:focus { border-color: #16a34a; }
+    .searchable-select-wrapper select { width: 100%; }
 </style>
 {% endblock %}
 {% block content %}
@@ -183,6 +197,26 @@
         if (!document.getElementById('dept-picker').contains(e.target)) {
             document.getElementById('dept-dropdown').innerHTML = '';
         }
+    });
+
+    // Searchable selects for HTMX-injected dependents
+    document.addEventListener('htmx:afterSettle', function () {
+        document.querySelectorAll('.select-search').forEach(function (searchInput) {
+            if (searchInput.dataset.initialized) return;
+            searchInput.dataset.initialized = '1';
+            var select = document.getElementById(searchInput.dataset.target);
+            if (!select) return;
+            searchInput.addEventListener('input', function () {
+                var filter = searchInput.value.toLowerCase();
+                Array.from(select.options).forEach(function (opt) {
+                    opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
+                });
+            });
+            searchInput.addEventListener('focus', function () { searchInput.dispatchEvent(new Event('input')); });
+            if (select.selectedIndex > 0) {
+                searchInput.value = select.options[select.selectedIndex].text;
+            }
+        });
     });
 </script>
 {% endblock %}
