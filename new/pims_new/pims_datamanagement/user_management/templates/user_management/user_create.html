@@ -3,20 +3,16 @@
 {% block title %}Add Single User | PIMS{% endblock %}
 {% block extra_head %}
 <style>
-    .searchable-select-wrapper { position: relative; }
-    .searchable-select-wrapper input[type="text"] {
-        width: 100%;
-        padding: 8px 12px;
-        font-size: 12px;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        outline: none;
-        margin-bottom: 2px;
-        box-sizing: border-box;
-        background: #f8fafc;
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-8px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
-    .searchable-select-wrapper input[type="text"]:focus { border-color: #16a34a; ring: 2px solid #16a34a; }
-    .searchable-select-wrapper select { width: 100%; }
+    .animate-in { animation: slideDown 0.2s ease-out forwards; }
+
+    #dept-dropdown { max-height: 220px; overflow-y: auto; }
+    #dept-dropdown::-webkit-scrollbar { width: 4px; }
+    #dept-dropdown::-webkit-scrollbar-track { background: #f1f5f9; }
+    #dept-dropdown::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 </style>
 {% endblock %}
 {% block content %}
@@ -37,6 +33,8 @@
             <div class="p-8">
                 <form method="post" class="space-y-6">
                     {% csrf_token %}
+                    {# Hidden field carries the selected department id for form submission #}
+                    <input type="hidden" name="department" id="id_department">
                     {% if form.non_field_errors %}
                         <div class="p-4 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 mb-6">{{ form.non_field_errors }}</div>
                     {% endif %}
@@ -79,48 +77,53 @@
                                 {% if form.is_supervisor.errors %}<p class="text-[10px] text-red-500">{{ form.is_supervisor.errors.0 }}</p>{% endif %}
                             </div>
                         </div>
+
                         <!-- Organization Placement -->
                         <div class="space-y-4">
                             <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2">Organization Placement</h3>
+
+                            <!-- Department search -->
                             <div class="space-y-1.5">
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Department *</label>
-                                <div class="searchable-select-wrapper">
-                                    <input type="text" class="select-search" placeholder="Search department..." data-target="id_department">
-                                    {{ form.department|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
-                                </div>
                                 {% if form.department.errors %}<p class="text-[10px] text-red-500">{{ form.department.errors.0 }}</p>{% endif %}
-                            </div>
-                            <div class="space-y-1.5">
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Division</label>
-                                <div class="searchable-select-wrapper">
-                                    <input type="text" class="select-search" placeholder="Search division..." data-target="id_division">
-                                    {{ form.division|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+
+                                <div class="relative" id="dept-picker">
+                                    <!-- Selected dept badge -->
+                                    <div id="dept-selected" class="hidden mb-2 flex items-center gap-2 px-3 py-2 bg-nigeria-green/10 border border-nigeria-green/30 rounded-lg">
+                                        <span class="flex-1 text-sm font-semibold text-nigeria-green" id="dept-selected-name"></span>
+                                        <button type="button" id="dept-clear"
+                                                class="text-slate-400 hover:text-red-500 transition-colors text-xs font-bold uppercase tracking-widest">
+                                            Change
+                                        </button>
+                                    </div>
+
+                                    <!-- Search input -->
+                                    <div id="dept-search-wrap">
+                                        <input type="text" id="dept-search"
+                                               placeholder="Search department…"
+                                               autocomplete="off"
+                                               class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all"
+                                               hx-get="{% url 'organization:department_search' %}"
+                                               hx-trigger="input changed delay:200ms, focus"
+                                               hx-target="#dept-dropdown"
+                                               hx-vals='js:{"q": document.getElementById("dept-search").value}'>
+                                        <!-- Dropdown results -->
+                                        <div id="dept-dropdown"
+                                             class="mt-1 border border-slate-200 rounded-lg bg-white shadow-md divide-y divide-slate-50 overflow-y-auto"
+                                             style="max-height:220px">
+                                        </div>
+                                    </div>
                                 </div>
-                                {% if form.division.errors %}<p class="text-[10px] text-red-500">{{ form.division.errors.0 }}</p>{% endif %}
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Section</label>
-                                <div class="searchable-select-wrapper">
-                                    <input type="text" class="select-search" placeholder="Search section..." data-target="id_section">
-                                    {{ form.section|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
-                                </div>
-                                {% if form.section.errors %}<p class="text-[10px] text-red-500">{{ form.section.errors.0 }}</p>{% endif %}
-                            </div>
-                            <div class="space-y-1.5">
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit</label>
-                                <div class="searchable-select-wrapper">
-                                    <input type="text" class="select-search" placeholder="Search unit..." data-target="id_unit">
-                                    {{ form.unit|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
-                                </div>
-                                {% if form.unit.errors %}<p class="text-[10px] text-red-500">{{ form.unit.errors.0 }}</p>{% endif %}
-                            </div>
+
+                            <!-- Dependent fields (animate in after dept selection) -->
+                            <div id="dept-dependents" class="space-y-4"></div>
+
+                            <!-- Designation + Staff Type -->
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1.5">
                                     <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation *</label>
-                                    <div class="searchable-select-wrapper">
-                                        <input type="text" class="select-search" placeholder="Search designation..." data-target="id_designation">
-                                        {{ form.designation|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
-                                    </div>
+                                    {{ form.designation|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
                                     {% if form.designation.errors %}<p class="text-[10px] text-red-500">{{ form.designation.errors.0 }}</p>{% endif %}
                                 </div>
                                 <div class="space-y-1.5">
@@ -129,6 +132,7 @@
                                     {% if form.staff_type.errors %}<p class="text-[10px] text-red-500">{{ form.staff_type.errors.0 }}</p>{% endif %}
                                 </div>
                             </div>
+
                             <div class="space-y-1.5 pt-4 border-t border-slate-100">
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     {{ form.can_set_urgent_priority }}
@@ -151,23 +155,33 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-    document.querySelectorAll('.select-search').forEach(function(searchInput) {
-        var select = document.getElementById(searchInput.dataset.target);
-        if (!select) return;
-        searchInput.addEventListener('input', function() {
-            var filter = searchInput.value.toLowerCase();
-            Array.from(select.options).forEach(function(opt) {
-                opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
-            });
-        });
-        searchInput.addEventListener('focus', function() { searchInput.dispatchEvent(new Event('input')); });
-        select.addEventListener('change', function() {
-            var selected = select.options[select.selectedIndex];
-            if (selected) searchInput.value = selected.text;
-        });
-        if (select.selectedIndex > 0) {
-            var selected = select.options[select.selectedIndex];
-            if (selected) searchInput.value = selected.text;
+    function selectDept(btn) {
+        const id   = btn.dataset.deptId;
+        const name = btn.dataset.deptName;
+
+        // set hidden input
+        document.getElementById('id_department').value = id;
+
+        // show badge, hide search
+        document.getElementById('dept-selected-name').textContent = name;
+        document.getElementById('dept-selected').classList.remove('hidden');
+        document.getElementById('dept-search-wrap').classList.add('hidden');
+        document.getElementById('dept-dropdown').innerHTML = '';
+    }
+
+    document.getElementById('dept-clear').addEventListener('click', function () {
+        document.getElementById('id_department').value = '';
+        document.getElementById('dept-selected').classList.add('hidden');
+        document.getElementById('dept-search-wrap').classList.remove('hidden');
+        document.getElementById('dept-dependents').innerHTML = '';
+        document.getElementById('dept-search').value = '';
+        document.getElementById('dept-search').focus();
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function (e) {
+        if (!document.getElementById('dept-picker').contains(e.target)) {
+            document.getElementById('dept-dropdown').innerHTML = '';
         }
     });
 </script>

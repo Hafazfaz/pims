@@ -1,0 +1,19 @@
+{% if departments %}
+    {% for dept in departments %}
+        <button type="button"
+                class="dept-option w-full text-left px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-nigeria-green/10 hover:text-nigeria-green rounded-lg transition-colors flex items-center justify-between group"
+                data-dept-id="{{ dept.pk }}"
+                data-dept-name="{{ dept.name }}"
+                hx-get="{% url 'organization:department_dependents' %}?department_id={{ dept.pk }}"
+                hx-target="#dept-dependents"
+                hx-swap="innerHTML transition:true"
+                hx-on::after-request="selectDept(this)">
+            <span>{{ dept.name }}</span>
+            {% if dept.code %}<span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest group-hover:text-nigeria-green/70">{{ dept.code }}</span>{% endif %}
+        </button>
+    {% endfor %}
+{% else %}
+    <p class="px-3 py-4 text-center text-[11px] text-slate-400 font-medium">
+        {% if q %}No departments match "{{ q }}"{% else %}No departments found{% endif %}
+    </p>
+{% endif %}

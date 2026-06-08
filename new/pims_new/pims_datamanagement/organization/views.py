@@ -2,7 +2,9 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from .forms import DepartmentForm, DesignationForm, DivisionForm, SectionForm, UnitForm
@@ -266,3 +268,37 @@ class SectionDeleteView(LoginRequiredMixin, RegistryOrSuperuserRequiredMixin, De
     def form_valid(self, form):
         messages.success(self.request, f'Section "{self.object.name}" deleted.')
         return super().form_valid(form)
+
+
+# ── HTMX department helpers ───────────────────────────────────────────────────
+
+
+class DepartmentSearchView(LoginRequiredMixin, View):
+    """Returns a list of department buttons matching the search query (HTMX)."""
+
+    def get(self, request):
+        q = request.GET.get("q", "").strip()
+        departments = Department.objects.filter(name__icontains=q).order_by("name")[:20] if q else Department.objects.order_by("name")[:20]
+        return render(request, "organization/partials/_department_search_results.html", {"departments": departments, "q": q})
+
+
+class DepartmentDependentsView(LoginRequiredMixin, View):
+    """Returns division/section/unit selects for the chosen department (HTMX)."""
+
+    def get(self, request):
+        dept_id = request.GET.get("department_id")
+        department = None
+        divisions = sections = units = []
+        if dept_id:
+            try:
+                department = Department.objects.get(pk=dept_id)
+                divisions = Division.objects.filter(department=department).order_by("name")
+                sections = Section.objects.filter(department=department).order_by("name")
+                units = Unit.objects.filter(department=department).order_by("name")
+            except Department.DoesNotExist:
+                pass
+        return render(
+            request,
+            "organization/partials/_department_dependents.html",
+            {"department": department, "divisions": divisions, "sections": sections, "units": units},
+        )

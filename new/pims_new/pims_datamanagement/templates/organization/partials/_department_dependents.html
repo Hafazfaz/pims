@@ -1,0 +1,46 @@
+{% if department %}
+<div class="space-y-4 animate-in">
+    {% if divisions %}
+    <div class="space-y-1.5">
+        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Division</label>
+        <select name="division" id="id_division"
+                class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all">
+            <option value="">— None (optional) —</option>
+            {% for div in divisions %}
+                <option value="{{ div.pk }}">{{ div.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if sections %}
+    <div class="space-y-1.5">
+        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Section</label>
+        <select name="section" id="id_section"
+                class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all">
+            <option value="">— None (optional) —</option>
+            {% for sec in sections %}
+                <option value="{{ sec.pk }}">{{ sec.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if units %}
+    <div class="space-y-1.5">
+        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit</label>
+        <select name="unit" id="id_unit"
+                class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all">
+            <option value="">— None (optional) —</option>
+            {% for unit in units %}
+                <option value="{{ unit.pk }}">{{ unit.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if not divisions and not sections and not units %}
+    <p class="text-[11px] text-slate-400 italic">No sub-units found for this department.</p>
+    {% endif %}
+</div>
+{% endif %}

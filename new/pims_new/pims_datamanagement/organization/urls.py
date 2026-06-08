@@ -32,4 +32,7 @@ urlpatterns = [
     path("sections/create/", views.SectionCreateView.as_view(), name="section_create"),
     path("sections/<int:pk>/edit/", views.SectionUpdateView.as_view(), name="section_edit"),
     path("sections/<int:pk>/delete/", views.SectionDeleteView.as_view(), name="section_delete"),
+    # HTMX helpers
+    path("departments/search/", views.DepartmentSearchView.as_view(), name="department_search"),
+    path("departments/dependents/", views.DepartmentDependentsView.as_view(), name="department_dependents"),
 ]
