@@ -1,6 +1,24 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
 {% block title %}Add Single User | PIMS{% endblock %}
+{% block extra_head %}
+<style>
+    .searchable-select-wrapper { position: relative; }
+    .searchable-select-wrapper input[type="text"] {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        outline: none;
+        margin-bottom: 2px;
+        box-sizing: border-box;
+        background: #f8fafc;
+    }
+    .searchable-select-wrapper input[type="text"]:focus { border-color: #16a34a; ring: 2px solid #16a34a; }
+    .searchable-select-wrapper select { width: 100%; }
+</style>
+{% endblock %}
 {% block content %}
     <div class="max-w-3xl mx-auto space-y-8">
         <div class="flex items-center justify-between">
@@ -66,29 +84,43 @@
                             <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2">Organization Placement</h3>
                             <div class="space-y-1.5">
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Department *</label>
-                                {{ form.department|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                <div class="searchable-select-wrapper">
+                                    <input type="text" class="select-search" placeholder="Search department..." data-target="id_department">
+                                    {{ form.department|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                </div>
                                 {% if form.department.errors %}<p class="text-[10px] text-red-500">{{ form.department.errors.0 }}</p>{% endif %}
                             </div>
                             <div class="space-y-1.5">
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Division</label>
-                                {{ form.division|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                <div class="searchable-select-wrapper">
+                                    <input type="text" class="select-search" placeholder="Search division..." data-target="id_division">
+                                    {{ form.division|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                </div>
                                 {% if form.division.errors %}<p class="text-[10px] text-red-500">{{ form.division.errors.0 }}</p>{% endif %}
                             </div>
                             <div class="space-y-1.5">
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Section</label>
-                                {{ form.section|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                <div class="searchable-select-wrapper">
+                                    <input type="text" class="select-search" placeholder="Search section..." data-target="id_section">
+                                    {{ form.section|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                </div>
                                 {% if form.section.errors %}<p class="text-[10px] text-red-500">{{ form.section.errors.0 }}</p>{% endif %}
                             </div>
                             <div class="space-y-1.5">
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit</label>
-                                {{ form.unit|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                <div class="searchable-select-wrapper">
+                                    <input type="text" class="select-search" placeholder="Search unit..." data-target="id_unit">
+                                    {{ form.unit|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                </div>
                                 {% if form.unit.errors %}<p class="text-[10px] text-red-500">{{ form.unit.errors.0 }}</p>{% endif %}
-                                <p class="text-[9px] text-slate-400 font-bold">Options will refresh after selecting a department (reload required typically, or select any unit attached to the department).</p>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1.5">
                                     <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation *</label>
-                                    {{ form.designation|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                    <div class="searchable-select-wrapper">
+                                        <input type="text" class="select-search" placeholder="Search designation..." data-target="id_designation">
+                                        {{ form.designation|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
+                                    </div>
                                     {% if form.designation.errors %}<p class="text-[10px] text-red-500">{{ form.designation.errors.0 }}</p>{% endif %}
                                 </div>
                                 <div class="space-y-1.5">
@@ -96,6 +128,13 @@
                                     {{ form.staff_type|add_class:"w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-nigeria-green/20 focus:border-nigeria-green transition-all" }}
                                     {% if form.staff_type.errors %}<p class="text-[10px] text-red-500">{{ form.staff_type.errors.0 }}</p>{% endif %}
                                 </div>
+                            </div>
+                            <div class="space-y-1.5 pt-4 border-t border-slate-100">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    {{ form.can_set_urgent_priority }}
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Can set urgent priority on documents</span>
+                                </label>
+                                {% if form.can_set_urgent_priority.errors %}<p class="text-[10px] text-red-500">{{ form.can_set_urgent_priority.errors.0 }}</p>{% endif %}
                             </div>
                         </div>
                     </div>
@@ -109,4 +148,27 @@
             </div>
         </div>
     </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    document.querySelectorAll('.select-search').forEach(function(searchInput) {
+        var select = document.getElementById(searchInput.dataset.target);
+        if (!select) return;
+        searchInput.addEventListener('input', function() {
+            var filter = searchInput.value.toLowerCase();
+            Array.from(select.options).forEach(function(opt) {
+                opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        });
+        searchInput.addEventListener('focus', function() { searchInput.dispatchEvent(new Event('input')); });
+        select.addEventListener('change', function() {
+            var selected = select.options[select.selectedIndex];
+            if (selected) searchInput.value = selected.text;
+        });
+        if (select.selectedIndex > 0) {
+            var selected = select.options[select.selectedIndex];
+            if (selected) searchInput.value = selected.text;
+        }
+    });
+</script>
 {% endblock %}
