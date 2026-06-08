@@ -24,7 +24,7 @@ from django.urls import reverse_lazy
 from django.utils import timezone  # Add this import
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.generic import CreateView, ListView, TemplateView  # Added TemplateView
+from django.views.generic import CreateView, DetailView, ListView, TemplateView  # Added TemplateView
 from document_management.models import (  # Import for admin health dashboard
     Document,
     File,
@@ -260,6 +260,31 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             del params["page"]
         context["query_params"] = "&" + params.urlencode() if params else ""
 
+        return context
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect("user_management:login")
+        messages.error(self.request, "You do not have permission to view this page.")
+        return redirect("home")
+
+
+class UserDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = CustomUser
+    template_name = "user_management/user_detail.html"
+    context_object_name = "target_user"
+    permission_required = "auth.view_user"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_obj = self.object
+        context["has_urgent_priority"] = user_obj.user_permissions.filter(
+            codename="can_set_urgent_priority",
+        ).exists()
+        try:
+            context["staff_profile"] = user_obj.staff
+        except Exception:
+            context["staff_profile"] = None
         return context
 
     def handle_no_permission(self):
