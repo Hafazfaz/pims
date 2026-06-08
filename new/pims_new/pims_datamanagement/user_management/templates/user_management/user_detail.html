@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}{{ target_user.username }} | User Detail | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <a href="{% url 'user_management:user_list' %}" class="text-xs text-slate-400 hover:text-nigeria-green transition-colors">← Back to User Directory</a>
+            <h2 class="text-2xl font-bold text-slate-900 mt-1">{{ target_user.get_full_name|default:target_user.username }}</h2>
+            <p class="text-sm text-slate-500">{{ target_user.email }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Account Information</h3>
+                <dl class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Username</dt>
+                        <dd class="font-semibold text-slate-900">{{ target_user.username }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Email</dt>
+                        <dd class="font-semibold text-slate-900">{{ target_user.email }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Full Name</dt>
+                        <dd class="font-semibold text-slate-900">{{ target_user.get_full_name|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Status</dt>
+                        <dd class="font-semibold">
+                            {% if target_user.lockout_until %}
+                                <span class="text-red-600">Suspended</span>
+                            {% else %}
+                                <span class="text-nigeria-green">Active</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Date Joined</dt>
+                        <dd class="font-semibold text-slate-900">{{ target_user.date_joined|date:"M d, Y" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Last Login</dt>
+                        <dd class="font-semibold text-slate-900">{{ target_user.last_login|date:"M d, Y H:i"|default:"—" }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            {% if staff_profile %}
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Staff Profile</h3>
+                <dl class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Designation</dt>
+                        <dd class="font-semibold text-slate-900">{{ staff_profile.designation.name|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Department</dt>
+                        <dd class="font-semibold text-slate-900">{{ staff_profile.department.name|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Unit</dt>
+                        <dd class="font-semibold text-slate-900">{{ staff_profile.unit.name|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Staff Type</dt>
+                        <dd class="font-semibold text-slate-900">{{ staff_profile.get_staff_type_display|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] text-slate-400 uppercase tracking-widest">Supervisor</dt>
+                        <dd class="font-semibold">{% if staff_profile.is_supervisor %}Yes{% else %}No{% endif %}</dd>
+                    </div>
+                </dl>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Permissions</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-700">Urgent/High Priority</span>
+                        {% if has_urgent_priority %}
+                            <span class="text-[9px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">Granted</span>
+                        {% else %}
+                            <span class="text-[9px] font-bold bg-slate-50 text-slate-400 px-2 py-0.5 rounded border border-slate-200">Not Assigned</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-700">Superuser</span>
+                        {% if target_user.is_superuser %}
+                            <span class="text-[9px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">Yes</span>
+                        {% else %}
+                            <span class="text-[9px] font-bold bg-slate-50 text-slate-400 px-2 py-0.5 rounded border border-slate-200">No</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-700">Active</span>
+                        {% if target_user.is_active %}
+                            <span class="text-[9px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">Yes</span>
+                        {% else %}
+                            <span class="text-[9px] font-bold bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-200">No</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Groups</h3>
+                {% if target_user.groups.all %}
+                    <div class="flex flex-wrap gap-2">
+                        {% for group in target_user.groups.all %}
+                            <span class="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded">{{ group.name }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-sm text-slate-400 italic">No groups assigned.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
