@@ -192,31 +192,58 @@
         document.getElementById('dept-search').focus();
     });
 
-    // Close dropdown when clicking outside
+    // Close department dropdown when clicking outside
     document.addEventListener('click', function (e) {
-        if (!document.getElementById('dept-picker').contains(e.target)) {
+        var picker = document.getElementById('dept-picker');
+        if (picker && !picker.contains(e.target)) {
             document.getElementById('dept-dropdown').innerHTML = '';
         }
     });
 
-    // Searchable selects for HTMX-injected dependents
-    document.addEventListener('htmx:afterSettle', function () {
-        document.querySelectorAll('.select-search').forEach(function (searchInput) {
-            if (searchInput.dataset.initialized) return;
-            searchInput.dataset.initialized = '1';
-            var select = document.getElementById(searchInput.dataset.target);
-            if (!select) return;
-            searchInput.addEventListener('input', function () {
-                var filter = searchInput.value.toLowerCase();
-                Array.from(select.options).forEach(function (opt) {
-                    opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
-                });
-            });
-            searchInput.addEventListener('focus', function () { searchInput.dispatchEvent(new Event('input')); });
-            if (select.selectedIndex > 0) {
-                searchInput.value = select.options[select.selectedIndex].text;
-            }
+    // Init pickers for dependents (division, section, unit) injected via HTMX
+    function initDepPicker(pickerId, hiddenId, selectedId, searchWrapId) {
+        var picker = document.getElementById(pickerId);
+        if (!picker || picker.dataset.initialized) return;
+        picker.dataset.initialized = '1';
+
+        var hidden = document.getElementById(hiddenId);
+        var selected = document.getElementById(selectedId);
+        var searchWrap = document.getElementById(searchWrapId);
+        var searchInput = searchWrap.querySelector('input');
+        var list = searchWrap.querySelector('.dept-search-dropdown');
+
+        // Click an option
+        list.addEventListener('click', function (e) {
+            var btn = e.target.closest('.dept-option');
+            if (!btn) return;
+            hidden.value = btn.dataset.value;
+            selected.querySelector('span').textContent = btn.dataset.label;
+            selected.classList.remove('hidden');
+            searchWrap.classList.add('hidden');
         });
+
+        // Change / clear button
+        picker.querySelector('.dep-clear').addEventListener('click', function () {
+            hidden.value = '';
+            selected.classList.add('hidden');
+            searchWrap.classList.remove('hidden');
+            searchInput.value = '';
+            searchInput.focus();
+        });
+
+        // Client-side search filter
+        searchInput.addEventListener('input', function () {
+            var filter = searchInput.value.toLowerCase();
+            list.querySelectorAll('.dept-option').forEach(function (opt) {
+                opt.style.display = opt.textContent.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        });
+    }
+
+    document.addEventListener('htmx:afterSettle', function () {
+        initDepPicker('division-picker', 'id_division', 'division-selected', 'division-search-wrap');
+        initDepPicker('section-picker', 'id_section', 'section-selected', 'section-search-wrap');
+        initDepPicker('unit-picker', 'id_unit', 'unit-selected', 'unit-search-wrap');
     });
 </script>
 {% endblock %}
