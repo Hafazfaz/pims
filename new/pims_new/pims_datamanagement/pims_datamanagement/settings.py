@@ -166,39 +166,50 @@ AUTH_USER_MODEL = "user_management.CustomUser"
 
 # Email settings
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.example.com")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "smtp").lower()
 
-# Port 465 requires SSL, port 587 requires TLS (STARTTLS)
-# Allow explicit override via environment variables
-if EMAIL_PORT == 465:
-    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "true").lower() in [
-        "true",
-        "1",
-        "yes",
-    ]
-    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in [
-        "true",
-        "1",
-        "yes",
-    ]
-else:  # Port 587 or other
-    EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in [
-        "true",
-        "1",
-        "yes",
-    ]
-    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in [
-        "true",
-        "1",
-        "yes",
-    ]
+if EMAIL_PROVIDER == "resend":
+    EMAIL_BACKEND = "core.backends.resend.ResendEmailBackend"
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.example.com")
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    # Port 465 requires SSL, port 587 requires TLS (STARTTLS)
+    # Allow explicit override via environment variables
+    if EMAIL_PORT == 465:
+        EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "true").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+        EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+    else:  # Port 587 or other
+        EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+        EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
 
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "user@example.com")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
+if not DEFAULT_FROM_EMAIL:
+    if EMAIL_PROVIDER == "resend":
+        DEFAULT_FROM_EMAIL = "onboarding@resend.dev"
+    else:
+        DEFAULT_FROM_EMAIL = os.environ.get("EMAIL_HOST_USER", "user@example.com")
 BASE_URL = "pims.fmcabuja.gov.ng"
 AUTHENTICATION_BACKENDS = [
     "user_management.backends.CustomOTPBackend",
