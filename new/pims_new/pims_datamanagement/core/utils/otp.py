@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from core.constants import OTP_EXPIRY_MINUTES
@@ -19,12 +20,13 @@ def generate_otp():
 def send_otp_email(user, otp):
     """Sends the OTP to the user's email address."""
     subject = "Your PIMS Login OTP"
-    message = (
-        f"Hello {user.get_full_name() or user.username},\n\n"
-        f"Your One-Time Password (OTP) for PIMS login is: {otp}\n\n"
-        f"This OTP is valid for {OTP_EXPIRY_MINUTES} minutes.\n\n"
-        f"If you did not request this, please ignore this email."
-    )
+    context = {
+        "user": user,
+        "otp": otp,
+        "expiry_minutes": OTP_EXPIRY_MINUTES,
+    }
+    message = render_to_string("emails/otp.txt", context)
+    html_message = render_to_string("emails/otp.html", context)
     from_email = settings.DEFAULT_FROM_EMAIL
 
     if not user.email:
@@ -35,7 +37,14 @@ def send_otp_email(user, otp):
 
     logger.info(f"Attempting to send OTP email to {user.email} from {from_email}")
     try:
-        sent_count = send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+        sent_count = send_mail(
+            subject,
+            message,
+            from_email,
+            recipient_list,
+            html_message=html_message,
+            fail_silently=False
+        )
         if sent_count == 1:
             logger.info(f"OTP email sent successfully to {user.email}")
         else:

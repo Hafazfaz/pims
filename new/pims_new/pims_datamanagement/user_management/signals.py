@@ -11,6 +11,8 @@ def enforce_session_limit(sender, request, user, **kwargs):
     from .models import UserSession
 
     # Record the new session
+    if not request.session.session_key:
+        request.session.save()
     UserSession.objects.get_or_create(user=user, session_key=request.session.session_key)
 
     # Evict oldest sessions beyond the limit

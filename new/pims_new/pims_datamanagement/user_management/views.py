@@ -646,14 +646,19 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                     # 4. Send Welcome Email
                     try:
                         subject = "Welcome to PIMS - Account Provisioned"
+                        login_url = request.build_absolute_uri('/')
+                        email_context = {
+                            "user": user,
+                            "temp_password": temp_password,
+                            "login_url": login_url,
+                        }
+                        html_message = render_to_string("emails/welcome.html", email_context)
                         message = (
                             f"Hello {user.first_name or user.username},\n\n"
-                            f"Your account has been provisioned on the Personnel "
-                            f"Information Management System (PIMS).\n\n"
+                            f"Your account has been provisioned on the Personnel Information Management System (PIMS).\n\n"
                             f"Username: {username}\n"
                             f"Temporary Password: {temp_password}\n\n"
-                            f"Please log in at {request.build_absolute_uri('/')} "
-                            f"and change your password immediately.\n\n"
+                            f"Please log in at {login_url} and change your password immediately.\n\n"
                             f"Regards,\nPIMS Administration"
                         )
                         send_mail(
@@ -661,6 +666,7 @@ class UserBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                             message,
                             settings.DEFAULT_FROM_EMAIL,
                             [user.email],
+                            html_message=html_message,
                             fail_silently=False,
                         )
                     except Exception as mail_err:
@@ -851,12 +857,19 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
             try:
                 subject = "Welcome to PIMS - Account Provisioned"
+                login_url = self.request.build_absolute_uri('/')
+                email_context = {
+                    "user": user,
+                    "temp_password": temp_password,
+                    "login_url": login_url,
+                }
+                html_message = render_to_string("emails/welcome.html", email_context)
                 message = (
                     f"Hello {user.first_name or user.username},\n\n"
                     f"Your account has been provisioned on the Personnel Information Management System (PIMS).\n\n"
                     f"Username: {user.username}\n"
                     f"Temporary Password: {temp_password}\n\n"
-                    f"Please log in at {self.request.build_absolute_uri('/')} and change your password immediately.\n\n"
+                    f"Please log in at {login_url} and change your password immediately.\n\n"
                     f"Regards,\nPIMS Administration"
                 )
                 from django.conf import settings
@@ -867,6 +880,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                     message,
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
+                    html_message=html_message,
                     fail_silently=False,
                 )
             except Exception as mail_err:

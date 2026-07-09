@@ -9,7 +9,7 @@ from django.urls import reverse
 from organization.models import Department, Designation, Staff, Unit
 from user_management.models import CustomUser
 
-from document_management.models import ApprovalChain, ApprovalStep, Document, File, FileAccessRequest
+from document_management.models import ApprovalChain, ApprovalStep, Document, File, FileAccessRequest, DocumentType
 
 
 def make_user(username, group_name=None, is_superuser=False):
@@ -144,6 +144,7 @@ class DocumentUploadTest(TestCase):
         self.registry_staff = make_staff(self.registry_user, "Registry Officer")
         self.staff_user = make_user("staff2", "Staff")
         self.staff = make_staff(self.staff_user, "Officer", self.dept)
+        self.doc_type = DocumentType.objects.create(name="Certificates")
         self.file = File.objects.create(
             title="DOC TEST FILE",
             file_type="personal",
@@ -161,7 +162,7 @@ class DocumentUploadTest(TestCase):
         f = SimpleUploadedFile("test.txt", b"plain text content", content_type="text/plain")
         r = self.client.post(
             reverse("document_management:document_add", kwargs={"file_pk": self.file.pk}),
-            {"file": self.file.pk, "title": "Test Doc", "attachment": f},
+            {"file": self.file.pk, "title": "Test Doc", "document_type": self.doc_type.pk, "attachment": f},
         )
         self.assertIn(r.status_code, [200, 302])
         self.assertTrue(Document.objects.filter(file=self.file).exists())

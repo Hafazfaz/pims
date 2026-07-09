@@ -1,0 +1,12 @@
+Subject: Your PIMS Login OTP
+
+Dear {{ user.first_name|default:user.username }},
+
+Your One-Time Password (OTP) for PIMS login is: {{ otp }}
+
+This OTP is valid for {{ expiry_minutes }} minutes.
+
+If you did not request this, please ignore this email.
+
+Regards,
+PIMS Administration

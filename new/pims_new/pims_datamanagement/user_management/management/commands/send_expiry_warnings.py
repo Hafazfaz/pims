@@ -47,12 +47,14 @@ class Command(BaseCommand):
                     .replace("Subject: ", "")
                 )
                 email_body = render_to_string("emails/password_expiry_warning.txt", context)
+                html_message = render_to_string("emails/password_expiry_warning.html", context)
 
                 send_mail(
                     email_subject_template,
                     email_body,
                     settings.DEFAULT_FROM_EMAIL,  # Ensure this is set in settings
                     [user.email],
+                    html_message=html_message,
                     fail_silently=False,
                 )
                 # Create in-app notification
