@@ -17,8 +17,11 @@ class HTMXLoginRequiredMixin(LoginRequiredMixin):
 
     def handle_no_permission(self):
         if self.request.headers.get("HX-Request"):
+            from django.urls import reverse
+            path = self.request.get_full_path()
+            resolved_login_url = reverse("user_management:login")
             response = HttpResponse()
-            response["HX-Redirect"] = str(reverse_lazy("user_management:login"))
+            response["HX-Redirect"] = f"{resolved_login_url}?next={path}"
             return response
         return super().handle_no_permission()
 

@@ -82,7 +82,7 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to upload documents.")
         return redirect("document_management:my_files")
 
@@ -184,10 +184,7 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
     def dispatch(self, request, *args, **kwargs):
         if not self.has_permission():
-            if not request.user.is_authenticated:
-                return redirect("user_management:login")
-            messages.error(request, "You do not have permission to view this document.")
-            return redirect("document_management:my_files")
+            return self.handle_no_permission()
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -452,7 +449,7 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to view this document.")
         return redirect("document_management:my_files")
 
@@ -617,7 +614,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect("user_management:login")
+            return self.handle_no_permission()
         self.file_obj = get_object_or_404(File, pk=self.kwargs.get("file_pk"))
 
         staff_user = getattr(request.user, "staff", None)

@@ -273,7 +273,7 @@ class UserListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to view this page.")
         return redirect("home")
 
@@ -298,7 +298,7 @@ class UserDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to view this page.")
         return redirect("home")
 
@@ -334,7 +334,7 @@ class UserUnlockView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to unlock users.")
         return redirect("user_management:user_list")
 
@@ -374,7 +374,7 @@ class UserSuspendView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to suspend users.")
         return redirect("user_management:user_list")
 
@@ -439,7 +439,7 @@ class UserDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to delete users.")
         return redirect("user_management:user_list")
 
@@ -536,7 +536,7 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(
             self.request,
             "You do not have permission to access the admin health dashboard.",
@@ -881,5 +881,7 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return HttpResponseRedirect(self.success_url)
 
     def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
         messages.error(self.request, "Only Superusers can perform this action.")
         return redirect("user_management:user_list")

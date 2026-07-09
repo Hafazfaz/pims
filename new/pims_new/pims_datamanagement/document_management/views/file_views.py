@@ -139,7 +139,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(
             self.request,
             "You do not have permission to access the executive dashboard.",
@@ -223,7 +223,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to create a new file.")
         return redirect("document_management:my_files")
 
@@ -869,7 +869,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to view this file.")
         return redirect("document_management:my_files")
 
@@ -896,7 +896,7 @@ class FileUpdateView(HTMXLoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to update this file.")
         return redirect(self.get_object().get_absolute_url())
 
@@ -1038,7 +1038,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to access the Record Explorer.")
         return redirect("document_management:my_files")
 
@@ -1469,7 +1469,7 @@ class FileBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "Only registry staff can perform batch uploads.")
         return redirect("document_management:registry_hub")
 
@@ -1587,7 +1587,7 @@ class DownloadSampleFileCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
-            return redirect("user_management:login")
+            return super().handle_no_permission()
         messages.error(self.request, "Only registry staff can download sample CSV.")
         return redirect("document_management:registry_hub")
 
