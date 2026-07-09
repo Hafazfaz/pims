@@ -106,11 +106,16 @@ class CustomLoginView(LoginView):
             otp = generate_otp()
             send_otp_email(user, otp)
             set_otp_in_session(self.request, user.id, otp)
+            # Store next parameter in session for OTP redirect
+            next_url = self.request.GET.get("next") or self.request.POST.get("next")
+            if next_url:
+                self.request.session["otp_next_url"] = next_url
             messages.info(self.request, "A 6-digit OTP has been sent to your email address.")
             return redirect("user_management:otp_email_verify")
 
-        # If no password change and no OTP, proceed to home
-        return redirect(reverse_lazy("home"))
+        # If no password change and no OTP, proceed to redirect url or home
+        success_url = self.get_success_url()
+        return redirect(success_url)
 
 
 def custom_lockout_view(request):
@@ -189,7 +194,11 @@ class EmailOTPVerifyView(View):
             return redirect("user_management:login")
 
         messages.success(request, "Verify success. You are now logged in.")
+        next_url = request.session.pop("otp_next_url", None)
         clear_otp_session(request)
+        from django.utils.http import url_has_allowed_host_and_scheme
+        if next_url and url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            return redirect(next_url)
         return redirect(reverse_lazy("home"))
 
 
