@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>File Creation Approved - PIMS</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background-color: #f1f5f9; 
+            color: #1e293b; 
+            line-height: 1.6; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .font-display { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .wrapper { width: 100%; padding: 40px 16px; background-color: #f1f5f9; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0; }
+        
+        .top-bar { height: 6px; background: linear-gradient(90deg, #008751 0%, #006B40 100%); }
+        
+        .header { padding: 32px 32px 20px; border-bottom: 1px solid #f1f5f9; }
+        .logo { display: inline-block; margin-bottom: 16px; }
+        .logo img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; }
+        .header-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #008751; font-weight: 600; margin-bottom: 4px; }
+        .header-title { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.02em; }
+        
+        .content { padding: 32px; }
+        .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 16px; }
+        .message { font-size: 15px; color: #475569; margin-bottom: 24px; }
+        .message p { margin-bottom: 12px; }
+        .message p:last-child { margin-bottom: 0; }
+        
+        .success-badge { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 24px; }
+        .success-badge-icon { width: 20px; height: 20px; color: #008751; flex-shrink: 0; }
+        .success-badge-text { font-size: 14px; font-weight: 600; color: #008751; }
+        
+        .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 24px 0; }
+        .info-card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 12px; }
+        .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-size: 14px; color: #64748b; }
+        .info-value { font-size: 14px; font-weight: 500; color: #1e293b; text-align: right; }
+        
+        .btn-wrapper { margin: 28px 0; text-align: center; }
+        .btn { display: inline-block; background-color: #008751; color: #ffffff !important; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; text-decoration: none; padding: 12px 24px; border-radius: 8px; text-align: center; transition: background-color 0.2s ease; }
+        .btn:hover { background-color: #006B40; }
+        
+        .footer { padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b; text-align: center; }
+        .footer-logo { font-family: 'Outfit', sans-serif; font-weight: 700; color: #334155; font-size: 14px; margin-bottom: 6px; }
+        .footer-divider { height: 1px; background: #e2e8f0; margin: 16px 0; }
+        .footer-links { display: flex; justify-content: center; gap: 24px; font-size: 11px; color: #94a3b8; }
+        .footer-links a { color: #94a3b8; text-decoration: none; }
+        
+        @media only screen and (max-width: 480px) {
+            .content { padding: 24px 20px; }
+            .header { padding: 24px 20px 16px; }
+            .footer { padding: 20px; }
+            .info-row { flex-direction: column; gap: 4px; }
+            .info-value { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="container">
+            <div class="top-bar"></div>
+            <div class="header">
+                <div class="logo">
+                    <img src="{{ site_url }}{% static 'img/logo.png' %}" alt="FMC Abuja" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover;">
+                </div>
+                <div class="header-sub">Personnel Information Management System</div>
+                <h1 class="header-title">File Creation Approved</h1>
+            </div>
+            <div class="content">
+                <p class="greeting">Dear {{ user.get_full_name|default:user.username }},</p>
+                
+                <div class="success-badge">
+                    <svg class="success-badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span class="success-badge-text">File Creation Approved</span>
+                </div>
+                
+                <p class="message">
+                    The file creation request has been reviewed and <strong>approved</strong> by the authorized approver.
+                    The file is now pending activation by the registry team.
+                </p>
+                
+                <div class="info-card">
+                    <div class="info-card-title">File Details</div>
+                    <div class="info-row">
+                        <span class="info-label">File Number</span>
+                        <span class="info-value">{{ object.file_number }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">File Title</span>
+                        <span class="info-value">{{ object.title }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">File Type</span>
+                        <span class="info-value">{{ object.get_file_type_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Department</span>
+                        <span class="info-value">{{ object.department.name|default:"—" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Approved By</span>
+                        <span class="info-value">{{ approver_name|default:"Authorized Approver" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Current Status</span>
+                        <span class="info-value">
+                            <span style="display: inline-flex; align-items: center; padding: 4px 10px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 9999px; font-size: 12px; font-weight: 500; color: #92400e;">Pending Activation</span>
+                        </span>
+                    </div>
+                </div>
+                
+                {% if link %}
+                <div class="btn-wrapper">
+                    <a href="{{ link }}" class="btn">View File Details</a>
+                </div>
+                {% endif %}
+                
+                <p style="font-size: 13px; color: #94a3b8; margin-top: 32px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+                    The registry team will now activate the file. You will receive another notification once the file is fully active.
+                </p>
+            </div>
+            <div class="footer">
+                <div class="footer-logo">FMC Abuja • PIMS</div>
+                <p style="margin: 0;">This is an automated notification from the Personnel Information Management System.</p>
+                <div class="footer-divider"></div>
+                <div class="footer-links">
+                    <a href="{{ site_url }}">Log in to PIMS</a>
+                    <a href="#">Contact Support</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

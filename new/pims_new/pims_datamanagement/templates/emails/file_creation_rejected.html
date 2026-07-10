@@ -1,0 +1,55 @@
+{% extends "emails/_base_email.html" %}
+{% load static %}
+
+{% block email_content %}
+<p class="greeting">Dear {{ user.get_full_name|default:user.username }},</p>
+
+<div class="info-card" style="background: #fef2f2; border-color: #fecaca;">
+    <div class="info-card-title" style="color: #dc2626;">File Creation Rejected</div>
+    <p class="message" style="margin: 0;">Your file creation request has been <strong>rejected</strong> by the authorized approver.</p>
+</div>
+
+<p class="message">Please review the rejection reason below and take appropriate action.</p>
+
+<div class="info-card" style="border-color: #fecaca;">
+    <div class="info-card-title" style="color: #dc2626;">File Details</div>
+    <div class="info-row">
+        <span class="info-label">File Number</span>
+        <span class="info-value">{{ file.file_number }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">File Title</span>
+        <span class="info-value">{{ file.title }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">File Type</span>
+        <span class="info-value">{{ file.get_file_type_display }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Department</span>
+        <span class="info-value">{{ file.department.name|default:"—" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Rejected By</span>
+        <span class="info-value">{{ rejector_name|default:"Authorized Approver" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Rejection Reason</span>
+        <span class="info-value" style="color: #dc2626;">{{ rejection_reason }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Current Status</span>
+        <span class="info-value">
+            <span style="display: inline-flex; align-items: center; padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 9999px; font-size: 12px; font-weight: 500; color: #dc2626;">Rejected</span>
+        </span>
+    </div>
+</div>
+
+<p class="message">You may address the rejection reason and request the file to be recreated, or contact the registry for further assistance.</p>
+
+{% if link %}
+<div class="btn-wrapper">
+    <a href="{{ link }}" class="btn" style="background: #ffffff; color: #dc2626 !important; border: 2px solid #dc2626;">View File</a>
+</div>
+{% endif %}
+{% endblock %}

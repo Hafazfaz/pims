@@ -1,0 +1,25 @@
+Subject: Action Required: Approve File Creation - {{ file.file_number }}
+
+Dear {{ user.get_full_name|default:user.username }},
+
+A new {{ file.get_file_type_display|lower }} file has been created and requires your approval.
+
+FILE DETAILS
+-------------
+File Number: {{ file.file_number }}
+File Title: {{ file.title }}
+File Type: {{ file.get_file_type_display }}
+Department: {{ file.department.name|default:"—" }}
+Created: {{ file.created_at|date:"M d, Y H:i" }}
+Current Status: {{ file.get_status_display }}
+
+Please review the file details and approve or reject the creation using your verified digital signature.
+
+Review & Approve: {{ link }}
+
+IMPORTANT: You must have an active, verified digital signature to approve this file. 
+If you haven't set up your signature yet, please configure it in your profile.
+
+Thank you,
+The PIMS Team
+FMC Abuja

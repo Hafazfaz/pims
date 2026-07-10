@@ -26,8 +26,8 @@ from notifications.utils import create_notification
 from organization.models import Department, Staff
 
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
-from ..models import Document, File, FileAccessRequest, FileMovement
-from .base import HTMXLoginRequiredMixin
+from ..models import Document, DocumentSignature, File, FileAccessRequest, FileMovement
+from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin
 
 
 class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, TemplateView):
@@ -196,6 +196,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         form.instance.current_location = user_staff
         form.instance.created_by = self.request.user
+        form.instance.status = "pending_approval"
 
         if form.cleaned_data.get("file_type") == "personal" and not form.instance.department:
             owner = form.cleaned_data.get("owner")
@@ -204,6 +205,36 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         self.object = form.save()
 
+        # Notify file owner (personal files) or HOD (policy files)
+        file_type = form.cleaned_data.get("file_type")
+        approval_link = reverse_lazy("document_management:file_approve_creation", kwargs={"pk": self.object.pk})
+        if file_type == "personal":
+            owner = form.cleaned_data.get("owner")
+            if owner and owner.user:
+                create_notification(
+                    user=owner.user,
+                    message=f"A new personal file has been created for you: {self.object.file_number} — {self.object.title}. Please review and approve.",
+                    obj=self.object,
+                    link=approval_link,
+                    send_email=True,
+                    email_template="emails/file_creation_approval.html",
+                    email_context={"file": self.object, "user": owner.user},
+                    email_subject=f"Action Required: Approve File Creation - {self.object.file_number}",
+                )
+        elif file_type == "policy":
+            dept = form.cleaned_data.get("department")
+            if dept and dept.head and dept.head.user:
+                create_notification(
+                    user=dept.head.user,
+                    message=f"A new policy file has been created in your department: {self.object.file_number} — {self.object.title}. Please review and approve.",
+                    obj=self.object,
+                    link=approval_link,
+                    send_email=True,
+                    email_template="emails/file_creation_approval.html",
+                    email_context={"file": self.object, "user": dept.head.user},
+                    email_subject=f"Action Required: Approve File Creation - {self.object.file_number}",
+                )
+
         # Auto-grant R&W access to the file owner
 
         for f in self.request.FILES.getlist("attachments"):
@@ -211,7 +242,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
-        messages.success(self.request, "File and documents created successfully.")
+        messages.success(self.request, "File and documents created successfully. Awaiting owner/HOD approval.")
         return redirect(self.get_success_url())
 
     def get_staff_user(self):
@@ -221,7 +252,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         except Staff.DoesNotExist:
             return None
 
-    def handle_no_permission(self):
+def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to create a new file.")
@@ -1604,3 +1635,174 @@ class DownloadSampleFileCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
         writer.writerow(["LEAVE POLICY 2025", "policy", "", "HR001", "Recruitment Unit", "internal", ""])
         writer.writerow(["MOU WITH WHO", "policy", "", "", "", "external", "World Health Organization"])
         return response
+
+
+class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    """
+    View for file owner (personal files) or HOD (policy files) to approve/reject
+    a newly created file with their digital signature.
+    """
+    model = File
+    template_name = "document_management/file_creation_approval.html"
+    context_object_name = "file"
+
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        try:
+            staff = user.staff
+        except AttributeError:
+            return False
+        
+        file_obj = self.get_object()
+        
+        # Personal files: only the owner can approve
+        if file_obj.file_type == "personal":
+            return file_obj.owner == staff
+        
+        # Policy files: only the HOD of the department can approve
+        if file_obj.file_type == "policy":
+            return staff.is_hod and file_obj.department == staff.department
+        
+        return False
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        file_obj = self.get_object()
+        
+        # Get the user's active signature
+        try:
+            active_signature = self.request.user.staff.get_active_signature()
+            context["active_signature"] = active_signature
+        except Exception:
+            context["active_signature"] = None
+        
+        return context
+
+    def post(self, request, *args, **kwargs):
+        file_obj = self.get_object()
+        staff = getattr(request.user, "staff", None)
+        
+        if not staff:
+            messages.error(request, "Staff profile not found.")
+            return redirect(file_obj.get_absolute_url())
+        
+        # Verify permission
+        if not self.test_func():
+            messages.error(request, "You do not have permission to approve this file.")
+            return redirect(file_obj.get_absolute_url())
+        
+        # Check if user has active verified signature
+        active_signature = staff.get_active_signature()
+        if not active_signature or not active_signature.is_verified:
+            messages.error(request, "You need an active, verified digital signature to approve this file.")
+            return redirect(file_obj.get_absolute_url())
+        
+        action = request.POST.get("action")
+        
+        if action == "approve":
+            # Approve the file - change status to pending_activation for registry
+            file_obj.status = "pending_activation"
+            file_obj.save(update_fields=["status"])
+            
+            log_action(
+                request.user,
+                "FILE_CREATION_APPROVED",
+                request=request,
+                obj=file_obj,
+                details={
+                    "approver": staff.user.get_full_name(),
+                    "signature_id": active_signature.pk,
+                }
+            )
+            
+            # Notify registry staff
+            registry_staff = Staff.objects.filter(
+                Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
+            ).select_related("user")
+            
+            for reg_staff in registry_staff:
+                if reg_staff.user:
+                    create_notification(
+                        user=reg_staff.user,
+                        message=f"File {file_obj.file_number} — {file_obj.title} has been approved by {staff.user.get_full_name()}. Ready for activation.",
+                        obj=file_obj,
+                        link=file_obj.get_absolute_url(),
+                        send_email=True,
+                        email_template="emails/file_creation_approved.html",
+                        email_context={
+                            "file": file_obj,
+                            "approver": staff,
+                            "approved_at": timezone.now(),
+                        },
+                        email_subject=f"File Creation Approved: {file_obj.file_number}",
+                    )
+            
+            # Notify the creator
+            if file_obj.created_by:
+                create_notification(
+                    user=file_obj.created_by,
+                    message=f"File {file_obj.file_number} — {file_obj.title} has been approved. Status: Pending Activation.",
+                    obj=file_obj,
+                    link=file_obj.get_absolute_url(),
+                    send_email=True,
+                    email_template="emails/file_creation_approved.html",
+                    email_context={
+                        "file": file_obj,
+                        "approver": staff,
+                        "approved_at": timezone.now(),
+                    },
+                    email_subject=f"File Creation Approved: {file_obj.file_number}",
+                )
+            
+            messages.success(request, "File creation approved successfully. File is now pending activation by registry.")
+            
+        elif action == "reject":
+            rejection_reason = request.POST.get("rejection_reason", "").strip()
+            if not rejection_reason:
+                messages.error(request, "Rejection reason is required.")
+                return redirect(request.path)
+            
+            # Reject the file - mark as inactive
+            file_obj.status = "inactive"
+            file_obj.save(update_fields=["status"])
+            
+            log_action(
+                request.user,
+                "FILE_CREATION_REJECTED",
+                request=request,
+                obj=file_obj,
+                details={
+                    "approver": staff.user.get_full_name(),
+                    "reason": rejection_reason,
+                }
+            )
+            
+            # Notify the creator
+            if file_obj.created_by:
+                create_notification(
+                    user=file_obj.created_by,
+                    message=f"File {file_obj.file_number} — {file_obj.title} was rejected by {staff.user.get_full_name()}. Reason: {rejection_reason}",
+                    obj=file_obj,
+                    link=file_obj.get_absolute_url(),
+                    send_email=True,
+                    email_template="emails/file_creation_rejected.html",
+                    email_context={
+                        "file": file_obj,
+                        "rejector": staff,
+                        "rejected_at": timezone.now(),
+                        "rejection_reason": rejection_reason,
+                    },
+                    email_subject=f"File Creation Rejected: {file_obj.file_number}",
+                )
+            
+            messages.warning(request, "File creation rejected.")
+        
+        return redirect(file_obj.get_absolute_url())
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "You do not have permission to approve this file.")
+        return redirect("document_management:my_files")

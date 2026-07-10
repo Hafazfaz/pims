@@ -16,10 +16,12 @@ FILE_TYPE_CHOICES = [
 
 STATUS_CHOICES = [
     ("inactive", "Inactive"),
+    ("pending_approval", "Pending Approval"),
     ("pending_activation", "Pending Activation"),
     ("active", "Active"),
     ("in_transit", "In Transit"),
     ("in_review", "In Review"),
+    ("rejected", "Rejected"),
     ("closed", "Closed"),
     ("archived", "Archived"),
 ]
