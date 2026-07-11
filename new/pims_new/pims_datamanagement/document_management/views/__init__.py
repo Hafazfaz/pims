@@ -36,6 +36,7 @@ from .file_views import (  # noqa: F401
     FileArchiveView,
     FileBatchUploadView,
     FileCloseView,
+    FileCreationApprovalView,
     FileCreateView,
     FileDeleteView,
     FileDetailView,
