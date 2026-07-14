@@ -439,6 +439,33 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             obj=file_obj,
             link=reverse_lazy("document_management:inbox"),
         )
+
+        # Send email when document reaches HOD (policy) or Owner (personal) for approval
+        is_hod_recipient = recipient.is_hod and file_obj.file_type == "policy" and file_obj.department == recipient.department
+        is_owner_recipient = file_obj.file_type == "personal" and file_obj.owner == recipient
+
+        if is_hod_recipient or is_owner_recipient:
+            approval_link = reverse_lazy("document_management:document_approve_dispatch", kwargs={"pk": document.pk})
+            role = "Head of Department" if is_hod_recipient else "File Owner"
+            create_notification(
+                user=recipient_user,
+                message=(
+                    f"Action Required: Document '{document.title or 'Untitled'}' in file "
+                    f"{file_obj.file_number} requires your approval as {role}."
+                ),
+                obj=file_obj,
+                link=approval_link,
+                send_email=True,
+                email_template="emails/document_dispatch_approval.html",
+                email_context={
+                    "file": file_obj,
+                    "document": document,
+                    "sender": request.user,
+                    "role": role,
+                },
+                email_subject=f"Action Required: Approve Document - {file_obj.file_number}",
+            )
+
         messages.success(request, f"File sent to {recipient.user.get_full_name() or recipient_user.username}.")
         return redirect(file_obj.get_absolute_url())
 

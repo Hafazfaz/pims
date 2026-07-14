@@ -1,0 +1,54 @@
+{% extends "emails/_base_email.html" %}
+{% load static %}
+
+{% block email_title %}Action Required: Approve Document - PIMS{% endblock %}
+{% block header_title %}Document Approval Required{% endblock %}
+
+{% block email_content %}
+<p class="greeting">Dear {{ user.get_full_name|default:user.username }},</p>
+
+<p class="message">A document has been dispatched to you as <strong>{{ role }}</strong> and requires your review and approval.</p>
+
+<div class="info-card">
+    <div class="info-card-title">Document Details</div>
+    <div class="info-row">
+        <span class="info-label">Document Title</span>
+        <span class="info-value">{{ document.title|default:"Untitled" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">File Number</span>
+        <span class="info-value">{{ file.file_number }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">File Title</span>
+        <span class="info-value">{{ file.title }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">File Type</span>
+        <span class="info-value">{{ file.get_file_type_display }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Department</span>
+        <span class="info-value">{{ file.department.name|default:"—" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Sent By</span>
+        <span class="info-value">{{ sender.get_full_name|default:sender.username }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Your Role</span>
+        <span class="info-value">{{ role }}</span>
+    </div>
+</div>
+
+<p class="message">Please review the document and approve or reject it using your verified digital signature.</p>
+
+<div class="btn-wrapper">
+    <a href="{{ link }}" class="btn">Review & Approve</a>
+</div>
+
+<p class="message" style="font-size: 13px; color: #94a3b8; margin-top: 24px;">
+    <strong>Action Required:</strong> You must have an active, verified digital signature to approve this document.
+    If you haven't set up your signature yet, please <a href="{{ site_url|default:'#' }}/profile#signature" style="color: #008751;">configure it in your profile</a>.
+</p>
+{% endblock %}

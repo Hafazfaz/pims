@@ -1,0 +1,26 @@
+Subject: Action Required: Approve Document - {{ file.file_number }}
+
+Dear {{ user.get_full_name|default:user.username }},
+
+A document has been dispatched to you as {{ role }} and requires your review and approval.
+
+DOCUMENT DETAILS
+-------------
+Document Title: {{ document.title|default:"Untitled" }}
+File Number: {{ file.file_number }}
+File Title: {{ file.title }}
+File Type: {{ file.get_file_type_display }}
+Department: {{ file.department.name|default:"—" }}
+Sent By: {{ sender.get_full_name|default:sender.username }}
+Your Role: {{ role }}
+
+Please review the document and approve or reject it using your verified digital signature.
+
+Review & Approve: {{ link }}
+
+IMPORTANT: You must have an active, verified digital signature to approve this document.
+If you haven't set up your signature yet, please configure it in your profile.
+
+Thank you,
+The PIMS Team
+FMC Abuja

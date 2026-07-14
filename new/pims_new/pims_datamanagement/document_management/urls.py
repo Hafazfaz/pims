@@ -25,6 +25,7 @@ urlpatterns = [
     ),
     path("file/<int:pk>/recall/", views.FileRecallView.as_view(), name="file_recall"),
     path("file/<int:pk>/approve-creation/", views.FileCreationApprovalView.as_view(), name="file_approve_creation"),
+    path("document/<int:pk>/approve-dispatch/", views.DocumentDispatchApprovalView.as_view(), name="document_approve_dispatch"),
     path("file/<int:pk>/close/", views.FileCloseView.as_view(), name="file_close"),
     path("file/<int:pk>/archive/", views.FileArchiveView.as_view(), name="file_archive"),
     path("file/<int:pk>/", views.FileDetailView.as_view(), name="file_detail"),

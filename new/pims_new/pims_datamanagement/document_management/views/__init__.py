@@ -31,6 +31,7 @@ from .document_views import (  # noqa: F401
 from .file_views import (  # noqa: F401
     DirectorAdminDashboardView,
     DocumentActionView,
+    DocumentDispatchApprovalView,
     DownloadSampleFileCSVView,
     ExecutiveDashboardView,
     FileArchiveView,
