@@ -82,6 +82,7 @@ class FileLifecycleTest(TestCase):
             owner=self.staff,
             current_location=self.registry_staff,
             created_by=self.registry_user,
+            status="pending_activation",
         )
         self.client.post(reverse("document_management:file_approve_activation", kwargs={"pk": f.pk}))
         f.refresh_from_db()

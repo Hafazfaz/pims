@@ -7,6 +7,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import DetailView, ListView, View
+from notifications.utils import create_notification
 from organization.models import Department, Staff, Unit
 
 from ..models import ApprovalChain, Document, DocumentType, File, FileAccessRequest, FileMovement
@@ -264,9 +265,36 @@ class FileApproveActivationView(RegistryRequiredMixin, View):
             return redirect("document_management:registry_hub")
 
         file_obj.status = "active"
-        file_obj.save()
+        file_obj.current_location = getattr(request.user, "staff", None)
+        file_obj.save(update_fields=["status", "current_location"])
 
         log_action(request.user, "FILE_ACTIVATED", request=request, obj=file_obj)
+
+        # Notify creator that file is now active
+        if file_obj.created_by:
+            create_notification(
+                user=file_obj.created_by,
+                message=f"File {file_obj.file_number} — {file_obj.title} has been activated and is now active.",
+                obj=file_obj,
+                link=file_obj.get_absolute_url(),
+            )
+
+        # Notify owner (personal files) or HOD (policy files)
+        if file_obj.file_type == "personal" and file_obj.owner and file_obj.owner.user:
+            create_notification(
+                user=file_obj.owner.user,
+                message=f"Your personal file {file_obj.file_number} — {file_obj.title} has been activated.",
+                obj=file_obj,
+                link=file_obj.get_absolute_url(),
+            )
+        elif file_obj.file_type == "policy" and file_obj.department and file_obj.department.head and file_obj.department.head.user:
+            create_notification(
+                user=file_obj.department.head.user,
+                message=f"Policy file {file_obj.file_number} — {file_obj.title} for your department has been activated.",
+                obj=file_obj,
+                link=file_obj.get_absolute_url(),
+            )
+
         messages.success(request, f"File {file_obj.file_number} has been activated.")
 
         if request.headers.get("HX-Request"):

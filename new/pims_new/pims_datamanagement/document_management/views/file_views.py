@@ -196,7 +196,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         form.instance.current_location = user_staff
         form.instance.created_by = self.request.user
-        form.instance.status = "pending_approval"
+        form.instance.status = "active"
 
         if form.cleaned_data.get("file_type") == "personal" and not form.instance.department:
             owner = form.cleaned_data.get("owner")
@@ -205,44 +205,33 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         self.object = form.save()
 
-        # Notify file owner (personal files) or HOD (policy files)
+        # Notify file owner (personal files) or HOD (policy files) that file is ready
         file_type = form.cleaned_data.get("file_type")
-        approval_link = reverse_lazy("document_management:file_approve_creation", kwargs={"pk": self.object.pk})
         if file_type == "personal":
             owner = form.cleaned_data.get("owner")
             if owner and owner.user:
                 create_notification(
                     user=owner.user,
-                    message=f"A new personal file has been created for you: {self.object.file_number} — {self.object.title}. Please review and approve.",
+                    message=f"A new personal file has been created for you: {self.object.file_number} — {self.object.title}.",
                     obj=self.object,
-                    link=approval_link,
-                    send_email=True,
-                    email_template="emails/file_creation_approval.html",
-                    email_context={"file": self.object, "user": owner.user},
-                    email_subject=f"Action Required: Approve File Creation - {self.object.file_number}",
+                    link=self.object.get_absolute_url(),
                 )
         elif file_type == "policy":
             dept = form.cleaned_data.get("department")
             if dept and dept.head and dept.head.user:
                 create_notification(
                     user=dept.head.user,
-                    message=f"A new policy file has been created in your department: {self.object.file_number} — {self.object.title}. Please review and approve.",
+                    message=f"A new policy file has been created in your department: {self.object.file_number} — {self.object.title}.",
                     obj=self.object,
-                    link=approval_link,
-                    send_email=True,
-                    email_template="emails/file_creation_approval.html",
-                    email_context={"file": self.object, "user": dept.head.user},
-                    email_subject=f"Action Required: Approve File Creation - {self.object.file_number}",
+                    link=self.object.get_absolute_url(),
                 )
-
-        # Auto-grant R&W access to the file owner
 
         for f in self.request.FILES.getlist("attachments"):
             Document.objects.create(file=self.object, attachment=f, uploaded_by=self.request.user)
 
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
-        messages.success(self.request, "File and documents created successfully. Awaiting owner/HOD approval.")
+        messages.success(self.request, "File and documents created successfully.")
         return redirect(self.get_success_url())
 
     def get_staff_user(self):
@@ -500,19 +489,11 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         Who can view actual document contents (minute_content, attachments).
         Only HODs, Supervisors, Executives, and MD.
         Registry staff and general staff cannot view document contents.
+        Sensitive files enforce the same restriction regardless.
         """
-        if user.is_superuser:
-            return True
-        staff = getattr(user, "staff", None)
-        if not staff:
-            return False
+        from document_management.permissions import can_view_document_content
 
-        # Registry staff cannot view document contents
-        if staff.is_registry:
-            return False
-
-        # Only HODs, supervisors, executives, and MD can view contents
-        return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+        return can_view_document_content(user, file=file)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1704,7 +1685,8 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
         if action == "approve":
             # Approve the file - change status to pending_activation for registry
             file_obj.status = "pending_activation"
-            file_obj.save(update_fields=["status"])
+            file_obj.current_location = staff
+            file_obj.save(update_fields=["status", "current_location"])
             
             log_action(
                 request.user,
@@ -1805,4 +1787,182 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to approve this file.")
+        return redirect("document_management:my_files")
+
+
+class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    """
+    View for HOD (policy files) or Owner (personal files) to approve/reject
+    a dispatched document with their digital signature.
+    """
+    model = Document
+    template_name = "document_management/document_dispatch_approval.html"
+    context_object_name = "document"
+
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        try:
+            staff = user.staff
+        except AttributeError:
+            return False
+
+        doc = self.get_object()
+        file_obj = doc.file
+
+        # Personal files: only the owner can approve
+        if file_obj.file_type == "personal":
+            return file_obj.owner == staff
+
+        # Policy files: only the HOD of the department can approve
+        if file_obj.file_type == "policy":
+            return staff.is_hod and file_obj.department == staff.department
+
+        return False
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        doc = self.get_object()
+        context["file"] = doc.file
+
+        try:
+            active_signature = self.request.user.staff.get_active_signature()
+            context["active_signature"] = active_signature
+        except Exception:
+            context["active_signature"] = None
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        doc = self.get_object()
+        file_obj = doc.file
+        staff = getattr(request.user, "staff", None)
+
+        if not staff:
+            messages.error(request, "Staff profile not found.")
+            return redirect(file_obj.get_absolute_url())
+
+        if not self.test_func():
+            messages.error(request, "You do not have permission to approve this document.")
+            return redirect(file_obj.get_absolute_url())
+
+        active_signature = staff.get_active_signature()
+        if not active_signature or not active_signature.is_verified:
+            messages.error(request, "You need an active, verified digital signature to approve this document.")
+            return redirect(file_obj.get_absolute_url())
+
+        action = request.POST.get("action")
+
+        if action == "approve":
+            doc.status = "approved"
+            doc.has_signature = True
+            doc.signature_record = active_signature
+            doc.status_reason = request.POST.get("note", "")
+            doc.save(update_fields=["status", "has_signature", "signature_record", "status_reason"])
+
+            # Record the signature
+            DocumentSignature.objects.create(
+                document=doc,
+                signatory=request.user,
+                signature_record=active_signature,
+                ip_address=request.META.get("REMOTE_ADDR"),
+                note=request.POST.get("note", ""),
+            )
+
+            # Return file to registry
+            from django.db.models import Q as DQ
+            from organization.models import Staff as StaffModel
+
+            registry = StaffModel.objects.filter(
+                DQ(designation__name__icontains="registry") | DQ(user__groups__name__iexact="Registry")
+            ).first()
+            file_obj.current_location = registry
+            file_obj.status = "active"
+            file_obj.save(update_fields=["current_location", "status"])
+
+            # Find and close any active movement for this document
+            active_movement = FileMovement.objects.filter(
+                file=file_obj, document=doc, status="pending"
+            ).first()
+            if active_movement:
+                active_movement.status = "approved"
+                active_movement.save(update_fields=["status"])
+
+            log_action(
+                request.user,
+                "DOCUMENT_APPROVED",
+                request=request,
+                obj=file_obj,
+                details={
+                    "document": str(doc),
+                    "file": file_obj.file_number,
+                    "approver": staff.user.get_full_name(),
+                },
+            )
+
+            # Notify the sender
+            if active_movement and active_movement.sent_by:
+                create_notification(
+                    user=active_movement.sent_by,
+                    message=f"{staff.user.get_full_name()} approved document '{doc.title or 'Untitled'}' in file {file_obj.file_number}.",
+                    obj=file_obj,
+                    link=file_obj.get_absolute_url(),
+                )
+
+            messages.success(request, "Document approved successfully. File returned to registry.")
+
+        elif action == "reject":
+            rejection_reason = request.POST.get("rejection_reason", "").strip()
+            if not rejection_reason:
+                messages.error(request, "Rejection reason is required.")
+                return redirect(request.path)
+
+            doc.status = "rejected"
+            doc.status_reason = rejection_reason
+            doc.save(update_fields=["status", "status_reason"])
+
+            # Return file to sender
+            active_movement = FileMovement.objects.filter(
+                file=file_obj, document=doc, status="pending"
+            ).first()
+            if active_movement:
+                active_movement.status = "rejected"
+                active_movement.save(update_fields=["status"])
+
+                file_obj.current_location = active_movement.from_location
+                file_obj.status = "active"
+                file_obj.save(update_fields=["current_location", "status"])
+
+                # Notify the sender
+                create_notification(
+                    user=active_movement.sent_by,
+                    message=(
+                        f"{staff.user.get_full_name()} rejected document '{doc.title or 'Untitled'}' "
+                        f"in file {file_obj.file_number}. Reason: {rejection_reason}"
+                    ),
+                    obj=file_obj,
+                    link=file_obj.get_absolute_url(),
+                )
+
+            log_action(
+                request.user,
+                "DOCUMENT_REJECTED",
+                request=request,
+                obj=file_obj,
+                details={
+                    "document": str(doc),
+                    "file": file_obj.file_number,
+                    "reason": rejection_reason,
+                },
+            )
+
+            messages.warning(request, "Document rejected and returned to sender.")
+
+        return redirect(file_obj.get_absolute_url())
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "You do not have permission to approve this document.")
         return redirect("document_management:my_files")
