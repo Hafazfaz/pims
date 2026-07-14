@@ -42,6 +42,10 @@ class File(models.Model):
         help_text="Name of external organization (for Corporate/External Policy files)",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_approval")
+    is_sensitive = models.BooleanField(
+        default=False,
+        help_text="Mark as sensitive. Only HODs, Supervisors, Executives, and MD can view document contents.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(
         Staff,
@@ -188,6 +192,23 @@ class File(models.Model):
     def is_in_active_chain(self):
         """True if any document in this file has an active approval chain."""
         return self.documents.filter(approval_chains__status="active").exists()
+
+    def can_user_view_contents(self, user):
+        """
+        Check if a user can view document contents of this file.
+        If the file is sensitive, only HODs, Supervisors, Executives, MD, and superusers can view.
+        Non-sensitive files follow standard role-based rules.
+        """
+        if user.is_superuser:
+            return True
+        staff = getattr(user, "staff", None)
+        if not staff:
+            return False
+        if staff.is_registry:
+            return False
+        if self.is_sensitive:
+            return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+        return True
 
 
 class DocumentType(models.Model):

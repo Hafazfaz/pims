@@ -143,17 +143,24 @@ def can_delete_document(user, document):
     return is_registry(user) or document.uploaded_by == user
 
 
-def can_view_document_content(user):
+def can_view_document_content(user, file=None):
     """
     Who can view the actual contents of documents (minute_content, attachments).
     Only HODs, Supervisors, Executives, and MD — NOT registry or general staff.
+    If file is sensitive, same restriction applies regardless of other factors.
     """
     if user.is_superuser:
         return True
     staff = get_staff(user)
     if not staff:
         return False
-    return staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md
+    if staff.is_registry:
+        return False
+    # Sensitive files: only HOD+, supervisors, executives, MD
+    if file and file.is_sensitive:
+        return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+    # Non-sensitive: HOD+, supervisors, executives, MD can view
+    return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
 
 
 def can_view_document(user, document):
@@ -164,7 +171,7 @@ def can_view_document(user, document):
     """
     if not can_view_file(user, document.file):
         return False
-    return can_view_document_content(user)
+    return can_view_document_content(user, file=document.file)
 
 
 # ---------------------------------------------------------------------------

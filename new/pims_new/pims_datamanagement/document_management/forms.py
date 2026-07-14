@@ -9,7 +9,7 @@ from .models import Document, DocumentType, File, FileAccessRequest
 class FileForm(forms.ModelForm):
     class Meta:
         model = File
-        fields = ["title", "file_type", "owner", "department", "division", "section", "unit", "external_party"]
+        fields = ["title", "file_type", "owner", "department", "division", "section", "unit", "external_party", "is_sensitive"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -29,6 +29,7 @@ class FileForm(forms.ModelForm):
                     "placeholder": "e.g., Ministry of Health, WHO, etc.",
                 }
             ),
+            "is_sensitive": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "title": "Folder Title",
@@ -39,6 +40,7 @@ class FileForm(forms.ModelForm):
             "section": "Associated Section",
             "unit": "Associated Unit",
             "external_party": "External Organization/Party",
+            "is_sensitive": "Mark as Sensitive",
         }
 
     policy_type = forms.ChoiceField(
@@ -318,7 +320,7 @@ class SendFileForm(forms.Form):
 class FileUpdateForm(forms.ModelForm):
     class Meta:
         model = File
-        fields = ["title"]
+        fields = ["title", "is_sensitive"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -326,9 +328,11 @@ class FileUpdateForm(forms.ModelForm):
                     "placeholder": "Enter file title (e.g., PERSONNEL FILE OF JOHN DOE)",
                 }
             ),
+            "is_sensitive": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "title": "File Title",
+            "is_sensitive": "Mark as Sensitive",
         }
 
     def clean_title(self):
