@@ -4,7 +4,7 @@ Dear {{ user.get_full_name|default:user.username }},
 
 FILE CREATION REJECTED
 
-Your file creation request has been REJECTED by {{ rejector_name|default:"Authorized Approver" }}.
+Your file creation request has been REJECTED by {{ rejector.user.get_full_name|default:"Authorized Approver" }}.
 
 FILE DETAILS
 -------------
@@ -12,7 +12,7 @@ File Number: {{ file.file_number }}
 File Title: {{ file.title }}
 File Type: {{ file.get_file_type_display }}
 Department: {{ file.department.name|default:"—" }}
-Rejected By: {{ rejector_name|default:"Authorized Approver" }}
+Rejected By: {{ rejector.user.get_full_name|default:"Authorized Approver" }}
 Rejected At: {{ rejected_at|date:"M d, Y H:i" }}
 Rejection Reason: {{ rejection_reason }}
 Current Status: Rejected

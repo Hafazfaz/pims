@@ -104,23 +104,23 @@
                     <div class="info-card-title">File Details</div>
                     <div class="info-row">
                         <span class="info-label">File Number</span>
-                        <span class="info-value">{{ object.file_number }}</span>
+                        <span class="info-value">{{ file.file_number }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">File Title</span>
-                        <span class="info-value">{{ object.title }}</span>
+                        <span class="info-value">{{ file.title }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">File Type</span>
-                        <span class="info-value">{{ object.get_file_type_display }}</span>
+                        <span class="info-value">{{ file.get_file_type_display }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Department</span>
-                        <span class="info-value">{{ object.department.name|default:"—" }}</span>
+                        <span class="info-value">{{ file.department.name|default:"—" }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Approved By</span>
-                        <span class="info-value">{{ approver_name|default:"Authorized Approver" }}</span>
+                        <span class="info-value">{{ approver.user.get_full_name|default:"Authorized Approver" }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Current Status</span>

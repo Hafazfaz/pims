@@ -8,11 +8,11 @@ The file creation request has been reviewed and APPROVED by the authorized appro
 
 FILE DETAILS
 -------------
-File Number: {{ object.file_number }}
-File Title: {{ object.title }}
-File Type: {{ object.get_file_type_display }}
-Department: {{ object.department.name|default:"—" }}
-Approved By: {{ approver_name|default:"Authorized Approver" }}
+File Number: {{ file.file_number }}
+File Title: {{ file.title }}
+File Type: {{ file.get_file_type_display }}
+Department: {{ file.department.name|default:"—" }}
+Approved By: {{ approver.user.get_full_name|default:"Authorized Approver" }}
 Current Status: Pending Activation
 
 {% if link %}

@@ -31,7 +31,7 @@
     </div>
     <div class="info-row">
         <span class="info-label">Rejected By</span>
-        <span class="info-value">{{ rejector_name|default:"Authorized Approver" }}</span>
+        <span class="info-value">{{ rejector.user.get_full_name|default:"Authorized Approver" }}</span>
     </div>
     <div class="info-row">
         <span class="info-label">Rejection Reason</span>
