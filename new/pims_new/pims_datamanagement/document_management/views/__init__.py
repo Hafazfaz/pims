@@ -27,6 +27,7 @@ from .document_views import (  # noqa: F401
     DocumentShareView,
     DocumentUploadView,
     FileDocumentsView,
+    StandaloneUrgentDocumentCreateView,
 )
 from .file_views import (  # noqa: F401
     DirectorAdminDashboardView,

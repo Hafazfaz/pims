@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Create Urgent Document | PIMS{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Create Urgent Document</h1>
+      <p class="text-sm text-slate-500 font-medium mt-1">Standalone urgent/high priority document not tied to a file</p>
+    </div>
+  </header>
+
+  <form method="post" enctype="multipart/form-data" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+    {% csrf_token %}
+
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+        <span class="text-sm font-bold text-red-700">This document will be created as Urgent priority and will not belong to any file.</span>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div>
+        <label for="{{ form.title.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Subject / Title</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+        <p class="text-red-600 text-xs mt-1">{{ form.title.errors }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="{{ form.priority.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Priority</label>
+        {{ form.priority }}
+        {% if form.priority.errors %}
+        <p class="text-red-600 text-xs mt-1">{{ form.priority.errors }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="{{ form.minute_content.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Content (Minute)</label>
+        {{ form.minute_content }}
+        {% if form.minute_content.errors %}
+        <p class="text-red-600 text-xs mt-1">{{ form.minute_content.errors }}</p>
+        {% endif %}
+        <p class="text-xs text-slate-400 mt-1">Rich text supported. You can paste formatted content.</p>
+      </div>
+
+      <div>
+        <label for="{{ form.attachment.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Attachment (Optional)</label>
+        {{ form.attachment }}
+        {% if form.attachment.errors %}
+        <p class="text-red-600 text-xs mt-1">{{ form.attachment.errors }}</p>
+        {% endif %}
+      </div>
+
+      {% if form.include_signature %}
+      <div class="flex items-center gap-3">
+        {{ form.include_signature }}
+        <label for="{{ form.include_signature.id_for_label }}" class="text-sm text-slate-700 cursor-pointer">
+          Attach my digital signature
+        </label>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+      <a href="{% url 'document_management:inbox' %}?mode=urgent"
+         class="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors">
+        Cancel
+      </a>
+      <button type="submit"
+              class="px-5 py-2.5 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition-all focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+        Create Urgent Document
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
