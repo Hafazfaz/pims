@@ -55,20 +55,23 @@
                         </a>
 
                         <a href="{% url 'document_management:inbox' %}?mode=urgent"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' and request.GET.mode == 'urgent' %}bg-red-600 text-white{% elif url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' and 'urgent' in request.GET.urlencode %}bg-red-600 text-white{% elif url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <svg class="w-4 h-4 text-center" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                             </svg>
                             <span class="text-xs font-bold uppercase tracking-wider">Urgent</span>
-                            <span id="urgent-count-badge"></span>
-                        </a>
-
-                        <a href="{% url 'document_management:inbox' %}?mode=urgent"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' and 'urgent' in request.GET.urlencode %}bg-red-600 text-white{% elif url_name == 'inbox' and 'urgent' not in request.GET.urlencode %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                            <i class="fas fa-exclamation-triangle w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Urgent</span>
                             <span id="urgent-count-badge" class="ml-auto"></span>
                         </a>
+
+                        {% if perms.user_management.can_set_urgent_priority %}
+                        <a href="{% url 'document_management:urgent_document_create' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-400">
+                            <svg class="w-4 h-4 text-center" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            <span class="text-xs font-bold uppercase tracking-wider">New Urgent</span>
+                        </a>
+                        {% endif %}
 
 
 
