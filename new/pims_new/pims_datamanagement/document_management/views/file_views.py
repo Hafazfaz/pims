@@ -1162,7 +1162,9 @@ def _get_allowed_forward_pks(staff):
 
 
 class InboxView(HTMXLoginRequiredMixin, ListView):
-    """Shows all pending FileMovements sent to the current staff member."""
+    """Shows all pending FileMovements sent to the current staff member.
+    Supports 'urgent' mode to show urgent/high priority documents needing attention.
+    """
 
     model = FileMovement
     template_name = "document_management/inbox.html"
@@ -1173,6 +1175,38 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         staff = getattr(self.request.user, "staff", None)
         if not staff:
             return FileMovement.objects.none()
+
+        mode = self.request.GET.get("mode", "inbox")
+
+        if mode == "urgent":
+            # Show urgent/high priority documents in active files that need attention
+            # These are documents with priority != normal that are in active files
+            # and the user has permission to view (custodian, approver, HOD, etc.)
+            from ..models import Document
+            from ..permissions import can_view_document_content
+
+            # Get active files where user has access
+            user_files = File.objects.filter(
+                Q(current_location=staff) |
+                Q(owner=staff) |
+                Q(department=staff.department) if staff.department else Q(),
+                status="active"
+            ).distinct()
+
+            # Get urgent/high priority documents in those files
+            urgent_docs = Document.objects.filter(
+                file__in=user_files,
+                priority__in=["urgent", "high"],
+                status__in=["pending", "in_transit"]
+            ).select_related("file", "uploaded_by").order_by(
+                "-priority", "-uploaded_at"
+            )
+
+            # Convert to a pseudo-movement queryset for template compatibility
+            # We'll handle this in the template with a different context variable
+            return FileMovement.objects.none()
+
+        # Default inbox: movements sent to this user
         return (
             FileMovement.objects.filter(sent_to=staff, action="sent")
             .select_related("file", "document", "sent_by", "from_location__user")
@@ -1183,6 +1217,7 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         staff = getattr(self.request.user, "staff", None)
         context["can_approve"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
+        context["current_mode"] = self.request.GET.get("mode", "inbox")
 
         # For unit managers: pre-fill their HOD as the only forward recipient
         prefilled_recipient = None
@@ -1191,6 +1226,23 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
             if dept and dept.head:
                 prefilled_recipient = dept.head
         context["prefilled_recipient"] = prefilled_recipient
+
+        # Urgent mode: fetch urgent documents
+        if context["current_mode"] == "urgent" and staff:
+            from ..models import Document
+            user_files = File.objects.filter(
+                Q(current_location=staff) |
+                Q(owner=staff) |
+                (Q(department=staff.department) if staff.department else Q()),
+                status="active"
+            ).distinct()
+
+            context["urgent_documents"] = Document.objects.filter(
+                file__in=user_files,
+                priority__in=["urgent", "high"],
+                status__in=["pending", "in_transit"]
+            ).select_related("file", "uploaded_by").order_by("-priority", "-uploaded_at")[:50]
+
         return context
 
 
