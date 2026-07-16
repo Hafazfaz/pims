@@ -32,7 +32,7 @@
                                name="q"
                                value="{{ selected_search_query }}"
                                placeholder="Search Folders..."
-                               hx-get="{% url 'document_management:record_explorer' %}"
+                               hx-get="{% url 'document_management:record_explorer' %}?department={{ selected_dept }}&file_type={{ selected_file_type }}"
                                hx-trigger="keyup changed delay:300ms, q"
                                hx-target="#file-sidebar-list"
                                hx-indicator="#sidebar-indicator"

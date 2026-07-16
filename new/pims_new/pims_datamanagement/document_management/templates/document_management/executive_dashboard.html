@@ -112,7 +112,7 @@
             <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
                 <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest mb-6">File Distribution</h3>
                 <div class="space-y-6">
-                    <div>
+                    <a href="{% url 'document_management:record_explorer' %}?file_type=personal" class="block hover:opacity-80 transition-opacity">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Personal</span>
                             <span class="text-xl font-black text-slate-900">{{ personal_files_count }}</span>
@@ -122,8 +122,8 @@
                                  style="width: {% if total_files > 0 %}{% widthratio personal_files_count total_files 100 %}{% else %}0{% endif %}%">
                             </div>
                         </div>
-                    </div>
-                    <div>
+                    </a>
+                    <a href="{% url 'document_management:record_explorer' %}?file_type=policy" class="block hover:opacity-80 transition-opacity">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Policy</span>
                             <span class="text-xl font-black text-slate-900">{{ policy_files_count }}</span>
@@ -133,7 +133,7 @@
                                  style="width: {% if total_files > 0 %}{% widthratio policy_files_count total_files 100 %}{% else %}0{% endif %}%">
                             </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
             </div>
         </div>
@@ -192,7 +192,7 @@
             <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Recent Files</h3>
-                    <a href="{% url 'document_management:my_files' %}"
+                    <a href="{% url 'document_management:record_explorer' %}"
                        class="text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider">View All <i class="fas fa-arrow-right ml-1"></i></a>
                 </div>
                 <div class="space-y-3">

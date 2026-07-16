@@ -50,6 +50,7 @@ from .file_views import (  # noqa: F401
     InboxView,
     MessagesView,
     MyFilesView,
+    OutboxView,
     RecordExplorerView,
 )
 from .registry_views import (  # noqa: F401

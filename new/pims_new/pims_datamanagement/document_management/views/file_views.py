@@ -439,8 +439,10 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if (
             file_obj.file_type == "personal"
             and staff_user.is_hod
-            and file_obj.owner
-            and file_obj.owner.department == staff_user.department
+            and (
+                (file_obj.owner and file_obj.owner.department == staff_user.department)
+                or file_obj.department == staff_user.department
+            )
         ):
             return True
 
@@ -1078,6 +1080,10 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         if dept_filter:
             queryset = queryset.filter(department_id=dept_filter)
 
+        file_type_filter = self.request.GET.get("file_type")
+        if file_type_filter:
+            queryset = queryset.filter(file_type=file_type_filter)
+
         return queryset
 
     def get_template_names(self):
@@ -1092,6 +1098,8 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["departments"] = Department.objects.all().order_by("name")
         context["selected_dept"] = self.request.GET.get("department", "")
+        context["selected_file_type"] = self.request.GET.get("file_type", "")
+        context["selected_search_query"] = self.request.GET.get("q", "")
         context["q"] = self.request.GET.get("q", "")
 
         file_pk = self.request.GET.get("file_pk")
@@ -1186,6 +1194,66 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         return context
 
 
+class OutboxView(HTMXLoginRequiredMixin, ListView):
+    """Shows all FileMovements sent by the current staff member."""
+
+    model = FileMovement
+    template_name = "document_management/outbox.html"
+    context_object_name = "movements"
+    paginate_by = 15
+
+    def get_queryset(self):
+        staff = getattr(self.request.user, "staff", None)
+        if not staff:
+            return FileMovement.objects.none()
+        qs = (
+            FileMovement.objects.filter(sent_by=self.request.user, action="sent")
+            .select_related("file", "document", "sent_to__user", "sent_to__designation", "sent_to__department", "sent_to__unit")
+            .order_by("-moved_at")
+        )
+
+        q = self.request.GET.get("q")
+        if q:
+            qs = qs.filter(
+                Q(file__file_number__icontains=q)
+                | Q(file__title__icontains=q)
+                | Q(document__title__icontains=q)
+                | Q(sent_to__user__first_name__icontains=q)
+                | Q(sent_to__user__last_name__icontains=q)
+            )
+
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["selected_search_query"] = self.request.GET.get("q", "")
+        context["selected_status"] = self.request.GET.get("status", "")
+        return context
+
+
+class OutboxView(HTMXLoginRequiredMixin, ListView):
+    """Shows all FileMovements sent by the current staff member."""
+
+    model = FileMovement
+    template_name = "document_management/outbox.html"
+    context_object_name = "movements"
+    paginate_by = 15
+
+    def get_queryset(self):
+        staff = getattr(self.request.user, "staff", None)
+        if not staff:
+            return FileMovement.objects.none()
+        return (
+            FileMovement.objects.filter(sent_by=self.request.user, action="sent")
+            .select_related("file", "document", "sent_to__user", "from_location__user")
+            .order_by("-moved_at")
+        )
+
+
 class InboxRefDocView(HTMXLoginRequiredMixin, View):
     """Read-only view of a single reference document shared with the inbox recipient."""
 
@@ -1221,7 +1289,11 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
         movement = get_object_or_404(FileMovement, pk=pk)
         staff = getattr(request.user, "staff", None)
 
-        if movement.sent_to != staff:
+        # Allow access if user is the recipient OR the sender
+        is_recipient = staff and movement.sent_to == staff
+        is_sender = movement.sent_by == request.user
+
+        if not (is_recipient or is_sender):
             messages.error(request, "You do not have access to this file.")
             return redirect("document_management:inbox")
 
@@ -1260,12 +1332,20 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
         movement = get_object_or_404(FileMovement, pk=pk)
         staff = getattr(request.user, "staff", None)
 
-        if movement.sent_to != staff:
+        # Allow access if user is the recipient OR the sender
+        is_recipient = staff and movement.sent_to == staff
+        is_sender = movement.sent_by == request.user
+
+        if not (is_recipient or is_sender):
             messages.error(request, "You do not have access to this document.")
             return redirect("document_management:inbox")
 
         file_obj = movement.file
         document = movement.document
+
+        # If no specific document, redirect to file view
+        if not document:
+            return redirect("document_management:inbox_file_view", pk=movement.pk)
 
         # Sender staff profile
         try:
@@ -1274,24 +1354,18 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
             sender_staff = None
 
         # Other documents in the same file (excluding the current one)
-        other_docs = file_obj.documents.exclude(pk=document.pk).order_by("-uploaded_at")[:10] if document else []
+        other_docs = file_obj.documents.exclude(pk=document.pk).order_by("-uploaded_at")[:10]
 
         # Reference documents shared with the recipient for this movement
         reference_docs = (
-            (file_obj.documents.filter(shared_with=request.user).exclude(pk=document.pk).order_by("-uploaded_at"))
-            if document
-            else []
+            file_obj.documents.filter(shared_with=request.user).exclude(pk=document.pk).order_by("-uploaded_at")
         )
 
         # All movements for this specific document, oldest first — for chat thread
         movement_history = (
-            (
-                FileMovement.objects.filter(document=document)
-                .select_related("sent_by", "sent_to__user", "from_location__user")
-                .order_by("moved_at")
-            )
-            if document
-            else []
+            FileMovement.objects.filter(document=document)
+            .select_related("sent_by", "sent_to__user", "from_location__user")
+            .order_by("moved_at")
         )
 
         # Full file movement history (all documents), newest first

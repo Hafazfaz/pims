@@ -2,10 +2,16 @@
 {% block title %}Inbox | PIMS{% endblock %}
 {% block content %}
 <div class="space-y-8">
+  <header class="flex items-center justify-between">
     <div>
-        <h2 class="text-2xl font-bold text-slate-900 tracking-tight text-gov-green uppercase tracking-widest">Document Inbox</h2>
-        <p class="text-sm text-slate-500 font-medium italic">Documents sent to you for review, approval, or forwarding.</p>
+      <h1 class="text-2xl font-bold text-slate-900">Document Inbox</h1>
+      <p class="text-sm text-slate-500 font-medium mt-1">Documents sent to you for review, approval, or forwarding.</p>
     </div>
+    <a href="{% url 'document_management:outbox' %}"
+       class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors">
+      Sent →
+    </a>
+  </header>
 
     <section class="space-y-4">
         {% if movements %}

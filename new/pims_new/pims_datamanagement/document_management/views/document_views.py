@@ -149,10 +149,13 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
         # Only HODs, Supervisors, Executives, and MD can view document contents
         # Registry and general staff cannot view document contents
-        from ..permissions import can_view_document_content
+        from ..permissions import can_view_document_content, can_view_document
 
         if not can_view_document_content(user):
             return False
+
+        if can_view_document(user, document):
+            return True
 
         if staff_user == file_obj.current_location:
             return True
@@ -478,7 +481,11 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "You do not have permission to view this document.")
-        return redirect("document_management:my_files")
+        try:
+            document = self.get_object()
+            return redirect(document.file.get_absolute_url())
+        except Exception:
+            return redirect("document_management:my_files")
 
 
 class FileDocumentsView(HTMXLoginRequiredMixin, ListView):

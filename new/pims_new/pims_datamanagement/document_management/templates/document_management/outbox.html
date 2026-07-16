@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Sent Documents | PIMS{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Sent Documents</h1>
+      <p class="text-sm text-slate-500 font-medium mt-1">Documents you dispatched for review or approval</p>
+    </div>
+    <a href="{% url 'document_management:inbox' %}"
+       class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors">
+      ← Back to Inbox
+    </a>
+  </header>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+      <div class="flex-1 min-w-[200px]">
+        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Search</label>
+        <input type="text" name="q" value="{{ selected_search_query }}"
+               placeholder="Search file number, title, recipient…"
+               class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+      </div>
+      <div class="min-w-[160px]">
+        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</label>
+        <select name="status" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+          <option value="">All Statuses</option>
+          <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending</option>
+          <option value="approved" {% if selected_status == 'approved' %}selected{% endif %}>Approved</option>
+          <option value="rejected" {% if selected_status == 'rejected' %}selected{% endif %}>Rejected</option>
+          <option value="forwarded" {% if selected_status == 'forwarded' %}selected{% endif %}>Forwarded</option>
+        </select>
+      </div>
+      <button type="submit" class="px-5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-all">
+        Filter
+      </button>
+      {% if selected_search_query or selected_status %}
+      <a href="{% url 'document_management:outbox' %}" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">
+        Clear
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Movements List -->
+  {% if movements %}
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="divide-y divide-slate-100">
+      {% for movement in movements %}
+      <div class="p-5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 flex-wrap mb-2">
+              <span class="text-[10px] font-black {% if movement.document and movement.document.status == 'approved' %}text-green-600{% elif movement.document and movement.document.status == 'rejected' %}text-red-600{% elif movement.document and movement.document.status == 'in_transit' %}text-blue-600{% else %}text-amber-600{% endif %} tracking-widest uppercase">
+                {{ movement.document.get_status_display|default:movement.get_status_display }}
+              </span>
+              <span class="text-sm font-bold text-nigeria-green">{{ movement.file.file_number }}</span>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-800 truncate">{{ movement.document.title|default:"Document" }}</h3>
+            <p class="text-[10px] text-slate-400 mt-1">
+              Sent to <strong>{{ movement.sent_to.user.get_full_name|default:movement.sent_to.user.username }}</strong>
+              {% if movement.sent_to.designation %} · {{ movement.sent_to.designation.name }}{% endif %}
+              · {{ movement.moved_at|date:"M d, Y @ H:i" }}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 shrink-0">
+            {% if movement.document %}
+            <a href="{% url 'document_management:inbox_document_detail' movement.pk %}"
+               class="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all">
+              View
+            </a>
+            {% else %}
+            <a href="{% url 'document_management:inbox_file_view' movement.pk %}"
+               class="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all">
+              View File
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="p-4 border-t border-slate-100 bg-slate-50/30">
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-slate-500 font-medium">
+          Page {{ page_obj.number }} of {{ paginator.num_pages }} ({{ paginator.count }} total)
+        </p>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}&q={{ selected_search_query }}&status={{ selected_status }}"
+             class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50">
+            Previous
+          </a>
+          {% endif %}
+          {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}&q={{ selected_search_query }}&status={{ selected_status }}"
+             class="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black">
+            Next
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+    <svg class="w-16 h-16 text-slate-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+    </svg>
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest italic">No sent documents found.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

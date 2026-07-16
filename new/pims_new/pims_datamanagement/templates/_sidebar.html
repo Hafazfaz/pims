@@ -48,6 +48,12 @@
                             <span class="text-xs font-bold uppercase tracking-wider">Messages</span>
                         </a>
 
+                        <a href="{% url 'document_management:outbox' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'outbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                            <i class="fas fa-paper-plane w-4 text-center"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider">Sent</span>
+                        </a>
+
 
 
                         {% endif %}

@@ -97,7 +97,7 @@
                 <div class="space-y-3">
                     {% for doc in documents %}
                         <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-nigeria-green/30 transition-all">
-                            <div class="flex items-center gap-4">
+                            <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="flex items-center gap-4 flex-grow">
                                 <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-nigeria-green transition-colors">
                                     {% if doc.minute_content %}
                                         <i class="fas fa-sticky-note text-xs"></i>
@@ -117,7 +117,7 @@
                                         Uploaded by {{ doc.uploaded_by.get_full_name }} • {{ doc.uploaded_at|date:"M d, Y" }}
                                     </p>
                                 </div>
-                            </div>
+                            </a>
                             {% if doc.attachment %}
                                 <a href="{% url 'document_management:document_download' doc.pk %}"
                                    class="text-slate-400 hover:text-nigeria-green p-2 transition-colors">

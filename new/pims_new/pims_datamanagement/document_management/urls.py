@@ -12,11 +12,13 @@ urlpatterns = [
     path("my-files/", views.MyFilesView.as_view(), name="my_files"),
     path("messages/", views.MessagesView.as_view(), name="messages"),
     path("inbox/", views.InboxView.as_view(), name="inbox"),
+    path("outbox/", views.OutboxView.as_view(), name="outbox"),
     path("inbox/movement/<int:pk>/action/", views.DocumentActionView.as_view(), name="document_action"),
     path("inbox/movement/<int:pk>/", views.InboxDocumentDetailView.as_view(), name="inbox_document_detail"),
     path("inbox/movement/<int:pk>/file/", views.InboxFileView.as_view(), name="inbox_file_view"),
     path("inbox/ref-doc/<int:pk>/", views.InboxRefDocView.as_view(), name="inbox_ref_doc"),
     path("inbox/recipient-search/", views.InboxRecipientSearchView.as_view(), name="inbox_recipient_search"),
+    path("outbox/", views.OutboxView.as_view(), name="outbox"),
     path(
         "file/<int:pk>/request-activation/", views.FileRequestActivationView.as_view(), name="file_request_activation"
     ),

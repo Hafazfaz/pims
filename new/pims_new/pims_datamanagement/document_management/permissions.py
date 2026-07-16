@@ -63,7 +63,9 @@ def can_view_file(user, file):
         return True
     if file.file_type == "policy" and (is_hod(user) or is_unit_manager(user)) and file.department == staff.department:
         return True
-    if file.file_type == "personal" and is_hod(user) and file.owner and file.owner.department == staff.department:
+    if file.file_type == "personal" and is_hod(user) and (
+        (file.owner and file.owner.department == staff.department) or file.department == staff.department
+    ):
         return True
     # Approved access request
     from document_management.models import FileAccessRequest
