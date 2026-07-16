@@ -138,7 +138,7 @@ class UrgentCountView(LoginRequiredMixin, View):
         if not staff:
             return HttpResponse("")
 
-        from document_management.models import Document
+        from document_management.models import Document, File
         from django.db.models import Q
 
         # Staff's accessible files (same logic as MyFilesView)
@@ -149,7 +149,7 @@ class UrgentCountView(LoginRequiredMixin, View):
             file_qs = file_qs.exclude(status__in=["inactive", "closed"])
 
         count = Document.objects.filter(
-            file__in=file_qs,
+            Q(file__in=file_qs) | Q(file__isnull=True),
             priority__in=["urgent", "high"],
             status__in=["pending", "in_transit"]
         ).count()
@@ -157,7 +157,7 @@ class UrgentCountView(LoginRequiredMixin, View):
         if count > 0:
             return HttpResponse(f"""
                 <span id="urgent-count-badge"
-                      class="ml-2 px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black rounded-full">
+                      class="ml-2 px-1.5 py-0.5 bg-red-600 text-white rounded-full text-[9px] font-black">
                     {count}
                 </span>
             """)

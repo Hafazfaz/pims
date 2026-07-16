@@ -19,7 +19,6 @@ urlpatterns = [
     path("inbox/ref-doc/<int:pk>/", views.InboxRefDocView.as_view(), name="inbox_ref_doc"),
     path("inbox/recipient-search/", views.InboxRecipientSearchView.as_view(), name="inbox_recipient_search"),
     path("urgent-count/", views.UrgentCountView.as_view(), name="urgent_count"),
-    path("urgent-count/", views.UrgentCountView.as_view(), name="urgent_count"),
     path("outbox/", views.OutboxView.as_view(), name="outbox"),
     path(
         "file/<int:pk>/request-activation/", views.FileRequestActivationView.as_view(), name="file_request_activation"
