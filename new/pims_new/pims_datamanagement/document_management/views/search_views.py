@@ -8,40 +8,6 @@ from organization.models import Staff, Unit
 from .base import EXCLUDE_REGISTRY_Q
 
 
-class UrgentCountView(LoginRequiredMixin, View):
-    """HTMX endpoint to get urgent document count for sidebar badge."""
-
-    def get(self, request, *args, **kwargs):
-        staff = getattr(request.user, "staff", None)
-        if not staff:
-            return HttpResponse("")
-
-        from document_management.models import Document, File
-        from django.db.models import Q
-
-        # Staff's accessible files (same logic as MyFilesView)
-        file_qs = File.objects.filter(
-            Q(owner=staff) | Q(created_by=request.user) | Q(current_location=staff)
-        ).distinct()
-        if not staff.is_registry:
-            file_qs = file_qs.exclude(status__in=["inactive", "closed"])
-
-        count = Document.objects.filter(
-            Q(file__in=file_qs) | Q(file__isnull=True),
-            priority__in=["urgent", "high"],
-            status__in=["pending", "in_transit"]
-        ).count()
-
-        if count > 0:
-            return HttpResponse(f"""
-                <span id="urgent-count-badge"
-                      class="ml-2 px-1.5 py-0.5 bg-red-600 text-white rounded-full text-[9px] font-black">
-                    {count}
-                </span>
-            """)
-        return HttpResponse("")
-
-
 class RecipientSearchView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         query = request.GET.get("q", "").strip()
