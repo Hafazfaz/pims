@@ -74,4 +74,5 @@ from .search_views import (  # noqa: F401
     RecipientSearchView,
     StaffSearchView,
     UnitsForDepartmentView,
+    UrgentCountView,
 )
