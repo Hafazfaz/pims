@@ -199,7 +199,7 @@
         <div class="bg-red-50 border-b border-red-100 px-6 py-3">
           <p class="text-sm text-red-700 font-medium">
             {{ urgent_documents|length }} urgent/high priority document{{ urgent_documents|pluralize }} across your active files.
-            {% if user.has_perm 'user_management.can_set_urgent_priority' %}
+            {% if perms.user_management.can_set_urgent_priority %}
             <a href="{% url 'document_management:my_files' %}" class="ml-2 text-red-600 hover:underline text-xs font-bold">Create urgent doc →</a>
             {% endif %}
           </p>

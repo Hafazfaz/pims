@@ -42,10 +42,10 @@
                             <span class="text-xs font-bold uppercase tracking-wider">My Files</span>
                         </a>
 
-                        <a href="{% url 'document_management:messages' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'messages' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <a href="{% url 'document_management:inbox' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Messages</span>
+                            <span class="text-xs font-bold uppercase tracking-wider">Inbox</span>
                         </a>
 
                         <a href="{% url 'document_management:outbox' %}"
@@ -64,10 +64,10 @@
 
                     <!-- Moved from Registry (restricted to registry staff only) -->
                     {% if user.staff.is_registry %}
-                        <a href="{% url 'document_management:messages' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'messages' or url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <a href="{% url 'document_management:inbox' %}"
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Messages</span>
+                            <span class="text-xs font-bold uppercase tracking-wider">Inbox</span>
                         </a>
                     {% endif %}
                 </div>
