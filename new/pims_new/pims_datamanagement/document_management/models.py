@@ -224,9 +224,10 @@ class DocumentType(models.Model):
 class Document(models.Model):
     """
     Represents a document or a minute attached to a File.
+    Can also exist as a standalone document (not tied to any file).
     """
 
-    file = models.ForeignKey(File, related_name="documents", on_delete=models.CASCADE)
+    file = models.ForeignKey(File, related_name="documents", on_delete=models.CASCADE, null=True, blank=True)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     document_type = models.ForeignKey(

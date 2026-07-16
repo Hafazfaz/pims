@@ -1237,8 +1237,10 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
                 status="active"
             ).distinct()
 
+            # Include standalone urgent documents (file=None) that user can see
+            # Plus urgent documents in accessible files
             context["urgent_documents"] = Document.objects.filter(
-                file__in=user_files,
+                Q(file__in=user_files) | Q(file__isnull=True),
                 priority__in=["urgent", "high"],
                 status__in=["pending", "in_transit"]
             ).select_related("file", "uploaded_by").order_by("-priority", "-uploaded_at")[:50]

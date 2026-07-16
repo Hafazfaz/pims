@@ -828,3 +828,84 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return self.file_obj.get_absolute_url()
+
+
+class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
+    """Create a standalone urgent/high priority document not tied to any file."""
+    model = Document
+    form_class = DocumentForm
+    template_name = "document_management/standalone_urgent_create.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        # Only users with urgent permission can create standalone urgent docs
+        if not request.user.has_perm("user_management.can_set_urgent_priority"):
+            messages.error(request, "You do not have permission to create urgent documents.")
+            return redirect("document_management:inbox")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["priority"] = "urgent"  # Default to urgent
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if hasattr(self.request.user, "staff"):
+            context["active_signature"] = self.request.user.staff.get_active_signature()
+        return context
+
+    def form_valid(self, form):
+        form.instance.uploaded_by = self.request.user
+        form.instance.file = None  # Standalone document
+        priority = form.cleaned_data.get("priority", "urgent")
+        form.instance.priority = priority
+        form.instance.status = "pending"
+        response = super().form_valid(form)
+        document = self.object
+
+        # Notify HODs/supervisors of this urgent document
+        if priority in ("urgent", "high"):
+            from organization.models import Staff
+            from notifications.utils import create_notification
+
+            from document_management.views.base import EXCLUDE_REGISTRY_Q
+
+            recipients = (
+                Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
+                .exclude(user=self.request.user)
+                .filter(
+                    Q(is_hod=True) | Q(is_effective_supervisor=True) | Q(is_executive=True) | Q(is_md=True)
+                )
+                .select_related("user")
+            )
+            for recipient in recipients:
+                if recipient.user:
+                    create_notification(
+                        user=recipient.user,
+                        message=(
+                            f"URGENT Document Created: '{document.title or 'Untitled'}' "
+                            f"by {self.request.user.get_full_name() or self.request.user.username}."
+                        ),
+                        obj=document,
+                        link=reverse_lazy("document_management:inbox_document_standalone", kwargs={"pk": document.pk}),
+                    )
+
+        messages.success(self.request, f"Urgent document '{document.title or 'Untitled'}' created successfully.")
+        log_action(
+            self.request.user,
+            "STANDALONE_URGENT_DOCUMENT_CREATED",
+            request=self.request,
+            obj=document,
+            details={"priority": document.priority},
+        )
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("document_management:inbox") + "?mode=urgent"
