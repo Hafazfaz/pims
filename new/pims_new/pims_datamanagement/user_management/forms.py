@@ -49,3 +49,50 @@ class UserCreateForm(forms.ModelForm):
             self.fields["unit"].queryset = Unit.objects.all()
             self.fields["division"].queryset = Division.objects.all()
             self.fields["section"].queryset = Section.objects.all()
+
+
+class UserUpdateForm(forms.ModelForm):
+    department = forms.ModelChoiceField(queryset=Department.objects.all(), required=True)
+    division = forms.ModelChoiceField(
+        queryset=Division.objects.none(), required=False, empty_label="— None (optional) —"
+    )
+    section = forms.ModelChoiceField(queryset=Section.objects.none(), required=False, empty_label="— None (optional) —")
+    unit = forms.ModelChoiceField(queryset=Unit.objects.none(), required=False)
+    designation = forms.ModelChoiceField(queryset=Designation.objects.all(), required=True)
+    staff_type = forms.ChoiceField(choices=[("permanent", "Permanent"), ("contract", "Contract")], required=True)
+    is_supervisor = forms.BooleanField(required=False)
+    can_set_urgent_priority = forms.BooleanField(required=False, label="Can mark documents as Urgent/High Priority")
+
+    class Meta:
+        model = CustomUser
+        fields = ["username", "email", "first_name", "last_name", "is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populate staff fields from existing staff profile if exists
+        if self.instance.pk and hasattr(self.instance, "staff"):
+            staff = self.instance.staff
+            self.initial["department"] = staff.department
+            self.initial["division"] = staff.division
+            self.initial["section"] = staff.section
+            self.initial["unit"] = staff.unit
+            self.initial["designation"] = staff.designation
+            self.initial["staff_type"] = staff.staff_type
+            self.initial["is_supervisor"] = staff.is_supervisor
+
+        if "department" in self.data:
+            try:
+                department_id = int(self.data.get("department"))
+                self.fields["unit"].queryset = Unit.objects.filter(department_id=department_id)
+                self.fields["division"].queryset = Division.objects.filter(department_id=department_id)
+                self.fields["section"].queryset = Section.objects.filter(department_id=department_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and hasattr(self.instance, "staff") and self.instance.staff.department:
+            self.fields["unit"].queryset = self.instance.staff.department.units.all()
+            self.fields["division"].queryset = self.instance.staff.department.divisions.all()
+            self.fields["section"].queryset = Section.objects.filter(department=self.instance.staff.department)
+        else:
+            self.fields["unit"].queryset = Unit.objects.all()
+            self.fields["division"].queryset = Division.objects.all()
+            self.fields["section"].queryset = Section.objects.all()

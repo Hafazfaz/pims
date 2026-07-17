@@ -40,7 +40,7 @@ from organization.models import (
     Unit,
 )
 
-from .forms import SignatureUploadForm, UserCreateForm
+from .forms import SignatureUploadForm, UserCreateForm, UserUpdateForm
 from .models import CustomUser, PasswordHistory  # Import PasswordHistory
 from .otp_utils import (
     clear_otp_session,  # Import OTP utilities
@@ -893,6 +893,88 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 )
 
         return HttpResponseRedirect(self.success_url)
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        messages.error(self.request, "Only Superusers can perform this action.")
+        return redirect("user_management:user_list")
+
+
+class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, View):
+    template_name = "user_management/user_update.html"
+    success_url = reverse_lazy("user_management:user_list")
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get_user(self):
+        return get_object_or_404(CustomUser, pk=self.kwargs.get("pk"))
+
+    def get_form(self, user=None):
+        return UserUpdateForm(instance=user, user=self.request.user)
+
+    def get(self, request, pk):
+        user = self.get_user()
+        form = UserUpdateForm(instance=user)
+        return render(request, self.template_name, {"form": form, "target_user": user})
+
+    def post(self, request, pk):
+        user = self.get_user()
+        form = UserUpdateForm(request.POST, instance=user)
+        if form.is_valid():
+            with transaction.atomic():
+                # Update user fields
+                user.username = form.cleaned_data["username"]
+                user.email = form.cleaned_data["email"]
+                user.first_name = form.cleaned_data["first_name"]
+                user.last_name = form.cleaned_data["last_name"]
+                user.is_active = form.cleaned_data["is_active"]
+                user.save()
+
+                # Update or create staff profile
+                department = form.cleaned_data["department"]
+                unit = form.cleaned_data.get("unit")
+                division = form.cleaned_data.get("division")
+                section = form.cleaned_data.get("section")
+                designation = form.cleaned_data["designation"]
+                staff_type = form.cleaned_data["staff_type"]
+                is_supervisor = form.cleaned_data["is_supervisor"]
+                can_set_urgent_priority = form.cleaned_data.get("can_set_urgent_priority", False)
+
+                staff, created = Staff.objects.update_or_create(
+                    user=user,
+                    defaults={
+                        "department": department,
+                        "unit": unit,
+                        "division": division,
+                        "section": section,
+                        "designation": designation,
+                        "staff_type": staff_type,
+                        "is_supervisor": is_supervisor,
+                    },
+                )
+
+                # Handle urgent priority permission
+                urgent_perm = Permission.objects.get(
+                    content_type__app_label="user_management",
+                    codename="can_set_urgent_priority",
+                )
+                if can_set_urgent_priority:
+                    user.user_permissions.add(urgent_perm)
+                else:
+                    user.user_permissions.remove(urgent_perm)
+
+                log_action(
+                    self.request.user,
+                    "USER_UPDATED",
+                    request=self.request,
+                    obj=user,
+                    details={"username": user.username},
+                )
+                messages.success(self.request, f"User {user.username} updated successfully.")
+            return redirect(self.success_url)
+        return render(request, self.template_name, {"form": form, "target_user": user})
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:

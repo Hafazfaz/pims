@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Edit User {{ target_user.username }} | PIMS{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <header class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Edit User</h1>
+            <p class="text-sm text-slate-500 font-medium mt-1">{{ target_user.username }}</p>
+        </div>
+        <a href="{% url 'user_management:user_detail' pk=target_user.pk %}"
+           class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors">
+            ← Back
+        </a>
+    </header>
+
+    <form method="post" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+        {% csrf_token %}
+
+        <!-- User Info -->
+        <fieldset class="space-y-4">
+            <legend class="text-sm font-bold text-slate-900 uppercase tracking-wider text-gov-green mb-4">Account Details</legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="{{ form.username.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Username</label>
+                    {{ form.username|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.username.errors %}<p class="text-red-600 text-xs mt-1">{{ form.username.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.email.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                    {{ form.email|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.email.errors %}<p class="text-red-600 text-xs mt-1">{{ form.email.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.first_name.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">First Name</label>
+                    {{ form.first_name|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.first_name.errors %}<p class="text-red-600 text-xs mt-1">{{ form.first_name.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.last_name.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Last Name</label>
+                    {{ form.last_name|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.last_name.errors %}<p class="text-red-600 text-xs mt-1">{{ form.last_name.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        {{ form.is_active }}
+                        <span class="text-sm font-medium text-slate-700">Active</span>
+                    </label>
+                </div>
+            </div>
+        </fieldset>
+
+        <!-- Staff Profile -->
+        <fieldset class="space-y-4 border-t border-slate-100 pt-6">
+            <legend class="text-sm font-bold text-slate-900 uppercase tracking-wider text-gov-green mb-4">Staff Profile</legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="{{ form.department.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Department <span class="text-red-500">*</span></label>
+                    {{ form.department|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.department.errors %}<p class="text-red-600 text-xs mt-1">{{ form.department.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.designation.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Designation <span class="text-red-500">*</span></label>
+                    {{ form.designation|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.designation.errors %}<p class="text-red-600 text-xs mt-1">{{ form.designation.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.division.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Division</label>
+                    {{ form.division|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.division.errors %}<p class="text-red-600 text-xs mt-1">{{ form.division.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.section.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Section</label>
+                    {{ form.section|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.section.errors %}<p class="text-red-600 text-xs mt-1">{{ form.section.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.unit.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Unit</label>
+                    {{ form.unit|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.unit.errors %}<p class="text-red-600 text-xs mt-1">{{ form.unit.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.staff_type.id_for_label }}" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Staff Type <span class="text-red-500">*</span></label>
+                    {{ form.staff_type|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all" }}
+                    {% if form.staff_type.errors %}<p class="text-red-600 text-xs mt-1">{{ form.staff_type.errors }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        {{ form.is_supervisor }}
+                        <span class="text-sm font-medium text-slate-700">Supervisor</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        {{ form.can_set_urgent_priority }}
+                        <span class="text-sm font-medium text-slate-700">Can mark documents as Urgent/High Priority</span>
+                    </label>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4 justify-end">
+            <a href="{% url 'user_management:user_detail' pk=target_user.pk %}"
+               class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors text-center">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="flex-1 py-3 bg-slate-900 hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg transition-all active:scale-95">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
