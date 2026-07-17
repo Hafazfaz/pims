@@ -161,6 +161,12 @@
             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Can mark documents as Urgent/High Priority</span>
         </label>
         {% if form.can_set_urgent_priority.errors %}<p class="text-[10px] text-red-500">{{ form.can_set_urgent_priority.errors.0 }}</p>{% endif %}
+
+        <label class="flex items-center gap-2 cursor-pointer">
+            {{ form.can_share_documents }}
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Can share documents with other users</span>
+        </label>
+        {% if form.can_share_documents.errors %}<p class="text-[10px] text-red-500">{{ form.can_share_documents.errors.0 }}</p>{% endif %}
     </div>
 </div>
                         </div>

@@ -25,6 +25,7 @@ class UserCreateForm(forms.ModelForm):
     staff_type = forms.ChoiceField(choices=[("permanent", "Permanent"), ("contract", "Contract")], required=True)
     is_supervisor = forms.BooleanField(required=False)
     can_set_urgent_priority = forms.BooleanField(required=False, label="Can mark documents as Urgent/High Priority")
+    can_share_documents = forms.BooleanField(required=False, label="Can share documents with other users")
     password = forms.CharField(widget=forms.PasswordInput, required=True)
 
     class Meta:
@@ -62,6 +63,7 @@ class UserUpdateForm(forms.ModelForm):
     staff_type = forms.ChoiceField(choices=[("permanent", "Permanent"), ("contract", "Contract")], required=True)
     is_supervisor = forms.BooleanField(required=False)
     can_set_urgent_priority = forms.BooleanField(required=False, label="Can mark documents as Urgent/High Priority")
+    can_share_documents = forms.BooleanField(required=False, label="Can share documents with other users")
 
     class Meta:
         model = CustomUser

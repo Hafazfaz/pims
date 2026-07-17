@@ -13,6 +13,7 @@ class CustomUser(AbstractUser):
     class Meta(AbstractUser.Meta):
         permissions = [
             ("can_set_urgent_priority", "Can mark documents as Urgent or High Priority"),
+            ("can_share_documents", "Can share documents with other users"),
         ]
 
 

@@ -848,6 +848,14 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 )
                 user.user_permissions.add(urgent_perm)
 
+            # Assign document sharing permission if selected
+            if form.cleaned_data.get("can_share_documents"):
+                share_perm = Permission.objects.get(
+                    content_type__app_label="user_management",
+                    codename="can_share_documents",
+                )
+                user.user_permissions.add(share_perm)
+
             log_action(
                 self.request.user,
                 "USER_CREATED",
@@ -941,6 +949,7 @@ class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, View):
                 staff_type = form.cleaned_data["staff_type"]
                 is_supervisor = form.cleaned_data["is_supervisor"]
                 can_set_urgent_priority = form.cleaned_data.get("can_set_urgent_priority", False)
+                can_share_documents = form.cleaned_data.get("can_share_documents", False)
 
                 staff, created = Staff.objects.update_or_create(
                     user=user,
@@ -964,6 +973,16 @@ class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, View):
                     user.user_permissions.add(urgent_perm)
                 else:
                     user.user_permissions.remove(urgent_perm)
+
+                # Handle share documents permission
+                share_perm = Permission.objects.get(
+                    content_type__app_label="user_management",
+                    codename="can_share_documents",
+                )
+                if can_share_documents:
+                    user.user_permissions.add(share_perm)
+                else:
+                    user.user_permissions.remove(share_perm)
 
                 log_action(
                     self.request.user,
