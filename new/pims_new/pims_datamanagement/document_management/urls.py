@@ -57,6 +57,7 @@ urlpatterns = [
     path("document/<int:pk>/download/", views.DocumentDownloadView.as_view(), name="document_download"),
     path("document/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
     path("document/<int:pk>/share/", views.DocumentShareView.as_view(), name="document_share"),
+    path("document/<int:pk>/share-email/", views.DocumentShareEmailView.as_view(), name="document_share_email"),
     path("document/<int:pk>/new-version/", views.DocumentNewVersionView.as_view(), name="document_new_version"),
     path("document/<int:pk>/detail/", views.DocumentDetailView.as_view(), name="document_detail"),
     path("file/<int:pk>/documents/paginate/", views.FileDocumentsView.as_view(), name="file_documents_paginate"),

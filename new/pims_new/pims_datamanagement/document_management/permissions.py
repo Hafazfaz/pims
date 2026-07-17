@@ -145,6 +145,17 @@ def can_delete_document(user, document):
     return is_registry(user) or document.uploaded_by == user
 
 
+def can_share_document(user):
+    """Check if user can share documents via email (HODs with permission)."""
+    if user.is_superuser:
+        return True
+    staff = get_staff(user)
+    if not staff:
+        return False
+    # HODs with the can_share_documents permission
+    return staff.is_hod and user.has_perm("user_management.can_share_documents")
+
+
 def can_view_document_content(user, file=None):
     """
     Who can view the actual contents of documents (minute_content, attachments).
@@ -228,3 +239,10 @@ def get_dispatch_recipients(user, file):
     if staff.department and staff.department.head:
         return base_qs.filter(pk=staff.department.head.pk)
     return base_qs.none()
+
+
+def can_share_document(user):
+    """Check if user has permission to share documents via email."""
+    if user.is_superuser:
+        return True
+    return user.has_perm("user_management.can_share_documents")

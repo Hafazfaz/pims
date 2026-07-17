@@ -24,6 +24,7 @@ from .document_views import (  # noqa: F401
     DocumentDetailView,
     DocumentDownloadView,
     DocumentNewVersionView,
+    DocumentShareEmailView,
     DocumentShareView,
     DocumentUploadView,
     FileDocumentsView,

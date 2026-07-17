@@ -14,6 +14,7 @@ from organization.models import Staff
 from ..forms import DocumentForm, DocumentUploadForm, SendFileForm
 from ..models import Document, File, FileAccessRequest, FileMovement
 from .base import HTMXLoginRequiredMixin
+from ..permissions import can_share_document
 
 
 class DocumentUploadView(LoginRequiredMixin, CreateView):
@@ -522,6 +523,92 @@ class DocumentShareView(LoginRequiredMixin, View):
         document.shared_with.set(user_ids)
         messages.success(request, "Document sharing updated.")
         return redirect("document_management:document_detail", pk=pk)
+
+
+class DocumentShareEmailView(LoginRequiredMixin, View):
+    """
+    Share a document via email with the sender's digital signature attached.
+    Only available to users with can_share_documents permission (HODs).
+    """
+
+    def post(self, request, pk):
+        from ..permissions import can_share_document
+        from django.core.mail import send_mail
+        from django.conf import settings
+
+        document = get_object_or_404(Document, pk=pk)
+
+        # Check permission
+        if not can_share_document(request.user):
+            messages.error(request, "You do not have permission to share documents.")
+            return redirect(document.file.get_absolute_url())
+
+        # Check if user has an active verified signature
+        staff = getattr(request.user, "staff", None)
+        if not staff:
+            messages.error(request, "Staff profile not found.")
+            return redirect(document.file.get_absolute_url())
+
+        active_signature = staff.get_active_signature()
+        if not active_signature or not active_signature.is_verified:
+            messages.error(request, "You need an active, verified digital signature to share documents.")
+            return redirect(document.file.get_absolute_url())
+
+        # Get email parameters
+        recipient_email = request.POST.get("recipient_email", "").strip()
+        subject = request.POST.get("subject", "").strip()
+        message = request.POST.get("message", "").strip()
+
+        if not recipient_email:
+            messages.error(request, "Recipient email is required.")
+            return redirect(document.file.get_absolute_url())
+
+        if not subject:
+            subject = f"Shared Document: {document.title or 'Untitled'}"
+
+        # Build email message
+        sender_name = request.user.get_full_name() or request.user.username
+        file_number = document.file.file_number
+
+        email_message = f"""
+{message}
+
+---
+Document: {document.title or 'Untitled'}
+File: {file_number}
+Shared by: {sender_name}
+Department: {staff.department.name if staff.department else 'N/A'}
+Date: {timezone.now().strftime("%B %d, %Y @ %H:%M")}
+
+This document was shared via the Personnel Information Management System (PIMS).
+"""
+
+        # Attach signature image
+        signature_attachment = None
+        if active_signature.image:
+            signature_attachment = active_signature.image
+
+        try:
+            send_mail(
+                subject=subject,
+                message=email_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_email],
+                fail_silently=False,
+                attachments=[(f"signature_{staff.user.username}.png", signature_attachment.read(), "image/png")] if signature_attachment else None,
+            )
+            messages.success(request, f"Document shared successfully with {recipient_email}.")
+            log_action(
+                request.user,
+                "DOCUMENT_SHARED_EMAIL",
+                request=request,
+                obj=document.file,
+                details={"document_id": document.pk, "recipient": recipient_email, "subject": subject}
+            )
+        except Exception as e:
+            messages.error(request, f"Failed to send email: {str(e)}")
+
+        return redirect(document.file.get_absolute_url())
 
 
 class DocumentNewVersionView(LoginRequiredMixin, View):

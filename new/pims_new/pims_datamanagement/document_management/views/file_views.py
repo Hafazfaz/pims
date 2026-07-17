@@ -548,6 +548,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             file=file_obj, requested_by=user, status="pending"
         ).exists()
         context["movements"] = file_obj.movements.select_related("sent_by", "from_location__user", "sent_to__user")[:20]
+        # Share document permission
+        from document_management.permissions import can_share_document
+        context["can_share_document"] = can_share_document(user)
         from organization.models import Staff as StaffModel
 
         from document_management.views.base import EXCLUDE_REGISTRY_Q
@@ -874,8 +877,87 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                         request,
                         "You have no active signature uploaded in your profile.",
                     )
+
             except Exception:
                 messages.error(request, "Only staff members can attach signatures.")
+
+            return redirect(file_obj.get_absolute_url())
+
+        elif action == "share_document":
+            doc_id = request.POST.get("document_id")
+            recipient_email = request.POST.get("recipient_email", "").strip()
+            subject = request.POST.get("subject", "").strip()
+            message = request.POST.get("message", "").strip()
+            include_signature = request.POST.get("include_signature") == "on"
+
+            from ..permissions import can_share_document
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            document = get_object_or_404(Document, pk=doc_id, file=file_obj)
+
+            # Check permission
+            if not can_share_document(request.user):
+                messages.error(request, "You do not have permission to share documents.")
+                return redirect(file_obj.get_absolute_url())
+
+            # Check if user has an active verified signature
+            staff = getattr(request.user, "staff", None)
+            if not staff:
+                messages.error(request, "Staff profile not found.")
+                return redirect(file_obj.get_absolute_url())
+
+            active_signature = staff.get_active_signature()
+            if not active_signature or not active_signature.is_verified:
+                messages.error(request, "You need an active, verified digital signature to share documents.")
+                return redirect(file_obj.get_absolute_url())
+
+            if not recipient_email:
+                messages.error(request, "Recipient email is required.")
+                return redirect(file_obj.get_absolute_url())
+
+            # Build email
+            sender_name = request.user.get_full_name() or request.user.username
+            file_number = file_obj.file_number
+
+            email_subject = subject if subject else f"Shared Document: {document.title or 'Untitled'}"
+            email_message = f"""
+{request.POST.get("message", "").strip()}
+
+---
+Document: {document.title or 'Untitled'}
+File: {file_number}
+Shared by: {sender_name}
+Department: {staff.department.name if staff.department else 'N/A'}
+Date: {timezone.now().strftime("%B %d, %Y @ %H:%M")}
+
+This document was shared via the Personnel Information Management System (PIMS).
+"""
+
+            # Attach signature image
+            signature_attachment = None
+            if include_signature and active_signature.image:
+                signature_attachment = active_signature.image
+
+            try:
+                send_mail(
+                    subject=email_subject,
+                    message=email_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[recipient_email],
+                    fail_silently=False,
+                    attachments=[(f"signature_{staff.user.username}.png", signature_attachment.read(), "image/png")] if signature_attachment else None,
+                )
+                messages.success(request, f"Document shared successfully with {recipient_email}.")
+                log_action(
+                    request.user,
+                    "DOCUMENT_SHARED_EMAIL",
+                    request=request,
+                    obj=file_obj,
+                    details={"document_id": document.pk, "recipient": recipient_email, "subject": email_subject}
+                )
+            except Exception as e:
+                messages.error(request, f"Failed to send email: {str(e)}")
 
             return redirect(file_obj.get_absolute_url())
 
