@@ -197,14 +197,6 @@ class DocumentForm(forms.ModelForm):
             "attachment": "Upload Attachment",
         }
 
-    priority = forms.ChoiceField(
-        choices=Document.PRIORITY_CHOICES,
-        required=False,
-        initial="normal",
-        label="Priority",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-
     include_signature = forms.BooleanField(
         required=False,
         label="Attach Digital Signature",
@@ -224,16 +216,6 @@ class DocumentForm(forms.ModelForm):
 
         if not can_sign:
             self.fields.pop("include_signature", None)
-
-        # Restrict priority field for users without urgent permission
-        if self.user and not self.user.has_perm("user_management.can_set_urgent_priority"):
-            self.fields.pop("priority", None)
-
-    def clean_priority(self):
-        priority = self.cleaned_data.get("priority", "normal")
-        if priority not in dict(Document.PRIORITY_CHOICES):
-            return "normal"
-        return priority
 
     def clean(self):
         cleaned_data = super().clean()
@@ -342,30 +324,10 @@ class FileUpdateForm(forms.ModelForm):
 
 class DocumentUploadForm(forms.ModelForm):
     # This form allows uploading an attachment to an existing file
-    priority = forms.ChoiceField(
-        choices=Document.PRIORITY_CHOICES,
+    include_signature = forms.BooleanField(
         required=False,
-        initial="normal",
-        label="Priority",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    file = forms.ModelChoiceField(
-        queryset=File.objects.all().order_by("title"),
-        empty_label="Select a File",
-        widget=forms.Select(attrs={"class": "form-control"}),
-        label="Associate with File",
-    )
-    document_type = forms.ModelChoiceField(
-        queryset=DocumentType.objects.all(),
-        required=True,
-        label="Document Type",
-        empty_label="— Select type —",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    minute_content = forms.CharField(
-        required=False,
-        label="Minute / Note Content",
-        widget=forms.Textarea(attrs={"class": "form-control summernote", "rows": 6}),
+        label="Attach Digital Signature",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
 
     class Meta:
@@ -389,10 +351,6 @@ class DocumentUploadForm(forms.ModelForm):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        # Restrict priority field for users without urgent permission
-        if self.user and not self.user.has_perm("user_management.can_set_urgent_priority"):
-            self.fields.pop("priority", None)
-
         # Filter files that the current user has access to for association
         if self.user and self.user.is_authenticated:
             try:
@@ -408,8 +366,8 @@ class DocumentUploadForm(forms.ModelForm):
             except Staff.DoesNotExist:
                 # If not a staff user, no files to select (shouldn't happen with LoginRequiredMixin)
                 self.fields["file"].queryset = File.objects.none()
-        else:
-            self.fields["file"].queryset = File.objects.none()
+            except Exception:
+                self.fields["file"].queryset = File.objects.none()
 
     def clean(self):
         cleaned_data = super().clean()
