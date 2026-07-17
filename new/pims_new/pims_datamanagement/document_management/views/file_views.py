@@ -1531,7 +1531,12 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
 
 
 class DocumentActionView(HTMXLoginRequiredMixin, View):
-    """Approve, reject, or forward a document received via FileMovement."""
+    """Approve or reject a document received via FileMovement.
+
+    - HOD/Supervisor: Approve (final) or Reject (with note)
+    - Unit Manager: Approve = forward to HOD (note optional), Reject = return to sender (note required)
+    - Reject always requires a note
+    """
 
     def post(self, request, pk):
         movement = get_object_or_404(FileMovement, pk=pk)
@@ -1548,47 +1553,114 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
         action = request.POST.get("action")
         note = request.POST.get("note", "").strip()
 
-        if action == "approve":
-            # Only HODs and supervisors can approve
-            if not staff or not (staff.is_hod or staff.is_effective_supervisor):
-                messages.error(request, "Only HODs and supervisors can approve documents.")
-                return redirect("document_management:inbox")
-            movement.status = "approved"
-            movement.save(update_fields=["status"])
-            if movement.document:
-                movement.document.status = "approved"
-                movement.document.save(update_fields=["status"])
-            # Transfer custody back to registry and mark file active
-            from django.db.models import Q as DQ
-            from organization.models import Staff as StaffModel
+        is_hod = staff.is_hod or staff.is_effective_supervisor
+        is_unit_manager = staff.is_unit_manager and not (staff.is_hod or staff.is_effective_supervisor)
 
-            registry = StaffModel.objects.filter(
-                DQ(designation__name__icontains="registry") | DQ(user__groups__name__iexact="Registry")
-            ).first()
-            movement.file.current_location = registry
-            movement.file.status = "active"
-            movement.file.save(update_fields=["current_location", "status"])
-            sender_name = request.user.get_full_name() or request.user.username
-            doc_ref = movement.document or movement.file.file_number
-            create_notification(
-                user=movement.sent_by,
-                message=f"{sender_name} approved document '{doc_ref}'.",
-                obj=movement.file,
-                link=movement.file.get_absolute_url(),
-            )
-            log_action(
-                request.user,
-                "DOCUMENT_APPROVED",
-                request=request,
-                obj=movement.file,
-                details={
-                    "document": str(movement.document),
-                    "file": movement.file.file_number,
-                },
-            )
-            messages.success(request, "Document approved.")
+        if action == "approve":
+            if not staff or not (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager):
+                messages.error(request, "Only HODs, supervisors, and unit managers can approve documents.")
+                return redirect("document_management:inbox")
+
+            is_hod = staff.is_hod or staff.is_effective_supervisor
+            is_unit_manager = staff.is_unit_manager and not (staff.is_hod or staff.is_effective_supervisor)
+
+            if is_hod:
+                # HOD/Supervisor: Final approval
+                movement.status = "approved"
+                movement.save(update_fields=["status"])
+                if movement.document:
+                    movement.document.status = "approved"
+                    movement.document.save(update_fields=["status"])
+                # Transfer custody back to registry and mark file active
+                from django.db.models import Q as DQ
+                from organization.models import Staff as StaffModel
+
+                registry = StaffModel.objects.filter(
+                    DQ(designation__name__icontains="registry") | DQ(user__groups__name__iexact="Registry")
+                ).first()
+                movement.file.current_location = registry
+                movement.file.status = "active"
+                movement.file.save(update_fields=["current_location", "status"])
+                sender_name = request.user.get_full_name() or request.user.username
+                doc_ref = movement.document or movement.file.file_number
+                create_notification(
+                    user=movement.sent_by,
+                    message=f"{sender_name} approved document '{doc_ref}'.",
+                    obj=movement.file,
+                    link=movement.file.get_absolute_url(),
+                )
+                log_action(
+                    request.user,
+                    "DOCUMENT_APPROVED",
+                    request=request,
+                    obj=movement.file,
+                    details={
+                        "document": str(movement.document),
+                        "file": movement.file.file_number,
+                        "note": note,
+                        "approver_role": "HOD/Supervisor",
+                    },
+                )
+                messages.success(request, "Document approved.")
+
+            elif staff.is_unit_manager and not (staff.is_hod or staff.is_effective_supervisor):
+                # Unit Manager: "Approve" = forward to HOD (note optional)
+                from organization.models import Staff as StaffModel
+                from django.db.models import Q as DQ
+
+                hod = StaffModel.objects.filter(
+                    department=staff.department,
+                    is_hod=True
+                ).first()
+
+                if not hod:
+                    messages.error(request, "No HOD found for your department.")
+                    return redirect("document_management:inbox")
+
+                movement.status = "forwarded"
+                movement.save(update_fields=["status"])
+                FileMovement.objects.create(
+                    file=movement.file,
+                    document=movement.document,
+                    sent_by=request.user,
+                    from_location=staff,
+                    sent_to=hod,
+                    note=note,
+                    action="sent",
+                )
+                movement.file.current_location = hod
+                movement.file.save(update_fields=["current_location"])
+                sender_name = request.user.get_full_name() or request.user.username
+                doc_ref = movement.document or movement.file.file_number
+                create_notification(
+                    user=hod.user,
+                    message=f"{sender_name} forwarded document '{doc_ref}' to you for approval.",
+                    obj=movement.file,
+                    link=reverse_lazy("document_management:inbox"),
+                )
+                log_action(
+                    request.user,
+                    "DOCUMENT_FORWARDED_TO_HOD",
+                    request=request,
+                    obj=movement.file,
+                    details={
+                        "document": str(movement.document),
+                        "file": movement.file.file_number,
+                        "to_hod": hod.user.get_full_name(),
+                        "note": note,
+                    },
+                )
+                messages.success(request, f"Document forwarded to HOD ({hod.user.get_full_name()}).")
 
         elif action == "reject":
+            if not staff or not (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager):
+                messages.error(request, "Only HODs, supervisors, and unit managers can reject documents.")
+                return redirect("document_management:inbox")
+
+            if not note:
+                messages.error(request, "A reason is required when rejecting a document.")
+                return redirect("document_management:inbox")
+
             movement.status = "rejected"
             movement.save(update_fields=["status"])
             if movement.document:
@@ -1605,7 +1677,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             doc_ref = movement.document or movement.file.file_number
             create_notification(
                 user=movement.sent_by,
-                message=(f"{sender_name} rejected document '{doc_ref}'. Note: {note or 'No reason given'}"),
+                message=(f"{sender_name} rejected document '{doc_ref}'. Note: {note}"),
                 obj=movement.file,
                 link=movement.file.get_absolute_url(),
             )
@@ -1618,61 +1690,10 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                     "document": str(movement.document),
                     "file": movement.file.file_number,
                     "note": note,
+                    "rejector_role": "HOD/Supervisor" if staff.is_hod or staff.is_effective_supervisor else "Unit Manager",
                 },
             )
             messages.warning(request, "Document rejected and returned to sender.")
-
-        elif action == "forward":
-            recipient_id = request.POST.get("recipient")
-            if not recipient_id:
-                messages.error(request, "Please select a recipient to forward to.")
-                return redirect("document_management:inbox")
-            try:
-                recipient = Staff.objects.get(pk=recipient_id)
-            except Staff.DoesNotExist:
-                messages.error(request, "Recipient not found.")
-                return redirect("document_management:inbox")
-
-            # Enforce same routing rules as send file
-            if staff:
-                allowed_pks = _get_allowed_forward_pks(staff)
-                if allowed_pks is not None and recipient.pk not in allowed_pks:
-                    messages.error(request, "You are not permitted to forward to this recipient.")
-                    return redirect("document_management:inbox")
-
-            movement.status = "forwarded"
-            movement.save(update_fields=["status"])
-            FileMovement.objects.create(
-                file=movement.file,
-                document=movement.document,
-                sent_by=request.user,
-                from_location=staff,
-                sent_to=recipient,
-                note=note,
-                action="sent",
-            )
-            movement.file.current_location = recipient
-            movement.file.save(update_fields=["current_location"])
-            sender_name = request.user.get_full_name() or request.user.username
-            doc_ref = movement.document or movement.file.file_number
-            create_notification(
-                user=recipient.user,
-                message=f"{sender_name} forwarded document '{doc_ref}' to you.",
-                obj=movement.file,
-                link=reverse_lazy("document_management:inbox"),
-            )
-            log_action(
-                request.user,
-                "DOCUMENT_FORWARDED",
-                request=request,
-                obj=movement.file,
-                details={
-                    "document": str(movement.document),
-                    "file": movement.file.file_number,
-                    "to": recipient.user.get_full_name(),
-                },
-            )
-            messages.success(request, f"Document forwarded to {recipient.user.get_full_name()}.")
 
         else:
             messages.error(request, "Invalid action.")

@@ -243,51 +243,6 @@
               </form>
             </div>
           </div>
-
-          <!-- Forward -->
-          <div x-data="{ open: false, recipientId: '', recipientName: '' }" class="space-y-2">
-            <button @click="open = !open" class="action-btn w-full py-3 bg-slate-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-900 flex items-center justify-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4"/></svg>
-              Forward
-            </button>
-            <div x-show="open" x-cloak x-transition class="space-y-3 animate-slideIn">
-              <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="forward">
-
-                {% if prefilled_recipient %}
-                  <input type="hidden" name="recipient" value="{{ prefilled_recipient.pk }}">
-                  <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
-                    {{ prefilled_recipient.user.get_full_name|default:prefilled_recipient.user.username }}
-                    <span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase ml-1">HOD</span>
-                  </div>
-                {% else %}
-                  <input type="hidden" name="recipient" id="detail-recipient-id" x-model="recipientId">
-                  <div class="relative">
-                    <input type="text" id="detail-forward-search" placeholder="Search recipient…"
-                           autocomplete="off"
-                           x-model="recipientName"
-                           class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
-                           hx-get="{% url 'document_management:inbox_recipient_search' %}"
-                           hx-trigger="input changed delay:300ms"
-                           hx-target="#detail-forward-results"
-                           name="q">
-                    <div id="detail-forward-results" class="absolute z-50 w-full mt-1"></div>
-                  </div>
-                {% endif %}
-
-                <input type="text" name="note" placeholder="Note (optional)"
-                       class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-slate-400 focus:border-slate-400">
-
-                <button type="submit"
-                        id="detail-forward-submit"
-                        :disabled="!recipientId && !prefilled_recipient"
-                        class="action-btn w-full py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed">
-                  Forward
-                </button>
-              </form>
-            </div>
-          </div>
         </div>
         {% else %}
         <div class="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-center">
