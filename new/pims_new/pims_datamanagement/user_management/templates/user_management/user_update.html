@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load widget_tweaks %}
 {% block title %}Edit User {{ target_user.username }} | PIMS{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
@@ -92,7 +93,9 @@
                 </div>
                 <div>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        {{ form.can_set_urgent_priority }}
+                        <input type="checkbox" name="can_set_urgent_priority" value="1" {% if form.can_set_urgent_priority.value %}checked{% endif %}
+                               class="w-11 h-6 bg-slate-200 rounded-full relative cursor-pointer appearance-none after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-md after:transition-all checked:bg-red-600 checked:after:left-5 peer focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                               {% if form.can_set_urgent_priority.value %}checked{% endif %}>
                         <span class="text-sm font-medium text-slate-700">Can mark documents as Urgent/High Priority</span>
                     </label>
                 </div>
