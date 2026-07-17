@@ -55,7 +55,6 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         document = form.save(commit=False)
-        document.priority = form.cleaned_data.get("priority", "normal")
         file_obj = document.file
         user = self.request.user
         staff = getattr(user, "staff", None)
@@ -725,10 +724,6 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.file = self.file_obj
         form.instance.uploaded_by = self.request.user
-        priority = form.cleaned_data.get("priority", "normal")
-        if priority in ("urgent", "high") and not self.request.user.has_perm("user_management.can_set_urgent_priority"):
-            priority = "normal"
-        form.instance.priority = priority
 
         if getattr(self.file_obj, "active_dispatch_document", None):
             is_custodian = (
@@ -739,28 +734,6 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
         response = super().form_valid(form)
         document = self.object
-
-        # Send notifications for urgent/high priority documents
-        if document.priority in ("urgent", "high"):
-            from organization.models import Staff as StaffModel
-
-            from document_management.views.base import EXCLUDE_REGISTRY_Q
-
-            urgent_recipients = (
-                StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.request.user).select_related("user")
-            )
-            priority_label = dict(Document.PRIORITY_CHOICES).get(document.priority, document.priority)
-            for recipient_staff in urgent_recipients:
-                create_notification(
-                    user=recipient_staff.user,
-                    message=(
-                        f"{priority_label.upper()} Document: '{document.title or 'Untitled'}' "
-                        f"added to file {self.file_obj.file_number} "
-                        f"by {self.request.user.get_full_name() or self.request.user.username}."
-                    ),
-                    obj=self.file_obj,
-                    link=self.file_obj.get_absolute_url(),
-                )
 
         if form.cleaned_data.get("include_signature"):
             try:
@@ -794,7 +767,6 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 action="sent",
                 document=document,
             )
-
             log_action(
                 self.request.user,
                 "FILE_SENT",
