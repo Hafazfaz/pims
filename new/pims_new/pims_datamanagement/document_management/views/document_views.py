@@ -251,46 +251,10 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             staff=sender_staff,
         )
 
-        # Build recipient list (same logic as file_detail)
-        from organization.models import Department as Dept
-        from organization.models import Unit
+        # Build recipient list using central permission function
+        from document_management.permissions import get_dispatch_recipients
 
-        from document_management.views.base import EXCLUDE_REGISTRY_Q
-
-        base_qs = (
-            Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
-            .exclude(user=self.request.user)
-            .select_related("user", "designation", "unit", "department")
-        )
-        if sender_staff:
-            if sender_staff.is_registry or sender_staff.is_md or sender_staff.is_executive:
-                recipient_qs = base_qs
-            elif sender_staff.is_hod or sender_staff.is_head_of_unit:
-                pks = set()
-                for d in Dept.objects.filter(head__isnull=False):
-                    pks.add(d.head.pk)
-                for u in Unit.objects.filter(head__isnull=False):
-                    pks.add(u.head.pk)
-                for s in base_qs.filter(is_supervisor=True):
-                    pks.add(s.pk)
-                pks.discard(sender_staff.pk)
-                recipient_qs = base_qs.filter(pk__in=pks)
-            elif sender_staff.is_supervisor:
-                pks = set()
-                for d in Dept.objects.filter(head__isnull=False):
-                    pks.add(d.head.pk)
-                for u in Unit.objects.filter(head__isnull=False):
-                    pks.add(u.head.pk)
-                recipient_qs = base_qs.filter(pk__in=pks)
-            else:
-                if sender_staff.unit and sender_staff.unit.head:
-                    recipient_qs = base_qs.filter(pk=sender_staff.unit.head.pk)
-                elif sender_staff.department and sender_staff.department.head:
-                    recipient_qs = base_qs.filter(pk=sender_staff.department.head.pk)
-                else:
-                    recipient_qs = base_qs.none()
-        else:
-            recipient_qs = base_qs
+        recipient_qs = get_dispatch_recipients(self.request.user, file_obj)
         context["approver_choices"] = recipient_qs.order_by("user__last_name")
 
         return context
@@ -326,55 +290,17 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             messages.error(request, "Selected recipient has no staff profile.")
             return redirect(request.path)
 
-        # Routing rules
+        # Validate routing using central permission function
         if not is_registry and staff_user:
-            if staff_user.is_md or staff_user.is_executive:
-                pass  # can send to anyone
-            elif staff_user.is_hod or staff_user.is_head_of_unit:
-                # HOD / Head of Unit → any HOD, any head of unit, any supervisor
-                from organization.models import Department as Dept
-                from organization.models import Staff as StaffModel
+            from document_management.permissions import get_dispatch_recipients
 
-                allowed_pks = set()
-                for d in Dept.objects.filter(head__isnull=False):
-                    allowed_pks.add(d.head.pk)
-                for s in StaffModel.objects.filter(is_supervisor=True):
-                    allowed_pks.add(s.pk)
-                # all heads of unit
-                from organization.models import Unit
-
-                for u in Unit.objects.filter(head__isnull=False):
-                    allowed_pks.add(u.head.pk)
-                allowed_pks.discard(staff_user.pk)
-                if recipient.pk not in allowed_pks:
-                    messages.error(request, "You can only send to a HOD, head of unit, or supervisor.")
-                    return redirect(request.path)
-            elif staff_user.is_supervisor:
-                # Supervisor (non-HOD, non-unit-manager) → unit managers or HODs only
-                from organization.models import Department as Dept
-                from organization.models import Staff as StaffModel
-
-                allowed_pks = set()
-                for d in Dept.objects.filter(head__isnull=False):
-                    allowed_pks.add(d.head.pk)
-                for s in StaffModel.objects.filter(is_head_of_unit=True):
-                    allowed_pks.add(s.pk)
-                if recipient.pk not in allowed_pks:
-                    messages.error(request, "Supervisors can only send to unit managers or HODs.")
-                    return redirect(request.path)
-            else:
-                # Regular staff → unit manager if exists, else HOD
-                allowed_pks = set()
-                if staff_user.unit and staff_user.unit.head:
-                    allowed_pks.add(staff_user.unit.head.pk)
-                elif staff_user.department and staff_user.department.head:
-                    allowed_pks.add(staff_user.department.head.pk)
-                if recipient.pk not in allowed_pks:
-                    messages.error(
-                        request,
-                        "You can only send this file to your unit manager, or your HOD if there is no unit manager.",
-                    )
-                    return redirect(request.path)
+            allowed_recipients = get_dispatch_recipients(request.user, file_obj)
+            if recipient.pk not in allowed_recipients.values_list("pk", flat=True):
+                messages.error(
+                    request,
+                    "You can only send this file to your unit manager, HOD, or other authorized recipients based on your role.",
+                )
+                return redirect(request.path)
 
         old_location = file_obj.current_location
         FileMovement.objects.create(
