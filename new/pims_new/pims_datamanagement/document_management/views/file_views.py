@@ -551,38 +551,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         # Share document permission
         from document_management.permissions import can_share_document
         context["can_share_document"] = can_share_document(user)
+
+        # Build recipient list using central permission function
+        from document_management.permissions import get_dispatch_recipients
         from organization.models import Staff as StaffModel
 
-        from document_management.views.base import EXCLUDE_REGISTRY_Q
-
-        # Build recipient list based on sender's role
-        base_qs = (
-            StaffModel.objects.exclude(EXCLUDE_REGISTRY_Q)
-            .exclude(user=user)
-            .select_related("user", "designation", "department", "unit")
-        )
-        if sender_staff:
-            if sender_staff.is_registry or sender_staff.is_hod or sender_staff.is_md or sender_staff.is_executive:
-                recipient_qs = base_qs
-            elif sender_staff.is_effective_supervisor and file_obj.owner != sender_staff:
-                # Supervisor sending someone else's file → any other supervisor + their own direct heads
-                supervisor_ids = [s.pk for s in base_qs if s.is_effective_supervisor]
-                direct_head_pks = []
-                if sender_staff.unit and sender_staff.unit.head:
-                    direct_head_pks.append(sender_staff.unit.head.pk)
-                if sender_staff.department and sender_staff.department.head:
-                    direct_head_pks.append(sender_staff.department.head.pk)
-                recipient_qs = base_qs.filter(pk__in=set(supervisor_ids + direct_head_pks))
-            else:
-                # Regular staff OR supervisor sending their own file → unit manager if exists, else HOD
-                if sender_staff.unit and sender_staff.unit.head:
-                    recipient_qs = base_qs.filter(pk=sender_staff.unit.head.pk)
-                elif sender_staff.department and sender_staff.department.head:
-                    recipient_qs = base_qs.filter(pk=sender_staff.department.head.pk)
-                else:
-                    recipient_qs = base_qs.none()
-        else:
-            recipient_qs = base_qs
+        recipient_qs = get_dispatch_recipients(user, file_obj)
 
         context["approver_choices"] = recipient_qs.order_by("user__last_name")
         context["sender_is_hod_or_above"] = sender_staff and (
@@ -717,28 +691,17 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
                 # Enforce routing rules
                 if not is_registry and staff_user:
-                    if staff_user.is_hod or staff_user.is_md or staff_user.is_executive:
-                        pass  # can send to anyone
-                    elif staff_user.is_effective_supervisor:
-                        if not recipient.is_effective_supervisor:
-                            messages.error(
-                                request,
-                                "Supervisors can only send files to other supervisors.",
-                            )
-                            return redirect(file_obj.get_absolute_url())
-                    else:
-                        # Regular staff — only direct head
-                        allowed = []
-                        if staff_user.unit and staff_user.unit.head:
-                            allowed.append(staff_user.unit.head.pk)
-                        elif staff_user.department and staff_user.department.head:
-                            allowed.append(staff_user.department.head.pk)
-                        if recipient.pk not in allowed:
-                            messages.error(
-                                request,
-                                "You can only send this file to your direct head.",
-                            )
-                            return redirect(file_obj.get_absolute_url())
+                    from document_management.permissions import get_dispatch_recipients
+
+                    allowed_recipients = get_dispatch_recipients(request.user, file_obj)
+                    if not allowed_recipients.filter(pk=recipient.pk).exists():
+                        if staff_user.is_hod or staff_user.is_md or staff_user.is_executive:
+                            messages.error(request, "Invalid recipient selection.")
+                        elif staff_user.is_effective_supervisor:
+                            messages.error(request, "Supervisors can only send files to other supervisors or their direct heads.")
+                        else:
+                            messages.error(request, "You can only send this file to your direct head (Unit Manager or HOD).")
+                        return redirect(file_obj.get_absolute_url())
                 old_location = file_obj.current_location
                 note = request.POST.get("movement_note", "")
                 file_obj.current_location = recipient
@@ -1548,6 +1511,11 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
 
         if movement.status != "pending":
             messages.error(request, "This document has already been actioned.")
+            return redirect("document_management:inbox")
+
+        # Prevent the document creator from approving/rejecting their own document
+        if movement.document and movement.document.uploaded_by == request.user:
+            messages.error(request, "You cannot approve or reject your own document.")
             return redirect("document_management:inbox")
 
         action = request.POST.get("action")
