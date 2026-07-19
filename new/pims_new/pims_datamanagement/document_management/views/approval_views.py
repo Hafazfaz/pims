@@ -319,6 +319,11 @@ class ApprovalStepActionView(HTMXLoginRequiredMixin, View):
             messages.error(request, "This is not the current active step.")
             return redirect(file_obj.get_absolute_url())
 
+        # Prevent the chain creator from approving/rejecting their own chain
+        if chain.created_by == request.user:
+            messages.error(request, "You cannot approve or reject your own approval chain.")
+            return redirect(file_obj.get_absolute_url())
+
         # Enforce signature
         active_sig = staff.get_active_signature() if staff else None
         if not active_sig:
