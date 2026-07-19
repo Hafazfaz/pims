@@ -260,32 +260,17 @@ class SendFileForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         if self.user and self.user.is_authenticated:
-            from document_management.views.base import EXCLUDE_REGISTRY_Q
+            from document_management.permissions import get_dispatch_recipients
 
-            base_qs = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.user).select_related("user")
-
-            if staff:
-                if staff.is_registry or staff.is_hod or staff.is_md or staff.is_executive:
-                    eligible = base_qs
-                elif staff.is_effective_supervisor and (not file_obj or file_obj.owner != staff):
-                    # Supervisor sending someone else's file → other supervisors + direct heads
-                    supervisor_pks = [s.pk for s in base_qs if s.is_effective_supervisor]
-                    direct_head_pks = []
-                    if staff.unit and staff.unit.head:
-                        direct_head_pks.append(staff.unit.head.pk)
-                    if staff.department and staff.department.head:
-                        direct_head_pks.append(staff.department.head.pk)
-                    eligible = base_qs.filter(pk__in=set(supervisor_pks + direct_head_pks))
-                else:
-                    # Regular staff OR supervisor sending their own file → unit manager if exists, else HOD
-                    if staff.unit and staff.unit.head:
-                        eligible = base_qs.filter(pk=staff.unit.head.pk)
-                    elif staff.department and staff.department.head:
-                        eligible = base_qs.filter(pk=staff.department.head.pk)
-                    else:
-                        eligible = base_qs.none()
+            # Use file_obj for routing rules
+            if file_obj:
+                eligible = get_dispatch_recipients(self.user, file_obj)
             else:
-                eligible = base_qs
+                # Fallback - use base queryset without registry
+                from document_management.views.base import EXCLUDE_REGISTRY_Q
+                from organization.models import Staff
+
+                eligible = Staff.objects.exclude(EXCLUDE_REGISTRY_Q).exclude(user=self.user).select_related("user")
 
             self.fields["recipient"].queryset = CustomUser.objects.filter(staff__in=eligible).order_by(
                 "last_name", "first_name"
