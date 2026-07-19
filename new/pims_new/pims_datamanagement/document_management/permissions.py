@@ -42,6 +42,11 @@ def is_executive(user):
     return staff is not None and (staff.is_md or staff.is_executive)
 
 
+def is_md(user):
+    staff = get_staff(user)
+    return staff is not None and staff.is_md
+
+
 # ---------------------------------------------------------------------------
 # File permissions
 # ---------------------------------------------------------------------------
@@ -196,25 +201,64 @@ def get_dispatch_recipients(user, file):
     """
     Returns a Staff queryset of valid recipients for dispatching a document.
     Registry → anyone (all non-registry staff).
-    HOD / MD / Executive → anyone.
+    MD / Executive → anyone.
+    HOD → other HODs, heads of units/sections/divisions, supervisors.
+    Unit Manager → HOD, other HODs, heads of units/sections/divisions, supervisors.
     Supervisor sending someone else's file → other supervisors + direct heads.
-    Regular staff → unit manager if exists, else HOD.
+    Regular staff → unit manager if exists, else section head, else division head, else HOD.
     """
-    from organization.models import Staff
+    from organization.models import Department as Dept
+    from organization.models import Staff, Unit
 
     from document_management.views.base import EXCLUDE_REGISTRY_Q
 
     base_qs = (
         Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
         .exclude(user=user)
-        .select_related("user", "designation", "department", "unit")
+        .select_related("user", "designation", "department", "unit", "section", "division")
     )
     staff = get_staff(user)
     if not staff:
         return base_qs.none()
 
-    if is_registry(user) or is_executive(user) or is_hod(user):
+    if is_registry(user) or is_executive(user) or is_md(user):
         return base_qs
+
+    if is_hod(user) or is_unit_manager(user):
+        # HOD and Unit Manager can send to:
+        # - Other HODs
+        # - Heads of units, sections, divisions
+        # - Supervisors
+        allowed_pks = set()
+        
+        # Other HODs
+        for d in Dept.objects.filter(head__isnull=False):
+            if d.head.pk != staff.pk:
+                allowed_pks.add(d.head.pk)
+        
+        # Heads of units
+        for u in Unit.objects.filter(head__isnull=False):
+            if u.head.pk != staff.pk:
+                allowed_pks.add(u.head.pk)
+        
+        # Heads of sections
+        from organization.models import Section
+        for s in Section.objects.filter(head__isnull=False):
+            if s.head.pk != staff.pk:
+                allowed_pks.add(s.head.pk)
+        
+        # Heads of divisions
+        from organization.models import Division
+        for d in Division.objects.filter(head__isnull=False):
+            if d.head.pk != staff.pk:
+                allowed_pks.add(d.head.pk)
+        
+        # Supervisors
+        for s in base_qs.filter(is_supervisor=True):
+            if s.pk != staff.pk:
+                allowed_pks.add(s.pk)
+        
+        return base_qs.filter(pk__in=allowed_pks)
 
     if is_supervisor(user) and file.owner != staff:
         supervisor_pks = [s.pk for s in base_qs if s.is_effective_supervisor]
