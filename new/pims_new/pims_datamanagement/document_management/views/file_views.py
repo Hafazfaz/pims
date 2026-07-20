@@ -588,6 +588,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         # Build unified chronicle
         documents = list(file_obj.documents.select_related("uploaded_by").all())
+        context["documents"] = documents
         audit_entries = list(
             AuditLogEntry.objects.filter(object_id=file_obj.pk, content_type__model="file")
             .select_related("user")
