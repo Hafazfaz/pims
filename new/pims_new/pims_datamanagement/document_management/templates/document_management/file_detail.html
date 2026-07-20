@@ -3,7 +3,21 @@
 {% block title %}Folder Trace: {{ file.file_number }} | PIMS{% endblock %}
 {% block content %}
     <div class="space-y-8"
-         x-data="{ activeTab: 'details', parentId: '', replyingTo: '', previewUrl: '', previewTitle: '', showPreviewModal: false, showAccessRequestModal: false }"
+         x-data="{ 
+             activeTab: 'details', 
+             parentId: '', 
+             replyingTo: '', 
+             previewUrl: '', 
+             previewTitle: '', 
+             showPreviewModal: false, 
+             showAccessRequestModal: false,
+             shareModalOpen: false,
+             shareDocumentId: '',
+             openShareModal(docId) {
+                 this.shareDocumentId = docId;
+                 this.shareModalOpen = true;
+             }
+         }"
          @open-preview.window=" previewUrl = $event.detail.url; previewTitle = $event.detail.title; showPreviewModal = true; ">
         <!-- File Header Card -->
         {% if is_limited_view %}
@@ -827,6 +841,71 @@
             </div>
         </div>
     </div>
+
+    <!-- Share Document Modal (inside x-data scope) -->
+    <div x-show="shareModalOpen"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+         @keydown.escape.window="shareModalOpen = false">
+        <div @click.outside="shareModalOpen = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Share Document</h3>
+                <button type="button" @click="shareModalOpen = false" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form method="post" action="{{ file.get_absolute_url }}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="share_document">
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Select Document</label>
+                    <div class="relative">
+                        <select name="document_id"
+                                x-model="shareDocumentId"
+                                class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all appearance-none">
+                            <option value="">Select a document to share</option>
+                            {% for doc in documents %}
+                            <option value="{{ doc.pk }}">{{ doc.title|default:"Minute Entry" }} ({{ doc.uploaded_at|date:"M d, Y" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Recipient Email</label>
+                    <input type="email" name="recipient_email"
+                           placeholder="recipient@example.com"
+                           class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                           required>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Message (Optional)</label>
+                    <textarea name="message" rows="3" placeholder="Add a personal message..."
+                              class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none placeholder:text-slate-400"></textarea>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="include_signature" class="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-2 focus:ring-red-500">
+                        <span class="text-sm text-slate-700">Include my digital signature</span>
+                    </label>
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button type="button" @click="shareModalOpen = false"
+                            class="flex-1 py-3 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="flex-1 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all shadow-md">
+                        Send Document
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block extra_js %}
@@ -841,7 +920,6 @@
         document.getElementById('selected-recipient-badge').classList.remove('hidden');
         document.getElementById('send-button').disabled = false;
         document.getElementById('search-results').innerHTML = '';
-        // Clear search input
         document.querySelector('input[name="q"]').value = '';
     }
 
@@ -850,6 +928,25 @@
         document.getElementById('recipient-name').innerText = '';
         document.getElementById('selected-recipient-badge').classList.add('hidden');
         document.getElementById('send-button').disabled = true;
+    }
+
+    function sendNoteModal() {
+        return {
+            open: false,
+            staffId: '',
+            staffName: '',
+            init() {
+                window.noteModalSetStaff = (id, name) => {
+                    this.staffId = id;
+                    this.staffName = name;
+                    const el = document.getElementById('note-staff-results');
+                    if (el) el.innerHTML = '';
+                };
+            }
+        };
+    }
+    function selectStaffForNote(id, name) {
+        if (window.noteModalSetStaff) window.noteModalSetStaff(id, name);
     }
     </script>
 
@@ -906,124 +1003,4 @@
         </form>
     </div>
 </div>
-<script>
-function sendNoteModal() {
-    return {
-        open: false,
-        staffId: '',
-        staffName: '',
-        init() {
-            window.noteModalSetStaff = (id, name) => {
-                this.staffId = id;
-                this.staffName = name;
-                const el = document.getElementById('note-staff-results');
-                if (el) el.innerHTML = '';
-            };
-        }
-    };
-}
-function selectStaffForNote(id, name) {
-    if (window.noteModalSetStaff) window.noteModalSetStaff(id, name);
-}
-</script>
-
-<!-- Share Document Modal -->
-<div x-data="shareModal()"
-     x-show="shareModalOpen"
-     x-cloak
-     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-     @keydown.escape.window="shareModalOpen = false">
-    <div @click.outside="shareModalOpen = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Share Document</h3>
-            <button type="button" @click="shareModalOpen = false" class="text-slate-400 hover:text-slate-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
-        <form method="post" action="{{ file.get_absolute_url }}" class="p-6 space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="share_document">
-
-            <div>
-                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Select Document</label>
-                <div class="relative">
-                    <select name="document_id"
-                            x-model="shareDocumentId"
-                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all appearance-none">
-                        <option value="">Select a document to share</option>
-                        {% for doc in documents %}
-                        <option value="{{ doc.pk }}">{{ doc.title|default:"Minute Entry" }} ({{ doc.uploaded_at|date:"M d, Y" }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Recipient Email</label>
-                <input type="email" name="recipient_email"
-                       placeholder="recipient@example.com"
-                       class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
-                       required>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Message (Optional)</label>
-                <textarea name="message" rows="3" placeholder="Add a personal message..."
-                          class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none placeholder:text-slate-400"></textarea>
-            </div>
-
-            <div class="flex items-center gap-2">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="include_signature" class="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-2 focus:ring-red-500">
-                    <span class="text-sm text-slate-700">Include my digital signature</span>
-                </label>
-            </div>
-
-            <div class="pt-4 flex gap-3">
-                <button type="button" @click="shareModalOpen = false"
-                        class="flex-1 py-3 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="flex-1 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all shadow-md">
-                    Send Document
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-function sendNoteModal() {
-    return {
-        open: false,
-        staffId: '',
-        staffName: '',
-        init() {
-            window.noteModalSetStaff = (id, name) => {
-                this.staffId = id;
-                this.staffName = name;
-                const el = document.getElementById('note-staff-results');
-                if (el) el.innerHTML = '';
-            };
-        }
-    };
-}
-function selectStaffForNote(id, name) {
-    if (window.noteModalSetStaff) window.noteModalSetStaff(id, name);
-}
-
-function shareModal() {
-    return {
-        shareModalOpen: false,
-        shareDocumentId: '',
-        init() {
-            window.openShareModal = (docId) => {
-                this.shareDocumentId = docId;
-                this.shareModalOpen = true;
-            };
-        }
-    };
-}
-</script>
 {% endblock %}
