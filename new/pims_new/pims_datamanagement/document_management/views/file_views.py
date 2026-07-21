@@ -889,15 +889,15 @@ This file was shared via the Personnel Information Management System (PIMS)."""
 
             html_parts = [
                 '<div style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;color:#333">',
-                '<div style="background:linear-gradient(135deg,#1a237e 0%,#b71c1c 100%);padding:30px;text-align:center;border-radius:12px 12px 0 0">',
+                '<div style="background:#008751;padding:30px;text-align:center;border-radius:12px 12px 0 0">',
                 '<h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:2px">PERSONNEL INFORMATION MANAGEMENT SYSTEM</h1>',
                 '<p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:12px">File Shared Notification</p></div>',
                 '<div style="background:#fff;padding:30px;border:1px solid #e0e0e0">',
-                f'<p style="font-size:15px;margin:0 0 20px">Dear Colleague,</p>',
+                '<p style="font-size:15px;margin:0 0 20px">Dear Colleague,</p>',
                 f'<p style="font-size:15px;margin:0 0 20px"><strong>{sender_name}</strong> from <strong>{sender_dept}</strong> has shared a file with you via PIMS.</p>',
             ]
             if message:
-                html_parts.append(f'<p style="font-size:15px;margin:0 0 15px;padding:12px;background:#f5f5f5;border-left:4px solid #1a237e;border-radius:4px">{message}</p>')
+                html_parts.append(f'<p style="font-size:15px;margin:0 0 15px;padding:12px;background:#E6F3EE;border-left:4px solid #008751;border-radius:4px">{message}</p>')
             html_parts.append('<table style="width:100%;border-collapse:collapse;margin:20px 0">')
             rows = [
                 ("File Number", file_obj.file_number),
@@ -936,6 +936,12 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                 email.content_subtype = "html"
                 if signature_attachment:
                     email.attach(*signature_attachment)
+                for doc in file_obj.documents.filter(attachment__isnull=False):
+                    try:
+                        doc_file = doc.attachment.open()
+                        email.attach(doc.attachment.name.split("/")[-1], doc_file.read())
+                    except (FileNotFoundError, OSError):
+                        continue
                 email.send(fail_silently=False)
                 messages.success(request, f"File shared successfully with {recipient_email}.")
                 log_action(
