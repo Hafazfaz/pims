@@ -940,6 +940,8 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                 if signature_attachment:
                     email.attach(*signature_attachment)
                 for doc in file_obj.documents.filter(attachment__isnull=False):
+                    if not doc.attachment:
+                        continue
                     try:
                         doc_file = doc.attachment.open()
                         email.attach(doc.attachment.name.split("/")[-1], doc_file.read())
