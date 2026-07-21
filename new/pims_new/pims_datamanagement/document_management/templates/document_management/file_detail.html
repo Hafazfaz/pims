@@ -12,11 +12,7 @@
              showPreviewModal: false, 
              showAccessRequestModal: false,
              shareModalOpen: false,
-             shareDocumentId: '',
-             shareDocumentName: '',
-             openShareModal(docId, docName) {
-                 this.shareDocumentId = docId;
-                 this.shareDocumentName = docName;
+             openShareModal() {
                  this.shareModalOpen = true;
              }
          }"
@@ -129,7 +125,7 @@
 
                             {% if can_share_document %}
                                 <button type="button"
-                                        @click="openShareModal({{ file.pk }}, '{{ file.file_number|escapejs }}')"
+                                        @click="openShareModal()"
                                         class="px-6 py-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-red-700 transition-all shadow-md flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4"/>
@@ -859,17 +855,12 @@
             <form method="post" action="{{ file.get_absolute_url }}" class="p-6 space-y-4">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="share_document">
-                <input type="hidden" name="document_id" x-bind:value="shareDocumentId">
 
                 <div>
-                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Document</label>
+                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">File</label>
                     <div class="relative">
-                        <select disabled
-                                class="block w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 appearance-none cursor-not-allowed">
-                            <template x-if="shareDocumentId">
-                                <option selected x-text="shareDocumentName"></option>
-                            </template>
-                        </select>
+                        <input type="text" disabled value="{{ file.file_number }}"
+                               class="block w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 cursor-not-allowed">
                     </div>
                 </div>
 

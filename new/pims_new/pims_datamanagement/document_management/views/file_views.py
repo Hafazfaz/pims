@@ -841,7 +841,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             return redirect(file_obj.get_absolute_url())
 
         elif action == "share_document":
-            doc_id = request.POST.get("document_id")
             recipient_email = request.POST.get("recipient_email", "").strip()
             subject = request.POST.get("subject", "").strip()
             message = request.POST.get("message", "").strip()
@@ -851,14 +850,10 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             from django.core.mail import send_mail
             from django.conf import settings
 
-            document = get_object_or_404(Document, pk=doc_id, file=file_obj)
-
-            # Check permission
             if not can_share_document(request.user):
                 messages.error(request, "You do not have permission to share documents.")
                 return redirect(file_obj.get_absolute_url())
 
-            # Check if user has an active verified signature
             staff = getattr(request.user, "staff", None)
             if not staff:
                 messages.error(request, "Staff profile not found.")
@@ -873,25 +868,21 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.error(request, "Recipient email is required.")
                 return redirect(file_obj.get_absolute_url())
 
-            # Build email
             sender_name = request.user.get_full_name() or request.user.username
-            file_number = file_obj.file_number
-
-            email_subject = subject if subject else f"Shared Document: {document.title or 'Untitled'}"
+            email_subject = subject if subject else f"Shared File: {file_obj.file_number}"
             email_message = f"""
-{request.POST.get("message", "").strip()}
+{message}
 
 ---
-Document: {document.title or 'Untitled'}
-File: {file_number}
+File: {file_obj.file_number}
+Subject: {file_obj.subject or 'N/A'}
 Shared by: {sender_name}
 Department: {staff.department.name if staff.department else 'N/A'}
 Date: {timezone.now().strftime("%B %d, %Y @ %H:%M")}
 
-This document was shared via the Personnel Information Management System (PIMS).
+This file was shared via the Personnel Information Management System (PIMS).
 """
 
-            # Attach signature image
             signature_attachment = None
             if include_signature and active_signature.image:
                 signature_attachment = active_signature.image
@@ -905,13 +896,13 @@ This document was shared via the Personnel Information Management System (PIMS).
                     fail_silently=False,
                     attachments=[(f"signature_{staff.user.username}.png", signature_attachment.read(), "image/png")] if signature_attachment else None,
                 )
-                messages.success(request, f"Document shared successfully with {recipient_email}.")
+                messages.success(request, f"File shared successfully with {recipient_email}.")
                 log_action(
                     request.user,
-                    "DOCUMENT_SHARED_EMAIL",
+                    "FILE_SHARED_EMAIL",
                     request=request,
                     obj=file_obj,
-                    details={"document_id": document.pk, "recipient": recipient_email, "subject": email_subject}
+                    details={"recipient": recipient_email, "subject": email_subject}
                 )
             except Exception as e:
                 messages.error(request, f"Failed to send email: {str(e)}")
