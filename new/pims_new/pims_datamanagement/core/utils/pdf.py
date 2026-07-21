@@ -92,7 +92,13 @@ def generate_document_pdf(document_title, document_content, sender_name, sender_
     c.rect(0, page_height - 80, page_width, 80, fill=True, stroke=False)
     try:
         logo = ImageReader(LOGO_PATH)
-        c.drawImage(logo, margin, page_height - 70, width=50, height=60, preserveAspectRatio=True, mask='auto')
+        logo_x = margin
+        logo_y = page_height - 70
+        logo_w = 50
+        logo_h = 60
+        c.setFillColorRGB(1, 1, 1)
+        c.roundRect(logo_x - 4, logo_y - 4, logo_w + 8, logo_h + 8, 6, fill=True, stroke=False)
+        c.drawImage(logo, logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
         text_x = margin + 60
     except Exception:
         text_x = margin
