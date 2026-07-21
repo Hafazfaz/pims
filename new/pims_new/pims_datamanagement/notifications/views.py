@@ -13,16 +13,21 @@ class NotificationListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by("-timestamp")
+        qs = Notification.objects.filter(user=self.request.user).order_by("-timestamp")
+        filter_param = self.request.GET.get("filter")
+        if filter_param == "unread":
+            qs = qs.filter(is_read=False)
+        elif filter_param == "read":
+            qs = qs.filter(is_read=True)
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Mark all displayed notifications as read when the page is viewed
-        # This will only mark those actually fetched by the queryset
-        for notification in context["notifications"]:
-            if not notification.is_read:
-                notification.is_read = True
-                notification.save()
+        user_notifications = Notification.objects.filter(user=self.request.user)
+        context["unread_count"] = user_notifications.filter(is_read=False).count()
+        context["read_count"] = user_notifications.filter(is_read=True).count()
+        context["total_count"] = user_notifications.count()
+        context["current_filter"] = self.request.GET.get("filter", "all")
         return context
 
 
@@ -31,7 +36,15 @@ class NotificationMarkAsReadView(LoginRequiredMixin, View):
         notification = Notification.objects.filter(user=request.user, pk=pk).first()
         if notification:
             notification.mark_as_read()
-            messages.success(request, "Notification marked as read.")
+        return redirect("notifications:notification_list")
+
+    def get(self, request, pk):
+        notification = Notification.objects.filter(user=request.user, pk=pk).first()
+        if notification:
+            notification.mark_as_read()
+            target = notification.get_link()
+            if target:
+                return redirect(target)
         return redirect("notifications:notification_list")
 
 
