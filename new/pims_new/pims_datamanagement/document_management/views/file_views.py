@@ -875,7 +875,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
 ---
 File: {file_obj.file_number}
-Subject: {file_obj.subject or 'N/A'}
+Subject: {file_obj.title}
 Shared by: {sender_name}
 Department: {staff.department.name if staff.department else 'N/A'}
 Date: {timezone.now().strftime("%B %d, %Y @ %H:%M")}
