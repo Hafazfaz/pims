@@ -890,9 +890,20 @@ Date: {now.strftime("%B %d, %Y @ %H:%M")}
 
 This file was shared via the Personnel Information Management System (PIMS)."""
 
+            import base64, os
+            logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "img", "logo.png")
+            logo_b64 = ""
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as f:
+                    logo_b64 = base64.b64encode(f.read()).decode()
+
             html_parts = [
                 '<div style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;color:#333">',
                 '<div style="background:#008751;padding:30px;text-align:center;border-radius:12px 12px 0 0">',
+            ]
+            if logo_b64:
+                html_parts.append(f'<img src="data:image/png;base64,{logo_b64}" style="width:50px;height:58px;margin-bottom:10px" alt="PIMS Logo" />')
+            html_parts += [
                 '<h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:2px">PERSONNEL INFORMATION MANAGEMENT SYSTEM</h1>',
                 '<p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:12px">File Shared Notification</p></div>',
                 '<div style="background:#fff;padding:30px;border:1px solid #e0e0e0">',

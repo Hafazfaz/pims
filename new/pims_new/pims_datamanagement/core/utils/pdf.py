@@ -1,4 +1,5 @@
 import io
+import os
 import re
 
 from PyPDF2 import PdfReader, PdfWriter
@@ -7,6 +8,8 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from core.constants import DEFAULT_WATERMARK_TEXT
+
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "static", "img", "logo.png")
 
 
 def create_watermark_pdf(watermark_text=DEFAULT_WATERMARK_TEXT):
@@ -87,11 +90,17 @@ def generate_document_pdf(document_title, document_content, sender_name, sender_
 
     c.setFillColorRGB(*green)
     c.rect(0, page_height - 80, page_width, 80, fill=True, stroke=False)
+    try:
+        logo = ImageReader(LOGO_PATH)
+        c.drawImage(logo, margin, page_height - 70, width=50, height=60, preserveAspectRatio=True, mask='auto')
+        text_x = margin + 60
+    except Exception:
+        text_x = margin
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(page_width / 2, page_height - 35, "PERSONNEL INFORMATION MANAGEMENT SYSTEM")
+    c.drawCentredString((text_x + page_width) / 2, page_height - 35, "PERSONNEL INFORMATION MANAGEMENT SYSTEM")
     c.setFont("Helvetica", 10)
-    c.drawCentredString(page_width / 2, page_height - 55, "Document Share")
+    c.drawCentredString((text_x + page_width) / 2, page_height - 55, "Document Share")
 
     y = page_height - 110
     c.setFillColorRGB(0.2, 0.2, 0.2)
