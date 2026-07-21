@@ -847,7 +847,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             include_signature = request.POST.get("include_signature") == "on"
 
             from ..permissions import can_share_document
-            from django.core.mail import send_mail
             from django.conf import settings
 
             if not can_share_document(request.user):
@@ -892,14 +891,16 @@ This file was shared via the Personnel Information Management System (PIMS).
                     pass
 
             try:
-                send_mail(
+                from django.core.mail import EmailMessage
+                email = EmailMessage(
                     subject=email_subject,
-                    message=email_message,
+                    body=email_message,
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                    attachments=[signature_attachment] if signature_attachment else None,
+                    to=[recipient_email],
                 )
+                if signature_attachment:
+                    email.attach(*signature_attachment)
+                email.send(fail_silently=False)
                 messages.success(request, f"File shared successfully with {recipient_email}.")
                 log_action(
                     request.user,
