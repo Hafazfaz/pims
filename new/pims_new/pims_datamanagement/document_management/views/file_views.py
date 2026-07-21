@@ -931,15 +931,12 @@ This file was shared via the Personnel Information Management System (PIMS)."""
             html_parts.append('</table>')
 
             if docs:
-                html_parts.append('<h3 style="color:#008751;font-size:14px;margin:25px 0 10px;border-bottom:2px solid #008751;padding-bottom:8px">DOCUMENTS</h3>')
+                html_parts.append('<h3 style="color:#008751;font-size:14px;margin:25px 0 10px;border-bottom:2px solid #008751;padding-bottom:8px">ATTACHED DOCUMENTS</h3>')
                 for doc in docs:
                     doc_title = doc.title or f"Document #{doc.pk}"
-                    html_parts.append(f'<div style="margin:10px 0;padding:12px;background:#f8f9fa;border-left:4px solid #008751;border-radius:4px">')
+                    html_parts.append(f'<div style="margin:8px 0;padding:10px;background:#f8f9fa;border-left:4px solid #008751;border-radius:4px">')
                     html_parts.append(f'<strong style="color:#333">{doc_title}</strong>')
-                    if doc.minute_content:
-                        html_parts.append(f'<div style="margin-top:8px;font-size:13px;color:#555">{doc.minute_content}</div>')
-                    elif doc.attachment:
-                        html_parts.append(f'<p style="margin-top:5px;font-size:12px;color:#888">File: {doc.attachment.name.split("/")[-1]}</p>')
+                    html_parts.append(f'<p style="margin:4px 0 0;font-size:11px;color:#888">See attached PDF for full content</p>')
                     html_parts.append('</div>')
 
             html_parts.append(f'<p style="font-size:12px;color:#888;margin:20px 0 0;border-top:1px solid #e0e0e0;padding-top:15px">This is an automated notification from PIMS. Please do not reply directly to this email.</p>')
