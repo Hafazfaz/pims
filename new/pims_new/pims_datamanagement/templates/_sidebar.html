@@ -45,7 +45,10 @@
                         <a href="{% url 'document_management:inbox' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Inbox</span>
+                            <span class="text-xs font-bold uppercase tracking-wider flex-1">Inbox</span>
+                            {% if unread_notifications_count > 0 %}
+                                <span class="text-[9px] font-black bg-nigeria-green text-white px-1.5 py-0.5 rounded-full">{{ unread_notifications_count }}</span>
+                            {% endif %}
                         </a>
 
                         <a href="{% url 'document_management:outbox' %}"
@@ -77,7 +80,10 @@
                         <a href="{% url 'document_management:inbox' %}"
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
-                            <span class="text-xs font-bold uppercase tracking-wider">Inbox</span>
+                            <span class="text-xs font-bold uppercase tracking-wider flex-1">Inbox</span>
+                            {% if unread_notifications_count > 0 %}
+                                <span class="text-[9px] font-black bg-nigeria-green text-white px-1.5 py-0.5 rounded-full">{{ unread_notifications_count }}</span>
+                            {% endif %}
                         </a>
                     {% endif %}
                 </div>
@@ -232,6 +238,14 @@
             <div>
                 <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Activity</p>
                 <div class="space-y-0.5">
+                    <a href="{% url 'notifications:notification_list' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'notification' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-bell w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider flex-1">Notifications</span>
+                        {% if unread_notifications_count > 0 %}
+                            <span class="text-[9px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full">{{ unread_notifications_count }}</span>
+                        {% endif %}
+                    </a>
                     <a href="{% url 'audit_log:my_activity_report' %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'my-activity' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-chart-bar w-4 text-center"></i>
