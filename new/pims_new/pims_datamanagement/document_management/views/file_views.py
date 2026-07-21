@@ -956,14 +956,25 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                 email.content_subtype = "html"
                 if signature_attachment:
                     email.attach(*signature_attachment)
-                for doc in file_obj.documents.filter(attachment__isnull=False):
-                    if not doc.attachment:
-                        continue
-                    try:
-                        doc_file = doc.attachment.open()
-                        email.attach(doc.attachment.name.split("/")[-1], doc_file.read())
-                    except (FileNotFoundError, OSError):
-                        continue
+
+                from core.utils.pdf import generate_document_pdf
+                sig_image = active_signature.image if (include_signature and active_signature.image) else None
+                for doc in docs:
+                    pdf_bytes = generate_document_pdf(
+                        document_title=doc.title or f"Document #{doc.pk}",
+                        document_content=doc.minute_content or "",
+                        sender_name=sender_name,
+                        sender_dept=sender_dept,
+                        signature_image=sig_image,
+                    )
+                    filename = f"{doc.title or f'document_{doc.pk}'}.pdf"
+                    email.attach(filename, pdf_bytes.read(), "application/pdf")
+                    if doc.attachment:
+                        try:
+                            doc_file = doc.attachment.open()
+                            email.attach(doc.attachment.name.split("/")[-1], doc_file.read())
+                        except (FileNotFoundError, OSError):
+                            pass
                 logger.info("Sending email to %s | Subject: %s | File: %s", recipient_email, email_subject, file_obj.file_number)
                 email.send(fail_silently=False)
                 logger.info("Email sent successfully to %s for file %s", recipient_email, file_obj.file_number)
