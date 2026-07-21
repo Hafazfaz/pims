@@ -1,4 +1,5 @@
 from datetime import timedelta
+import logging
 
 from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
@@ -28,6 +29,8 @@ from organization.models import Department, Staff
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
 from ..models import Document, DocumentSignature, EmailLog, File, FileAccessRequest, FileMovement
 from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin
+
+logger = logging.getLogger("document_management")
 
 
 class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, TemplateView):
@@ -942,7 +945,9 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                         email.attach(doc.attachment.name.split("/")[-1], doc_file.read())
                     except (FileNotFoundError, OSError):
                         continue
+                logger.info("Sending email to %s | Subject: %s | File: %s", recipient_email, email_subject, file_obj.file_number)
                 email.send(fail_silently=False)
+                logger.info("Email sent successfully to %s for file %s", recipient_email, file_obj.file_number)
                 messages.success(request, f"File shared successfully with {recipient_email}.")
                 log_action(
                     request.user,
@@ -954,6 +959,7 @@ This file was shared via the Personnel Information Management System (PIMS)."""
             except Exception as e:
                 email_status = "failed"
                 email_error = str(e)
+                logger.error("Failed to send email to %s: %s", recipient_email, email_error)
                 messages.error(request, f"Failed to send email: {email_error}")
 
             EmailLog.objects.create(
