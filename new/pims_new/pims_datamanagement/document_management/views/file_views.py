@@ -755,10 +755,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             new_status = request.POST.get("status")
             status_reason = request.POST.get("status_reason", "")
 
-            from django.shortcuts import get_object_or_404
-
-            from document_management.models import Document
-
             document = get_object_or_404(Document, pk=doc_id, file=file_obj)
 
             # Check permissions
@@ -811,9 +807,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         elif action == "sign_document":
             doc_id = request.POST.get("document_id")
-            from django.shortcuts import get_object_or_404
-
-            from document_management.models import Document, DocumentSignature
 
             document = get_object_or_404(Document, pk=doc_id, file=file_obj)
             try:
