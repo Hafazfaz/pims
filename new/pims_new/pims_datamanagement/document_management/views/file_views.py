@@ -26,7 +26,7 @@ from notifications.utils import create_notification
 from organization.models import Department, Staff
 
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
-from ..models import Document, DocumentSignature, File, FileAccessRequest, FileMovement
+from ..models import Document, DocumentSignature, EmailLog, File, FileAccessRequest, FileMovement
 from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin
 
 
@@ -950,7 +950,6 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                 email_error = str(e)
                 messages.error(request, f"Failed to send email: {email_error}")
 
-            from ..models import EmailLog
             EmailLog.objects.create(
                 sent_by=request.user,
                 recipient_email=recipient_email,
