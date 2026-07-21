@@ -868,19 +868,52 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 return redirect(file_obj.get_absolute_url())
 
             sender_name = request.user.get_full_name() or request.user.username
-            email_subject = subject if subject else f"Shared File: {file_obj.file_number}"
-            email_message = f"""
-{message}
+            sender_dept = staff.department.name if staff.department else "N/A"
+            email_subject = subject if subject else f"PIMS: File {file_obj.file_number} Shared With You"
+
+            now = timezone.now()
+            pims_email = getattr(settings, "PIMS_SHARE_EMAIL", settings.DEFAULT_FROM_EMAIL)
+
+            plain_message = f"""{message}
 
 ---
-File: {file_obj.file_number}
-Subject: {file_obj.title}
+File Number: {file_obj.file_number}
+File Title: {file_obj.title}
+File Type: {file_obj.get_file_type_display()}
+Status: {file_obj.get_status_display()}
 Shared by: {sender_name}
-Department: {staff.department.name if staff.department else 'N/A'}
-Date: {timezone.now().strftime("%B %d, %Y @ %H:%M")}
+Department: {sender_dept}
+Date: {now.strftime("%B %d, %Y @ %H:%M")}
 
-This file was shared via the Personnel Information Management System (PIMS).
-"""
+This file was shared via the Personnel Information Management System (PIMS)."""
+
+            html_parts = [
+                '<div style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;color:#333">',
+                '<div style="background:linear-gradient(135deg,#1a237e 0%,#b71c1c 100%);padding:30px;text-align:center;border-radius:12px 12px 0 0">',
+                '<h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:2px">PERSONNEL INFORMATION MANAGEMENT SYSTEM</h1>',
+                '<p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:12px">File Shared Notification</p></div>',
+                '<div style="background:#fff;padding:30px;border:1px solid #e0e0e0">',
+                f'<p style="font-size:15px;margin:0 0 20px">Dear Colleague,</p>',
+                f'<p style="font-size:15px;margin:0 0 20px"><strong>{sender_name}</strong> from <strong>{sender_dept}</strong> has shared a file with you via PIMS.</p>',
+            ]
+            if message:
+                html_parts.append(f'<p style="font-size:15px;margin:0 0 15px;padding:12px;background:#f5f5f5;border-left:4px solid #1a237e;border-radius:4px">{message}</p>')
+            html_parts.append('<table style="width:100%;border-collapse:collapse;margin:20px 0">')
+            rows = [
+                ("File Number", file_obj.file_number),
+                ("File Title", file_obj.title),
+                ("File Type", file_obj.get_file_type_display()),
+                ("Status", file_obj.get_status_display()),
+                ("Shared By", sender_name),
+                ("Department", sender_dept),
+                ("Date", now.strftime("%B %d, %Y @ %H:%M")),
+            ]
+            for label, value in rows:
+                html_parts.append(f'<tr><td style="padding:12px;background:#f8f9fa;font-weight:bold;width:40%;border-bottom:1px solid #e0e0e0">{label}</td><td style="padding:12px;border-bottom:1px solid #e0e0e0">{value}</td></tr>')
+            html_parts.append('</table>')
+            html_parts.append(f'<p style="font-size:12px;color:#888;margin:20px 0 0;border-top:1px solid #e0e0e0;padding-top:15px">This is an automated notification from PIMS. Please do not reply directly to this email.</p>')
+            html_parts.append('</div></div>')
+            html_message = "\n".join(html_parts)
 
             signature_attachment = None
             if include_signature and active_signature.image:
@@ -890,14 +923,17 @@ This file was shared via the Personnel Information Management System (PIMS).
                 except (FileNotFoundError, OSError):
                     pass
 
+            email_status = "sent"
+            email_error = ""
             try:
                 from django.core.mail import EmailMessage
                 email = EmailMessage(
                     subject=email_subject,
-                    body=email_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    body=html_message,
+                    from_email=pims_email,
                     to=[recipient_email],
                 )
+                email.content_subtype = "html"
                 if signature_attachment:
                     email.attach(*signature_attachment)
                 email.send(fail_silently=False)
@@ -910,7 +946,21 @@ This file was shared via the Personnel Information Management System (PIMS).
                     details={"recipient": recipient_email, "subject": email_subject}
                 )
             except Exception as e:
-                messages.error(request, f"Failed to send email: {str(e)}")
+                email_status = "failed"
+                email_error = str(e)
+                messages.error(request, f"Failed to send email: {email_error}")
+
+            from .models import EmailLog
+            EmailLog.objects.create(
+                sent_by=request.user,
+                recipient_email=recipient_email,
+                subject=email_subject,
+                body=plain_message,
+                status=email_status,
+                error_message=email_error,
+                file=file_obj,
+                has_signature=include_signature,
+            )
 
             return redirect(file_obj.get_absolute_url())
 

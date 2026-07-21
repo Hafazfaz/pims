@@ -211,6 +211,7 @@ if not DEFAULT_FROM_EMAIL:
     else:
         DEFAULT_FROM_EMAIL = os.environ.get("EMAIL_HOST_USER", "user@example.com")
 BASE_URL = "pims.fmcabuja.gov.ng"
+PIMS_SHARE_EMAIL = os.environ.get("PIMS_SHARE_EMAIL", DEFAULT_FROM_EMAIL)
 AUTHENTICATION_BACKENDS = [
     "user_management.backends.CustomOTPBackend",
     "django.contrib.auth.backends.ModelBackend",
