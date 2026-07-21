@@ -885,7 +885,11 @@ This file was shared via the Personnel Information Management System (PIMS).
 
             signature_attachment = None
             if include_signature and active_signature.image:
-                signature_attachment = active_signature.image
+                try:
+                    sig_file = active_signature.image.open()
+                    signature_attachment = (f"signature_{staff.user.username}.png", sig_file.read(), "image/png")
+                except (FileNotFoundError, OSError):
+                    pass
 
             try:
                 send_mail(
@@ -894,7 +898,7 @@ This file was shared via the Personnel Information Management System (PIMS).
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[recipient_email],
                     fail_silently=False,
-                    attachments=[(f"signature_{staff.user.username}.png", signature_attachment.read(), "image/png")] if signature_attachment else None,
+                    attachments=[signature_attachment] if signature_attachment else None,
                 )
                 messages.success(request, f"File shared successfully with {recipient_email}.")
                 log_action(
