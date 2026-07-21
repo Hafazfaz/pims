@@ -902,6 +902,9 @@ This file was shared via the Personnel Information Management System (PIMS)."""
             if message:
                 html_parts.append(f'<p style="font-size:15px;margin:0 0 15px;padding:12px;background:#E6F3EE;border-left:4px solid #008751;border-radius:4px">{message}</p>')
             html_parts.append('<table style="width:100%;border-collapse:collapse;margin:20px 0">')
+            docs = list(file_obj.documents.all())
+            doc_count = len(docs)
+            doc_names = ", ".join(d.title or f"Doc #{d.pk}" for d in docs) if docs else "None"
             rows = [
                 ("File Number", file_obj.file_number),
                 ("File Title", file_obj.title),
@@ -909,11 +912,25 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                 ("Status", file_obj.get_status_display()),
                 ("Shared By", sender_name),
                 ("Department", sender_dept),
+                ("Documents", f"{doc_count} attached ({doc_names})"),
                 ("Date", now.strftime("%B %d, %Y @ %H:%M")),
             ]
             for label, value in rows:
                 html_parts.append(f'<tr><td style="padding:12px;background:#f8f9fa;font-weight:bold;width:40%;border-bottom:1px solid #e0e0e0">{label}</td><td style="padding:12px;border-bottom:1px solid #e0e0e0">{value}</td></tr>')
             html_parts.append('</table>')
+
+            if docs:
+                html_parts.append('<h3 style="color:#008751;font-size:14px;margin:25px 0 10px;border-bottom:2px solid #008751;padding-bottom:8px">DOCUMENTS</h3>')
+                for doc in docs:
+                    doc_title = doc.title or f"Document #{doc.pk}"
+                    html_parts.append(f'<div style="margin:10px 0;padding:12px;background:#f8f9fa;border-left:4px solid #008751;border-radius:4px">')
+                    html_parts.append(f'<strong style="color:#333">{doc_title}</strong>')
+                    if doc.minute_content:
+                        html_parts.append(f'<div style="margin-top:8px;font-size:13px;color:#555">{doc.minute_content}</div>')
+                    elif doc.attachment:
+                        html_parts.append(f'<p style="margin-top:5px;font-size:12px;color:#888">File: {doc.attachment.name.split("/")[-1]}</p>')
+                    html_parts.append('</div>')
+
             html_parts.append(f'<p style="font-size:12px;color:#888;margin:20px 0 0;border-top:1px solid #e0e0e0;padding-top:15px">This is an automated notification from PIMS. Please do not reply directly to this email.</p>')
             html_parts.append('</div></div>')
             html_message = "\n".join(html_parts)
