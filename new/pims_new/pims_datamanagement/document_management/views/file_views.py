@@ -950,7 +950,7 @@ This file was shared via the Personnel Information Management System (PIMS)."""
                 email_error = str(e)
                 messages.error(request, f"Failed to send email: {email_error}")
 
-            from .models import EmailLog
+            from ..models import EmailLog
             EmailLog.objects.create(
                 sent_by=request.user,
                 recipient_email=recipient_email,
