@@ -34,6 +34,8 @@ DEBUG = os.environ.get("DEBUG", "false").lower() in ["true", "1", "yes"]
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1").split(",")
 
+CORS_ALLOW_CREDENTIALS = True
+
 
 # Application definition
 
@@ -51,6 +53,7 @@ INSTALLED_APPS = [
     "document_management",
     "audit_log",  # Added this line
     "notifications",  # Added this line
+    "corsheaders",
     # "tailwind",
     # "theme",
     "django_otp",
@@ -68,6 +71,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
