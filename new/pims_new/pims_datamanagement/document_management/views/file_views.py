@@ -596,22 +596,26 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         is_custodian = hasattr(user, "staff") and file_obj.current_location == user.staff
 
-        has_approved_access = (
-            FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
-
-        has_rw_access = (
-            FileAccessRequest.objects.filter(
-                file=file_obj,
-                requested_by=user,
-                status="approved",
-                access_type="read_write",
+        if is_custodian:
+            has_approved_access = True
+            has_rw_access = True
+        else:
+            has_approved_access = (
+                FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
+                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                .exists()
             )
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
+
+            has_rw_access = (
+                FileAccessRequest.objects.filter(
+                    file=file_obj,
+                    requested_by=user,
+                    status="approved",
+                    access_type="read_write",
+                )
+                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                .exists()
+            )
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
 
