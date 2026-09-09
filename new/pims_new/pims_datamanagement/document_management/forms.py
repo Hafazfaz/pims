@@ -43,6 +43,25 @@ class FileForm(forms.ModelForm):
             "is_sensitive": "Mark as Sensitive",
         }
 
+    covering_note = forms.CharField(
+        label="Covering Note",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 3,
+                "placeholder": "Enter a covering note for dispatch...",
+            }
+        ),
+        help_text="Required when dispatching. This note will accompany the file.",
+    )
+
+    save_as_draft = forms.BooleanField(
+        label="Save as draft (do not dispatch yet)",
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+
     policy_type = forms.ChoiceField(
         choices=[("internal", "Departmental"), ("external", "Corporate/External")],
         required=False,
@@ -117,6 +136,13 @@ class FileForm(forms.ModelForm):
         unit = cleaned_data.get("unit")
         external_party = cleaned_data.get("external_party")
         policy_range = cleaned_data.get("policy_type")
+        save_as_draft = cleaned_data.get("save_as_draft", False)
+        covering_note = cleaned_data.get("covering_note", "")
+
+        if not save_as_draft and not covering_note:
+            raise forms.ValidationError(
+                {"covering_note": "Covering note is required when dispatching the file."}
+            )
 
         if file_type == "personal":
             if not owner:
@@ -209,13 +235,20 @@ class DocumentForm(forms.ModelForm):
 
         # Only HODs or Unit Managers can see the signature checkbox
         can_sign = False
+        is_supervisor_plus = False
         if self.user and hasattr(self.user, "staff"):
             staff = self.user.staff
             if staff.is_hod or staff.is_unit_manager or staff.is_registry:
                 can_sign = True
+            if staff.is_effective_supervisor or staff.is_hod or staff.is_md or staff.is_executive:
+                is_supervisor_plus = True
 
         if not can_sign:
             self.fields.pop("include_signature", None)
+
+        # Only supervisors+ see send_to; normal users get auto-routed
+        if not is_supervisor_plus:
+            self.fields.pop("send_to", None)
 
     def clean(self):
         cleaned_data = super().clean()

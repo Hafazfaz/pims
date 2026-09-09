@@ -766,10 +766,25 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             except Exception:
                 pass
 
+        # Route the file
         send_to_staff = form.cleaned_data.get("send_to")
+        staff_user = getattr(self.request.user, "staff", None)
+
+        if not send_to_staff and staff_user and not staff_user.is_effective_supervisor and not staff_user.is_hod and not staff_user.is_md and not staff_user.is_executive:
+            # Auto-route normal users to their head
+            if staff_user.unit and staff_user.unit.head:
+                send_to_staff = staff_user.unit.head
+            elif staff_user.section and staff_user.section.head:
+                send_to_staff = staff_user.section.head
+            elif staff_user.division and staff_user.division.head:
+                send_to_staff = staff_user.division.head
+            elif staff_user.department and staff_user.department.head:
+                send_to_staff = staff_user.department.head
+
         if send_to_staff:
-            from_location = getattr(self.request.user, "staff", None)
+            from_location = staff_user
             self.file_obj.current_location = send_to_staff
+            self.file_obj.status = "in_transit"
             self.file_obj.save()
 
             FileMovement.objects.create(
