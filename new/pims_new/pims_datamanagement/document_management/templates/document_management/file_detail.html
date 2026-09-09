@@ -140,8 +140,14 @@
                                         class="px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all">
                                     Settings
                                 </button>
-                            {% endif %}
-                        </div>
+{% endif %}
+                                {% if is_custodian and file.status == 'active' and not file.is_in_active_chain %}
+                                    <button type="button" @click="$dispatch('open-send-note')"
+                                            class="w-full py-4 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                                        Send Note
+                                    </button>
+                                {% endif %}
+                            </div>
                     </div>
                     <!-- Content Panels -->
                     <div x-show="activeTab === 'details'"
@@ -503,18 +509,6 @@
                                         <p class="text-[9px] text-green-600">
                                             {% if has_rw_access %}You can view and add documents.{% else %}You can view original documents.{% endif %}
                                         </p>
-                                    </div>
-                                </div>
-                            {% elif is_registry %}
-                                <div class="mt-8 p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
-                                    <div class="w-8 h-8 bg-slate-400 rounded-full flex items-center justify-center text-white">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4m-4 6H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <p class="text-[10px] font-bold text-slate-700 uppercase tracking-widest">In Registry Custody</p>
-                                        <p class="text-[9px] text-slate-500">File is held by registry. Use controls below to dispatch.</p>
                                     </div>
                                 </div>
                             {% endif %}
