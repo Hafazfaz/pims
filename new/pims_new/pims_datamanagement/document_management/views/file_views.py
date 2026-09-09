@@ -28,6 +28,7 @@ from organization.models import Department, Staff
 
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
 from ..models import Document, DocumentSignature, EmailLog, File, FileAccessRequest, FileMovement
+from ..permissions import get_dispatch_recipients
 from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin
 
 logger = logging.getLogger("document_management")
@@ -171,6 +172,64 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             pass
         return reverse_lazy("document_management:my_files")
 
+    def get(self, request, *args, **kwargs):
+        if request.headers.get("HX-Request"):
+            return self._get_recipient_preview(request)
+        return super().get(request, *args, **kwargs)
+
+    def _get_recipient_preview(self, request):
+        staff_user = self.get_staff_user()
+        if not staff_user:
+            return HttpResponse('<p class="text-sm text-slate-500">Unable to determine recipient.</p>')
+
+        file_type = request.GET.get("file_type", "personal")
+        owner_id = request.GET.get("owner")
+        department_id = request.GET.get("department")
+
+        temp_file = File(file_type=file_type, title="TEMP")
+        if file_type == "personal" and owner_id:
+            try:
+                owner = Staff.objects.get(id=owner_id)
+                temp_file.owner = owner
+                temp_file.department = owner.department
+            except Staff.DoesNotExist:
+                pass
+        elif file_type == "policy" and department_id:
+            try:
+                temp_file.department = Department.objects.get(id=department_id)
+            except Department.DoesNotExist:
+                pass
+
+        eligible = get_dispatch_recipients(request.user, temp_file)
+
+        if not eligible.exists():
+            return HttpResponse(
+                '<div class="flex items-center gap-2">'
+                '<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>'
+                "</svg>"
+                '<p class="text-sm text-amber-700 font-medium">No recipient found in chain of command. File will be saved as draft.</p>'
+                "</div>"
+            )
+
+        recipient = eligible.first()
+        full_name = recipient.user.get_full_name() or recipient.user.username
+        designation = recipient.designation.name if recipient.designation else "Staff"
+        department = recipient.department.name if recipient.department else ""
+
+        return HttpResponse(
+            f'<div class="flex items-center gap-3">'
+            f'<div class="w-10 h-10 bg-nigeria-light rounded-full flex items-center justify-center">'
+            f'<span class="text-nigeria-green font-bold text-sm">{full_name[0]}</span>'
+            f"</div>"
+            f"<div>"
+            f'<p class="text-sm font-bold text-slate-800">{full_name}</p>'
+            f'<p class="text-xs text-slate-500">{designation}'
+            f'{f" — {department}" if department else ""}</p>'
+            f"</div>"
+            f"</div>"
+        )
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
@@ -208,33 +267,60 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         self.object = form.save()
 
-        # Notify file owner (personal files) or HOD (policy files) that file is ready
-        file_type = form.cleaned_data.get("file_type")
-        if file_type == "personal":
-            owner = form.cleaned_data.get("owner")
-            if owner and owner.user:
-                create_notification(
-                    user=owner.user,
-                    message=f"A new personal file has been created for you: {self.object.file_number} — {self.object.title}.",
-                    obj=self.object,
-                    link=self.object.get_absolute_url(),
-                )
-        elif file_type == "policy":
-            dept = form.cleaned_data.get("department")
-            if dept and dept.head and dept.head.user:
-                create_notification(
-                    user=dept.head.user,
-                    message=f"A new policy file has been created in your department: {self.object.file_number} — {self.object.title}.",
-                    obj=self.object,
-                    link=self.object.get_absolute_url(),
-                )
-
         for f in self.request.FILES.getlist("attachments"):
             Document.objects.create(file=self.object, attachment=f, uploaded_by=self.request.user)
 
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
-        messages.success(self.request, "File and documents created successfully.")
+        save_as_draft = form.cleaned_data.get("save_as_draft", False)
+
+        if save_as_draft:
+            messages.success(self.request, "File saved as draft.")
+            return redirect(self.get_success_url())
+
+        eligible = get_dispatch_recipients(self.request.user, self.object)
+
+        if not eligible.exists():
+            messages.warning(
+                self.request,
+                "File created but could not be dispatched — no recipient found in your chain of command. "
+                "The file remains with you. You can send it manually from the file detail page.",
+            )
+            return redirect(self.get_success_url())
+
+        recipient = eligible.first()
+        old_location = self.object.current_location
+        covering_note = form.cleaned_data.get("covering_note", "")
+
+        self.object.current_location = recipient
+        self.object.status = "in_transit"
+        self.object.save()
+
+        FileMovement.objects.create(
+            file=self.object,
+            sent_by=self.request.user,
+            from_location=old_location,
+            sent_to=recipient,
+            note=covering_note,
+            action="sent",
+        )
+
+        log_action(
+            self.request.user,
+            "FILE_SENT",
+            request=self.request,
+            obj=self.object,
+            details={"to": recipient.user.get_full_name()},
+        )
+
+        create_notification(
+            user=recipient.user,
+            message=f"{self.request.user.get_full_name()} sent you file {self.object.file_number} — {self.object.title}.",
+            obj=self.object,
+            link=self.object.get_absolute_url(),
+        )
+
+        messages.success(self.request, f"File created and dispatched to {recipient.user.get_full_name()}.")
         return redirect(self.get_success_url())
 
     def get_staff_user(self):

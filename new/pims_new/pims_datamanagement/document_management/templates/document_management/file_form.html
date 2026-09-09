@@ -3,7 +3,7 @@
 {% block title %}Initialize Record | PIMS{% endblock %}
 {% block content %}
     <div class="max-w-3xl mx-auto py-8 lg:py-12"
-         x-data="{ fileType: 'personal', policyType: 'internal' }">
+         x-data="{ fileType: 'personal', policyType: 'internal', saveAsDraft: false }">
         <!-- Form Card -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <!-- Card Header -->
@@ -38,7 +38,7 @@
                     {% endif %}
                     <div class="grid grid-cols-1 gap-6">
                         {% for field in form %}
-                            {% if field.name != 'attachments' %}
+                            {% if field.name != 'attachments' and field.name != 'covering_note' and field.name != 'save_as_draft' %}
                                 {% if field.name == 'owner' %}
                                     {# Personal: Required #}
                                     <div class="space-y-1.5" x-show="fileType === 'personal'" x-transition>
@@ -155,11 +155,46 @@
                             {% endif %}
                         {% endfor %}
                     </div>
+
+                    <!-- Recipient Preview -->
+                    <div class="space-y-2" x-show="!saveAsDraft" x-transition>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Will be dispatched to:</p>
+                        <div id="recipient-preview"
+                             hx-get="{% url 'document_management:file_create' %}"
+                             hx-trigger="change from:form delay:300ms, load delay:500ms"
+                             hx-include="form"
+                             hx-headers='{"HX-Request": "true"}'>
+                            <p class="text-sm text-slate-500">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- Covering Note -->
+                    <div class="space-y-1.5" x-show="!saveAsDraft" x-transition>
+                        <label for="{{ form.covering_note.id_for_label }}"
+                               class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            {{ form.covering_note.label }} <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.covering_note|add_class:"block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none transition-all font-medium" }}
+                        {% if form.covering_note.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ form.covering_note.help_text }}</p>{% endif %}
+                        {% for error in form.covering_note.errors %}<p class="text-[10px] text-red-600 font-bold uppercase">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <!-- Save as Draft -->
+                    <div class="flex items-start space-x-3 pt-2">
+                        <div class="flex items-center h-5">
+                            {{ form.save_as_draft|add_class:"form-check-input" }}
+                        </div>
+                        <label for="{{ form.save_as_draft.id_for_label }}" class="text-sm font-medium text-slate-700 cursor-pointer">
+                            {{ form.save_as_draft.label }}
+                        </label>
+                    </div>
+
                     <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-100">
                         <a href="{% url 'document_management:registry_hub' %}"
                            class="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50">Cancel</a>
                         <button type="submit"
-                                class="px-8 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-all">
+                                class="px-8 py-2.5 bg-nigeria-green text-white text-sm font-bold rounded-lg shadow-sm hover:bg-nigeria-dark transition-all"
+                                x-text="saveAsDraft ? 'Save as Draft' : 'Create & Send'">
                             Create Record
                         </button>
                     </div>
