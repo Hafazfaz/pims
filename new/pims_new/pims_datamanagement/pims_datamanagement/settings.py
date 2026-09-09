@@ -35,6 +35,9 @@ DEBUG = os.environ.get("DEBUG", "false").lower() in ["true", "1", "yes"]
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1").split(",")
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "https://trike-mobility.vercel.app",
+]
 
 
 # Application definition
