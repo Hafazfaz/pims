@@ -1437,6 +1437,7 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         staff = getattr(self.request.user, "staff", None)
         context["can_approve"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
+        context["is_hod_or_supervisor"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
         context["current_mode"] = self.request.GET.get("mode", "inbox")
 
         # For unit managers: pre-fill their HOD as the only forward recipient
@@ -1662,7 +1663,8 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
                 "movement_history": movement_history,
                 "file_movement_history": file_movement_history,
                 "can_view_content": can_view_content,
-                "can_approve": bool(staff and (staff.is_hod or staff.is_effective_supervisor)),
+                "can_approve": bool(staff and (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager)),
+                "is_hod_or_supervisor": bool(staff and (staff.is_hod or staff.is_effective_supervisor)),
                 "prefilled_recipient": None,
             },
         )
