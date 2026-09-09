@@ -119,6 +119,10 @@
                           {% if is_hod_or_supervisor %}Approve{% else %}Forward{% endif %}
                         </button>
                       </form>
+                      <button type="button" onclick="document.getElementById('reject-modal-{{ movement.pk }}').classList.remove('hidden')"
+                              class="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-red-700">
+                        Reject
+                      </button>
                     {% endif %}
                   </div>
                 </td>
