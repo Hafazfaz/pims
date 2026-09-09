@@ -142,11 +142,6 @@
                                 </button>
 {% endif %}
                                 {% if is_custodian and file.status == 'active' and not file.is_in_active_chain %}
-                                    <button type="button" @click="$dispatch('open-send-note')"
-                                            class="w-full py-4 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
-                                        Send Note
-                                    </button>
-                                {% endif %}
                             </div>
                     </div>
                     <!-- Content Panels -->
@@ -271,8 +266,14 @@
                                                                     {% endif %}
                                                                 </svg>
                                                             </span>
-                                                        {% endif %}
-                                                    </div>
+{% endif %}
+                                {% if is_custodian and file.status == 'active' and not file.is_in_active_chain %}
+                                    <button type="button" @click="$dispatch('open-send-note')"
+                                            class="w-full py-4 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                                        Send Note
+                                    </button>
+                                {% endif %}
+                            </div>
                                                     <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                                                         <div class="flex-1">
                                                             {% if entry.type == 'document' %}
@@ -470,7 +471,7 @@
                                 Administrative Controls
                             </h3>
                             <div id="file-actions-messages" class="mb-4"></div>
-                            {% if not is_registry and not has_approved_access %}
+                            {% if not is_registry and not is_owner and not has_approved_access %}
                                 <div class="p-6 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center">
                                     <svg class="w-10 h-10 text-slate-300 mx-auto mb-4"
                                          fill="none"
@@ -495,7 +496,7 @@
                                     {% endif %}
                                 </div>
                             {% endif %}
-                            {% if is_custodian and has_approved_access %}
+                            {% if (is_custodian or is_owner) and has_approved_access %}
                                 <div class="mt-8 p-4 bg-green-50 border border-green-100 rounded-xl flex items-center gap-3">
                                     <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

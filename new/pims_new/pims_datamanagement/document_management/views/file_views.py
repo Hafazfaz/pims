@@ -595,8 +595,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         self._reclaim_expired_custody(file_obj)
 
         is_custodian = hasattr(user, "staff") and file_obj.current_location == user.staff
+        is_owner = hasattr(user, "staff") and file_obj.owner == user.staff
 
-        if is_custodian:
+        if is_custodian or is_owner:
             has_approved_access = True
             has_rw_access = True
         else:
@@ -619,15 +620,15 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
 
-        hasattr(user, "staff") and file_obj.owner == user.staff
         context["can_add_minute"] = (
-            is_registry or (is_custodian and has_rw_access)
+            is_registry or ((is_custodian or is_owner) and has_rw_access)
         ) and not file_obj.is_in_active_chain
         context["can_add_minutes"] = context["can_add_minute"]
         context["can_send_file"] = (
             (is_custodian or is_registry) and not file_obj.is_in_active_chain and file_obj.status == "active"
         )
         context["is_custodian"] = is_custodian
+        context["is_owner"] = is_owner
         context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
         context["access_type"] = "read_write" if has_rw_access else ("read_only" if has_approved_access else None)
