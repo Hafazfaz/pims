@@ -23,6 +23,7 @@ dependencies = [
     "bw2io[multifunctional]>=0.9.17",
     "reportlab>=4.4.10",
     "whitenoise",
+    "django-prometheus>=2.5.0",
 ]
 
 [tool.ruff]

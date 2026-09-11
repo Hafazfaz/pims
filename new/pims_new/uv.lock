@@ -564,6 +564,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-prometheus"
+version = "2.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "prometheus-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7b/c7/dc39c4c19f7b35e827a486d08376de1fad31c50decb26c56e32668314f13/django_prometheus-2.5.0.tar.gz", hash = "sha256:4837b3c3734d8350880839ab8235aafd250b668c348e159d4aecc3cbefeee53e", size = 26465, upload-time = "2026-05-26T19:04:00.77Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/5d/6ec3083ba69545696c962ae505a0e52e280e7592d4c278c2f3803cabb688/django_prometheus-2.5.0-py2.py3-none-any.whl", hash = "sha256:f15efb526cd53f9cf12da72dc55506322f5566b017a819ff27be1da302303134", size = 31801, upload-time = "2026-05-26T19:03:59.505Z" },
+]
+
+[[package]]
 name = "django-summernote"
 version = "0.8.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1225,6 +1238,7 @@ dependencies = [
     { name = "django-axes" },
     { name = "django-otp" },
     { name = "django-phonenumber-field" },
+    { name = "django-prometheus" },
     { name = "django-summernote" },
     { name = "django-unfold" },
     { name = "django-widget-tweaks" },
@@ -1247,6 +1261,7 @@ requires-dist = [
     { name = "django-axes" },
     { name = "django-otp" },
     { name = "django-phonenumber-field" },
+    { name = "django-prometheus", specifier = ">=2.5.0" },
     { name = "django-summernote", specifier = ">=0.8.20.0" },
     { name = "django-unfold" },
     { name = "django-widget-tweaks", specifier = ">=1.5.0" },
@@ -1283,6 +1298,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9f/4a/0883b8e3802965322523f0b200ecf33d31f10991d0401162f4b23c698b42/platformdirs-4.9.6.tar.gz", hash = "sha256:3bfa75b0ad0db84096ae777218481852c0ebc6c727b3168c1b9e0118e458cf0a", size = 29400, upload-time = "2026-04-09T00:04:10.812Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/75/a6/a0a304dc33b49145b21f4808d763822111e67d1c3a32b524a1baf947b6e1/platformdirs-4.9.6-py3-none-any.whl", hash = "sha256:e61adb1d5e5cb3441b4b7710bea7e4c12250ca49439228cc1021c00dcfac0917", size = 21348, upload-time = "2026-04-09T00:04:09.463Z" },
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.26.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/52/73/f1334c29c2af4cd9dba6c7817e61b611bd0215e2eb5565c6064a4de18802/prometheus_client-0.26.0.tar.gz", hash = "sha256:04a91bcf94e2cf74a44a1a874d651a2e853ed354b6e822f3b7487751465d5c2b", size = 92910, upload-time = "2026-07-24T19:36:41.893Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/a3/b69efbf4143b5b9859b977770bbbabcc2796b702fa69dc40271e45cd5a56/prometheus_client-0.26.0-py3-none-any.whl", hash = "sha256:fa93d06737aa02bacd05794768508bb97d2fbee28cb3bca04eaae92f0ca953d6", size = 64494, upload-time = "2026-07-24T19:36:40.854Z" },
 ]
 
 [[package]]
