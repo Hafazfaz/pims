@@ -476,7 +476,7 @@
                                 Administrative Controls
                             </h3>
                             <div id="file-actions-messages" class="mb-4"></div>
-                            {% if not is_registry and not is_owner and not has_approved_access %}
+                             {% if not has_approved_access %}
                                 <div class="p-6 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center">
                                     <svg class="w-10 h-10 text-slate-300 mx-auto mb-4"
                                          fill="none"
@@ -501,7 +501,7 @@
                                     {% endif %}
                                 </div>
                             {% endif %}
-                            {% if is_custodian or is_owner and has_approved_access %}
+                            {% if has_approved_access %}
                                 <div class="mt-8 p-4 bg-green-50 border border-green-100 rounded-xl flex items-center gap-3">
                                     <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

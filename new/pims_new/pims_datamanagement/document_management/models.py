@@ -405,11 +405,30 @@ class FileMovement(models.Model):
         help_text="Another file referenced at end of movement.",
     )
 
+    # Access expiry: a dispatched movement grants the recipient access until this
+    # datetime. When None, access is indefinite. Drives is_active_access.
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this movement's granted access expires. Null = indefinite.",
+    )
+
     class Meta:
         ordering = ["-moved_at"]
 
     def __str__(self):
         return f"{self.file.file_number} — {self.action} at {self.moved_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def is_active_access(self):
+        """A movement grants the recipient view access when active and unexpired."""
+        from django.utils import timezone
+
+        if self.action not in ("sent", "approved", "forwarded"):
+            return False
+        if self.expires_at and self.expires_at <= timezone.now():
+            return False
+        return True
 
 
 class ApprovalChain(models.Model):

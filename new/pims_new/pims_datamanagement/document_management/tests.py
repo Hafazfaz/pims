@@ -3,13 +3,24 @@ End-to-end simulation tests for PIMS core flows.
 Covers: user auth, file lifecycle, document upload, access requests, approval chains.
 """
 
+from datetime import timedelta
+
 from django.contrib.auth.models import Group
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 from organization.models import Department, Designation, Staff, Unit
 from user_management.models import CustomUser
 
-from document_management.models import ApprovalChain, ApprovalStep, Document, File, FileAccessRequest, DocumentType
+from document_management.models import (
+    ApprovalChain,
+    ApprovalStep,
+    Document,
+    File,
+    FileAccessRequest,
+    FileMovement,
+    DocumentType,
+)
 
 
 def make_user(username, group_name=None, is_superuser=False):
@@ -63,6 +74,8 @@ class FileLifecycleTest(TestCase):
                 "title": "TEST FILE",
                 "file_type": "personal",
                 "owner": self.staff.pk,
+                "covering_note": "New file created for testing.",
+                "save_as_draft": "on",
             },
         )
         self.assertIn(r.status_code, [200, 302])
@@ -689,3 +702,128 @@ class DispatchPermissionTest(TestCase):
         self.client.login(username="reg_dp", password="Test1234!")
         self.client.post(reverse("document_management:file_recall", kwargs={"pk": self.personal_file.pk}))
         self.assertFalse(FileAccessRequest.objects.filter(file=self.personal_file, status="approved").exists())
+
+
+class MovementAccessTest(TestCase):
+    """FileMovement is the source of truth for dispatched-file access.
+
+    Covers the plan's validation criteria:
+      - dispatched recipient sees "Full Access Granted"
+      - non-recipient sees "Request Access"
+      - after expires_at passes, recipient reverts to "Request Access"
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.dept = Department.objects.create(name="Finance", code="FIN")
+
+        reg_user = make_user("reg_ma", "Registry")
+        desig_reg, _ = Designation.objects.get_or_create(name="Registry Officer", defaults={"level": 1})
+        self.registry = Staff.objects.create(user=reg_user, designation=desig_reg, department=self.dept)
+
+        owner_user = make_user("owner_ma", "Staff")
+        desig, _ = Designation.objects.get_or_create(name="Officer", defaults={"level": 5})
+        self.owner = Staff.objects.create(user=owner_user, designation=desig, department=self.dept)
+
+        col_user = make_user("col_ma", "Staff")
+        self.colleague = Staff.objects.create(user=col_user, designation=desig, department=self.dept)
+
+        hod_user = make_user("hod_ma", "Staff")
+        hod_desig, _ = Designation.objects.get_or_create(name="Head of Department", defaults={"level": 2})
+        self.hod = Staff.objects.create(user=hod_user, designation=hod_desig, department=self.dept)
+        self.dept.head = self.hod
+        self.dept.save()
+
+        self.file = File.objects.create(
+            title="MOVEMENT ACCESS FILE",
+            file_type="personal",
+            owner=self.owner,
+            current_location=self.registry,
+            created_by=reg_user,
+            status="active",
+        )
+
+    def test_is_active_access_property(self):
+        active = FileMovement.objects.create(
+            file=self.file, sent_by=self.registry.user, sent_to=self.colleague,
+            action="sent", expires_at=timezone.now() + timedelta(days=7),
+        )
+        self.assertTrue(active.is_active_access)
+
+        expired = FileMovement.objects.create(
+            file=self.file, sent_by=self.registry.user, sent_to=self.colleague,
+            action="sent", expires_at=timezone.now() - timedelta(days=1),
+        )
+        self.assertFalse(expired.is_active_access)
+
+        indefinite = FileMovement.objects.create(
+            file=self.file, sent_by=self.registry.user, sent_to=self.colleague,
+            action="sent", expires_at=None,
+        )
+        self.assertTrue(indefinite.is_active_access)
+
+        recalled = FileMovement.objects.create(
+            file=self.file, sent_by=self.registry.user, sent_to=self.colleague,
+            action="recalled", expires_at=timezone.now() + timedelta(days=7),
+        )
+        self.assertFalse(recalled.is_active_access)
+
+    def test_expiry_defaults_to_seven_days_on_send(self):
+        from document_management.models import FileMovement
+
+        self.client.login(username="reg_ma", password="Test1234!")
+        resp = self.client.post(
+            reverse("document_management:file_detail", kwargs={"pk": self.file.pk}),
+            {
+                "action": "send_file",
+                "recipient": self.colleague.user.pk,
+                "movement_note": "Please review.",
+            },
+        )
+        self.assertIn(resp.status_code, [302, 200])
+        movement = FileMovement.objects.filter(file=self.file, action="sent").first()
+        self.assertIsNotNone(movement)
+        self.assertIsNotNone(movement.expires_at)
+        self.assertGreater(movement.expires_at, timezone.now())
+        delta = movement.expires_at - movement.moved_at
+        # Allow 6-7 days due to request timing (auto_now_add vs timezone.now())
+        self.assertIn(delta.days, [6, 7])
+
+    def test_dispatched_recipient_has_full_access(self):
+        FileMovement.objects.create(
+            file=self.file, sent_by=self.registry.user, sent_to=self.colleague,
+            action="sent", expires_at=timezone.now() + timedelta(days=7),
+        )
+        self.client.login(username="col_ma", password="Test1234!")
+        resp = self.client.get(reverse("document_management:file_detail", kwargs={"pk": self.file.pk}))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context["has_approved_access"])
+        self.assertTrue(resp.context["has_rw_access"])
+
+    def test_non_recipient_sees_request_access(self):
+        # HOD can load the page (role rule) but has no movement/approved request
+        self.client.login(username="hod_ma", password="Test1234!")
+        resp = self.client.get(reverse("document_management:file_detail", kwargs={"pk": self.file.pk}))
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.context["has_approved_access"])
+        self.assertContains(resp, "Request Access")
+
+    def test_expired_movement_revokes_access(self):
+        FileMovement.objects.create(
+            file=self.file, sent_by=self.registry.user, sent_to=self.colleague,
+            action="sent", expires_at=timezone.now() - timedelta(days=1),
+        )
+        # Make colleague the custodian (as a real Send Note would) so reclamation runs
+        self.file.current_location = self.colleague
+        self.file.save(update_fields=["current_location"])
+
+        self.client.login(username="col_ma", password="Test1234!")
+
+        # Before any reclaim, the expired movement should deny access
+        resp = self.client.get(reverse("document_management:file_detail", kwargs={"pk": self.file.pk}))
+        self.assertEqual(resp.status_code, 200)
+        self.file.refresh_from_db()
+        # Custody is reclaimed to registry because the movement has expired
+        self.assertEqual(self.file.current_location, self.registry)
+        self.assertFalse(resp.context["has_approved_access"])
+        self.assertContains(resp, "Request Access")

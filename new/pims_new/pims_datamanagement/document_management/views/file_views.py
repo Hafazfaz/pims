@@ -542,6 +542,14 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if file_obj.current_location == staff_user:
             return True
 
+        # Dispatch-chain members: anyone sent this file via a FileMovement retains
+        # the ability to view the (limited) file page. This lets a dispatched
+        # recipient request (re-)access once their movement has expired, instead
+        # of being hard-redirected away. Actual contents access is still gated in
+        # get_context_data via is_approved_access / movement.is_active_access.
+        if file_obj.movements.filter(sent_to=staff_user, action="sent").exists():
+            return True
+
         has_approved_access = (
             FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
             .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
@@ -551,20 +559,25 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         return bool(has_approved_access)
 
     def _reclaim_expired_custody(self, file_obj):
-        """If current custodian holds the file via an expired access request, return it to registry."""
+        """If current custodian holds the file via an expired movement or access request, return it to registry."""
         holder = file_obj.current_location
         if not holder or holder.is_registry:
             return
         # Check if holder is the file owner — owners always keep custody
         if file_obj.owner == holder:
             return
-        # Check if holder has any active (non-expired) approved access
-        active_access = (
+        # Active via an approved, unexpired FileAccessRequest
+        has_active_request = (
             FileAccessRequest.objects.filter(file=file_obj, requested_by=holder.user, status="approved")
             .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
             .exists()
         )
-        if not active_access:
+        # Active via a movement dispatched to this holder (the new source of truth)
+        latest_movement = file_obj.movements.filter(
+            sent_to=holder, action="sent"
+        ).order_by("-moved_at").first()
+        has_active_movement = bool(latest_movement and latest_movement.is_active_access)
+        if not (has_active_request or has_active_movement):
             # Find any registry staff to return to
             from organization.models import Staff as StaffModel
 
@@ -601,24 +614,42 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             has_approved_access = True
             has_rw_access = True
         else:
-            has_approved_access = (
-                FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
-                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-                .exists()
-            )
-
-            has_rw_access = (
-                FileAccessRequest.objects.filter(
-                    file=file_obj,
-                    requested_by=user,
-                    status="approved",
-                    access_type="read_write",
+            # Movement-based access: a recipient dispatched via "Send Note" is granted
+            # automatic access that is tracked by FileMovement (with optional expiry).
+            staff = getattr(user, "staff", None)
+            latest_movement = None
+            if staff:
+                latest_movement = (
+                    file_obj.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
                 )
-                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-                .exists()
-            )
+            if latest_movement and latest_movement.is_active_access:
+                has_approved_access = True
+                has_rw_access = True
+            else:
+                has_approved_access = (
+                    FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
+                    .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                    .exists()
+                )
+
+                has_rw_access = (
+                    FileAccessRequest.objects.filter(
+                        file=file_obj,
+                        requested_by=user,
+                        status="approved",
+                        access_type="read_write",
+                    )
+                    .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                    .exists()
+                )
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
+
+        # Registry staff (and superusers) have full administrative access to every
+        # file, so they always carry approved read & write access.
+        if is_registry or user.is_superuser:
+            has_approved_access = True
+            has_rw_access = True
 
         context["can_add_minute"] = (
             is_registry or ((is_custodian or is_owner) and has_rw_access)
@@ -811,6 +842,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     note=note,
                     attachment=form.cleaned_data.get("movement_attachment"),
                     action="sent",
+                    expires_at=timezone.now() + timedelta(days=7),
                 )
                 log_action(
                     request.user,
