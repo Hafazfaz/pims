@@ -182,6 +182,17 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if FileMovement.objects.filter(document=document, sent_to=staff_user, status="pending").exists():
             return True
 
+        # Allow holder of an active file-level movement (custodian dispatched
+        # via Send Note / document route) to open any document in that file —
+        # this is what lets the inbox file view link every row.
+        latest = (
+            FileMovement.objects.filter(file=file_obj, sent_to=staff_user, action="sent")
+            .order_by("-moved_at")
+            .first()
+        )
+        if latest and latest.is_active_access:
+            return True
+
         # Allow current approver on the chain to view the document
         active_chain = document.approval_chains.filter(status="active").first()
         return bool(active_chain and active_chain.steps.filter(approver=staff_user).exists())
@@ -597,10 +608,19 @@ class DocumentDownloadView(LoginRequiredMixin, View):
 
         if user.is_superuser or (
             staff
-            and (staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+            and (
+                staff.is_hod
+                or staff.is_effective_supervisor
+                or staff.is_executive
+                or staff.is_md
+                or getattr(staff, "is_mayor", False)
+            )
             and (
                 staff == file_obj.owner
                 or staff == file_obj.current_location
+                or getattr(staff, "is_mayor", False)
+                or staff.is_executive
+                or staff.is_md
                 or (staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department)
             )
         ):
@@ -610,7 +630,13 @@ class DocumentDownloadView(LoginRequiredMixin, View):
             not allowed
             and document.uploaded_by == user
             and staff
-            and (staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+            and (
+                staff.is_hod
+                or staff.is_effective_supervisor
+                or staff.is_executive
+                or staff.is_md
+                or getattr(staff, "is_mayor", False)
+            )
         ):
             allowed = True
 
@@ -683,6 +709,12 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         has_permission = False
 
         if staff_user and staff_user.is_registry:
+            has_permission = True
+
+        elif staff_user and (
+            getattr(staff_user, "is_mayor", False) or staff_user.is_md or staff_user.is_executive
+        ):
+            # Mayor / MD / Executive carry read & write on any file.
             has_permission = True
 
         elif self.file_obj.file_type == "personal":
@@ -796,6 +828,11 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 action="sent",
                 document=document,
             )
+            # Sender hands off custody — expire their approved grants like send_file does,
+            # so they don't keep Full Access while the file is in transit with someone else.
+            FileAccessRequest.objects.filter(
+                file=self.file_obj, requested_by=self.request.user, status="approved"
+            ).update(status="expired")
             log_action(
                 self.request.user,
                 "FILE_SENT",

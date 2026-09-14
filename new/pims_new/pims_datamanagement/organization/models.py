@@ -137,6 +137,7 @@ class Staff(models.Model):
             or self.is_hod
             or self.is_executive
             or self.is_md
+            or self.is_mayor
         )
 
     @property
@@ -146,6 +147,13 @@ class Staff(models.Model):
     @property
     def is_md(self):
         return self.user.groups.filter(name__iexact="MD").exists()
+
+    @property
+    def is_mayor(self):
+        """Custom Mayor role — via 'Mayor' group or a designation containing 'mayor'."""
+        if self.designation and "mayor" in self.designation.name.lower():
+            return True
+        return self.user.groups.filter(name__iexact="Mayor").exists()
 
 
 class StaffSignature(models.Model):

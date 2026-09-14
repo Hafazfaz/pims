@@ -208,6 +208,9 @@ class File(models.Model):
             return False
         if staff.is_registry:
             return False
+        # Mayor has full content access, including sensitive files.
+        if getattr(staff, "is_mayor", False):
+            return True
         if self.is_sensitive:
             return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
         return True

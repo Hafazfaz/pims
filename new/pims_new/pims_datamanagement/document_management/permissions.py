@@ -47,6 +47,11 @@ def is_md(user):
     return staff is not None and staff.is_md
 
 
+def is_mayor(user):
+    staff = get_staff(user)
+    return staff is not None and staff.is_mayor
+
+
 # ---------------------------------------------------------------------------
 # File permissions
 # ---------------------------------------------------------------------------
@@ -59,7 +64,7 @@ def can_create_file(user):
 
 def can_view_file(user, file):
     """Who can open the file detail page."""
-    if user.is_superuser or is_registry(user) or is_executive(user):
+    if user.is_superuser or is_registry(user) or is_executive(user) or is_mayor(user):
         return True
     staff = get_staff(user)
     if not staff:
@@ -109,7 +114,7 @@ def can_send_file(user, file):
 
 
 def can_add_document(user, file):
-    """Registry or current custodian with RW access can add documents."""
+    """Registry, Mayor, or current custodian with RW access can add documents."""
     if file.status != "active":
         return False
     if file.is_in_active_chain:
@@ -117,15 +122,24 @@ def can_add_document(user, file):
     if is_registry(user):
         return True
     staff = get_staff(user)
-    if not staff or file.current_location != staff:
+    if not staff:
+        return False
+    # Mayor carries read & write on any file they can open.
+    if is_mayor(user):
+        return True
+    if file.current_location != staff:
         return False
     from document_management.models import FileAccessRequest
 
-    return (
+    if (
         FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved", access_type="read_write")
         .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
         .exists()
-    )
+    ):
+        return True
+    # Movement-based RW: dispatched recipient holding (or sent) the file.
+    latest = file.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
+    return bool(latest and latest.is_active_access)
 
 
 def can_dispatch_document(user, file):
@@ -180,8 +194,9 @@ def can_view_document_content(user, file=None):
     if not staff:
         return False
     # Role base — always allowed (registry excluded below).
+    # Mayor carries full read access like MD/Executive.
     is_privileged = bool(
-        staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md
+        staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md or staff.is_mayor
     )
     if is_privileged:
         return True
@@ -255,7 +270,7 @@ def get_dispatch_recipients(user, file):
     if not staff:
         return base_qs.none()
 
-    if is_registry(user) or is_executive(user) or is_md(user):
+    if is_registry(user) or is_executive(user) or is_md(user) or is_mayor(user):
         return base_qs
 
     if is_hod(user) or is_unit_manager(user):

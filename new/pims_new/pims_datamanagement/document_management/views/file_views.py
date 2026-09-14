@@ -535,8 +535,8 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if staff_user.is_registry:
             return True
 
-        if staff_user.is_md:
-            return True  # MD sees all files org-wide
+        if staff_user.is_md or getattr(staff_user, "is_mayor", False) or staff_user.is_executive:
+            return True  # MD / Mayor / Executive see all files org-wide
 
         if file_obj.file_type == "policy":
             if staff_user.is_hod and file_obj.department == staff_user.department:
@@ -667,19 +667,23 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 )
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
+        is_mayor = bool(hasattr(user, "staff") and getattr(user.staff, "is_mayor", False))
 
         # Registry staff (and superusers) have full administrative access to every
         # file, so they always carry approved read & write access.
-        if is_registry or user.is_superuser:
+        # Mayor carries Read & Write on every file as well.
+        if is_registry or user.is_superuser or is_mayor:
             has_approved_access = True
             has_rw_access = True
 
         context["can_add_minute"] = (
-            is_registry or ((is_custodian or is_owner) and has_rw_access)
+            is_registry or is_mayor or ((is_custodian or is_owner) and has_rw_access)
         ) and not file_obj.is_in_active_chain
         context["can_add_minutes"] = context["can_add_minute"]
         context["can_send_file"] = (
-            (is_custodian or is_registry) and not file_obj.is_in_active_chain and file_obj.status == "active"
+            (is_custodian or is_registry or is_mayor)
+            and not file_obj.is_in_active_chain
+            and file_obj.status == "active"
         )
         # Custody-derived gating: at rest with Registry vs in transit with third party.
         # At rest (active + holder is Registry)  -> request access FROM Registry.
@@ -712,6 +716,15 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["is_in_transit"] = is_in_transit
         context["custodian_is_third_party"] = custodian_is_third_party
         context["can_request_access"] = can_request_access
+        # Transit block takes precedence over any stale approved grant:
+        # viewer is neither custodian nor registry/superuser while the file
+        # sits with someone else -> show "in transit, cannot request" instead of Full.
+        context["show_transit_block"] = bool(
+            (is_in_transit or custodian_is_third_party)
+            and not is_custodian
+            and not is_registry
+            and not user.is_superuser
+        )
         sender_staff = getattr(user, "staff", None)
         context["send_file_form"] = SendFileForm(user=user, staff=sender_staff, file_obj=file_obj)
         context["access_request_form"] = FileAccessRequestForm()
@@ -1439,7 +1452,7 @@ def _get_allowed_forward_pks(staff):
     base_qs = Staff.objects.exclude(
         Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
     )
-    if staff.is_md or staff.is_executive:
+    if staff.is_md or staff.is_executive or getattr(staff, "is_mayor", False):
         return None  # unrestricted
     if staff.is_hod or staff.is_head_of_unit:
         # Any HOD, any head of unit, any supervisor
@@ -1643,7 +1656,7 @@ class InboxRefDocView(HTMXLoginRequiredMixin, View):
 
 
 class InboxFileView(HTMXLoginRequiredMixin, View):
-    """Read-only view of the file sent via a movement — shows all documents and reference files."""
+    """File view for a movement recipient — Mayor carries Read & Write and full content access."""
 
     def get(self, request, pk):
         from ..permissions import can_view_document_content
@@ -1660,7 +1673,13 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
             return redirect("document_management:inbox")
 
         file_obj = movement.file
-        all_documents = file_obj.documents.order_by("-uploaded_at")
+        is_mayor = bool(staff and getattr(staff, "is_mayor", False))
+        query = request.GET.get("q", "").strip()
+        all_documents = file_obj.documents.select_related("uploaded_by").order_by("-uploaded_at")
+        if query:
+            all_documents = all_documents.filter(
+                Q(title__icontains=query) | Q(minute_content__icontains=query)
+            )
 
         # Reference documents shared with this user for this movement
         reference_docs = (
@@ -1670,6 +1689,17 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
         )
 
         can_view_content = can_view_document_content(request.user, file=file_obj)
+        # Mayor always sees full content with Read & Write.
+        if is_mayor:
+            can_view_content = True
+        # Current custodian (movement recipient holding the file) carries RW.
+        is_holder = bool(staff and file_obj.current_location == staff)
+        is_recipient = bool(staff and movement.sent_to == staff)
+        has_rw = bool(
+            staff
+            and (is_holder or is_mayor or (is_recipient and movement.is_active_access))
+            and file_obj.status in ("active", "in_transit")
+        )
 
         return render(
             request,
@@ -1680,6 +1710,10 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
                 "all_documents": all_documents,
                 "reference_docs": reference_docs,
                 "can_view_content": can_view_content,
+                "search_query": query,
+                "is_holder": is_holder,
+                "is_recipient": is_recipient,
+                "has_rw": has_rw,
             },
         )
 

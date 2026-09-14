@@ -14,8 +14,9 @@
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <div class="flex items-start justify-between gap-4">
             <div>
-                <div class="inline-flex items-center px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest border border-slate-200 mb-2">
-                    {{ file.get_file_type_display }} File · Read Only
+                <div class="inline-flex items-center px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border mb-2
+                    {% if has_rw %}bg-green-50 text-nigeria-green border-green-200{% else %}bg-slate-100 text-slate-600 border-slate-200{% endif %}">
+                    {{ file.get_file_type_display }} File · {% if has_rw %}Read &amp; Write{% else %}Read Only{% endif %}
                 </div>
                 <h2 class="text-2xl font-bold text-slate-900">{{ file.title }}</h2>
                 <p class="text-sm font-bold text-nigeria-green mt-1">{{ file.file_number }}</p>
@@ -42,8 +43,12 @@
             <div class="bg-white rounded-xl shadow-sm border-2 border-nigeria-green p-6">
                 <div class="flex items-center gap-2 mb-4">
                     <span class="text-[9px] font-black bg-nigeria-green text-white px-2 py-1 rounded uppercase tracking-widest">Sent to you</span>
-                    <h3 class="text-sm font-bold text-slate-800">{{ movement.document.title|default:"Untitled" }}</h3>
+                    <a href="{% url 'document_management:document_detail' movement.document.pk %}"
+                       class="text-sm font-bold text-nigeria-green hover:underline">{{ movement.document.title|default:"Untitled" }}</a>
+                    <a href="{% url 'document_management:document_detail' movement.document.pk %}"
+                       class="ml-auto px-3 py-1.5 bg-nigeria-green text-white rounded-lg text-[10px] font-bold hover:bg-green-700 transition-all">View</a>
                 </div>
+                {% if can_view_content %}
                 {% if movement.document.minute_content %}
                 <div class="prose prose-sm max-w-none text-slate-700 mb-3">{{ movement.document.minute_content|safe }}</div>
                 {% endif %}
@@ -53,20 +58,35 @@
                     ↓ Download Attachment
                 </a>
                 {% endif %}
+                {% else %}
+                <p class="text-sm text-slate-500">You have limited access — content is hidden. Request access from Registry to view.</p>
+                {% endif %}
                 <p class="text-[10px] text-slate-400 mt-3">{{ movement.document.uploaded_at|date:"M d, Y @ H:i" }} · {{ movement.document.uploaded_by.get_full_name|default:movement.document.uploaded_by.username }}</p>
             </div>
             {% endif %}
 
             <!-- All other documents in the file -->
-            {% if all_documents %}
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">All Documents in File</h3>
+                <div class="flex items-center justify-between gap-4 mb-4">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">All Documents in File ({{ all_documents|length }})</h3>
+                </div>
+                <form method="get" class="flex gap-2 mb-4">
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search documents by title or content…"
+                           class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green" />
+                    <button type="submit" class="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-black transition-all">Search</button>
+                    {% if search_query %}
+                    <a href="{% url 'document_management:inbox_file_view' pk=movement.pk %}"
+                       class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">Clear</a>
+                    {% endif %}
+                </form>
+                {% if all_documents %}
                 <div class="divide-y divide-slate-100">
                     {% for doc in all_documents %}
                     {% if not movement.document or doc.pk != movement.document.pk %}
                     <div class="py-3 flex items-center justify-between gap-4">
-                        <div>
-                            <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
+                        <div class="flex-1 min-w-0">
+                            <a href="{% url 'document_management:document_detail' doc.pk %}"
+                               class="text-sm font-semibold text-nigeria-green hover:underline truncate block">{{ doc.title|default:"Untitled" }}</a>
                             <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -77,6 +97,10 @@
                                 {% else %}bg-amber-50 text-amber-600 border-amber-100{% endif %}">
                                 {{ doc.get_status_display }}
                             </span>
+                            <a href="{% url 'document_management:document_detail' doc.pk %}"
+                               class="px-3 py-1.5 bg-nigeria-green text-white rounded-lg text-[10px] font-bold hover:bg-green-700 transition-all">
+                                View
+                            </a>
                             {% if doc.attachment %}
                             <a href="{% url 'document_management:document_download' doc.pk %}"
                                class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all">
@@ -88,8 +112,10 @@
                     {% endif %}
                     {% endfor %}
                 </div>
+                {% else %}
+                <p class="text-sm text-slate-500 text-center py-6">{% if search_query %}No documents match "{{ search_query }}".{% else %}No documents in this file yet.{% endif %}</p>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
 
         <!-- RIGHT: Reference files + dispatch info -->
