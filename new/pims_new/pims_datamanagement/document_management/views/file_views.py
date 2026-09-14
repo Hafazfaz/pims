@@ -1737,6 +1737,21 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
 
         can_view_content = can_view_document_content(request.user, file=file_obj)
 
+        is_top_approver = bool(
+            staff
+            and (
+                staff.is_hod or staff.is_md or staff.is_executive or getattr(staff, "is_mayor", False)
+            )
+        )
+        is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
+
+        # Prefill HOU forward recipient with department HOD (source of truth).
+        prefilled_recipient = None
+        if is_hou_forwarder and staff is not None:
+            dept = staff.department
+            if dept and dept.head and dept.head.pk != staff.pk:
+                prefilled_recipient = dept.head
+
         return render(
             request,
             "document_management/inbox_document_detail.html",
@@ -1752,17 +1767,22 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
                 "can_view_content": can_view_content,
                 "can_approve": bool(staff and (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager)),
                 "is_hod_or_supervisor": bool(staff and (staff.is_hod or staff.is_effective_supervisor)),
-                "prefilled_recipient": None,
+                "is_hou_forwarder": is_hou_forwarder,
+                "prefilled_recipient": prefilled_recipient,
             },
         )
 
 
 class DocumentActionView(HTMXLoginRequiredMixin, View):
-    """Approve or reject a document received via FileMovement.
+    """Approve / forward / reject a document received via FileMovement.
 
-    - HOD/Supervisor: Approve (final) or Reject (with note)
-    - Unit Manager: Approve = forward to HOD (note optional), Reject = return to sender (note required)
-    - Reject always requires a note
+    - HOD/MD/Executive/Mayor/Supervisor: Approve (final) or Reject (with note).
+      Supervisors can also Forward to another supervisor/HOD with references.
+    - Unit Manager (HOU, not top approver): Approve = forward to a chosen
+      supervisor/HOD (defaults to department HOD, note optional) and may
+      attach other documents from the same file as references.
+      Reject = return to sender (note required).
+    - Reject always requires a note.
     """
 
     def post(self, request, pk):
@@ -1785,19 +1805,145 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
         action = request.POST.get("action")
         note = request.POST.get("note", "").strip()
 
-        is_hod = staff.is_hod or staff.is_effective_supervisor
-        is_unit_manager = staff.is_unit_manager and not (staff.is_hod or staff.is_effective_supervisor)
+        # Role split: a head-of-unit (HOU) who is NOT the HOD/MD/Executive
+        # forwards to the HOD on approve. HODs, MD/Executives, Mayor and
+        # other supervisors final-approve. NOTE: every unit head is an
+        # effective supervisor by definition, so the HOU check must come
+        # first — testing effective-supervisor first swallows all HOUs.
+        is_top_approver = bool(
+            staff
+            and (
+                staff.is_hod
+                or staff.is_md
+                or staff.is_executive
+                or getattr(staff, "is_mayor", False)
+            )
+        )
+        is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
 
         if action == "approve":
-            if not staff or not (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager):
+            if not staff or not (is_top_approver or is_hou_forwarder or staff.is_effective_supervisor):
                 messages.error(request, "Only HODs, supervisors, and unit managers can approve documents.")
                 return redirect("document_management:inbox")
 
-            is_hod = staff.is_hod or staff.is_effective_supervisor
-            is_unit_manager = staff.is_unit_manager and not (staff.is_hod or staff.is_effective_supervisor)
+            if is_hou_forwarder:
+                # Head-of-Unit: "Approve" = forward to a chosen supervisor/HOD
+                # (defaults to department HOD, note optional). May also attach
+                # other documents from the same file as references.
+                from organization.models import Staff as StaffModel
+                from django.db.models import Q as DQ
 
-            if is_hod:
-                # HOD/Supervisor: Final approval
+                recipient = None
+                recipient_staff_id = (
+                    request.POST.get("recipient_staff_id")
+                    or request.POST.get("recipient")
+                    or ""
+                ).strip()
+                if recipient_staff_id:
+                    try:
+                        eligible = get_dispatch_recipients(request.user, movement.file)
+                        recipient = eligible.filter(pk=recipient_staff_id).first()
+                    except Exception:
+                        recipient = None
+                    if recipient is None:
+                        # Fall back to direct lookup but still enforce
+                        # supervisor/HOD-only forwarding for HOU.
+                        try:
+                            candidate = StaffModel.objects.select_related(
+                                "user", "department", "unit"
+                            ).get(pk=recipient_staff_id)
+                            if candidate.pk != staff.pk and (
+                                candidate.is_hod
+                                or candidate.is_head_of_unit
+                                or candidate.is_head_of_section
+                                or candidate.is_head_of_division
+                                or candidate.is_effective_supervisor
+                            ):
+                                recipient = candidate
+                        except Exception:
+                            recipient = None
+                    if recipient is None:
+                        messages.error(request, "Selected recipient is not eligible for forwarding.")
+                        return redirect("document_management:inbox")
+
+                if recipient is None:
+                    # Default: department.head is the source of truth (is_hod
+                    # is a @property and cannot be used in a queryset filter).
+                    dept = staff.department
+                    if dept and dept.head and dept.head.pk != staff.pk:
+                        recipient = dept.head
+                    if recipient is None and dept is not None:
+                        recipient = (
+                            StaffModel.objects.filter(department=dept)
+                            .exclude(pk=staff.pk)
+                            .filter(
+                                DQ(designation__name__icontains="head of department")
+                                | DQ(designation__name__icontains="hod")
+                                | DQ(designation__name__icontains="director")
+                            )
+                            .first()
+                        )
+
+                if not recipient:
+                    messages.error(request, "No HOD found for your department.")
+                    return redirect("document_management:inbox")
+
+                # Optional reference documents from the same file to share
+                # with the recipient for context.
+                ref_ids = request.POST.getlist("reference_documents")
+                ref_docs = []
+                if ref_ids:
+                    ref_docs = list(
+                        movement.file.documents.exclude(
+                            pk=movement.document.pk if movement.document else None
+                        ).filter(pk__in=ref_ids)
+                    )
+                    for ref_doc in ref_docs:
+                        ref_doc.shared_with.add(recipient.user)
+
+                movement.status = "forwarded"
+                movement.save(update_fields=["status"])
+                new_movement = FileMovement.objects.create(
+                    file=movement.file,
+                    document=movement.document,
+                    sent_by=request.user,
+                    from_location=staff,
+                    sent_to=recipient,
+                    note=note,
+                    action="sent",
+                )
+                # Carry over reference visibility to the new movement
+                # recipient (already shared above via shared_with).
+                movement.file.current_location = recipient
+                movement.file.save(update_fields=["current_location"])
+                sender_name = request.user.get_full_name() or request.user.username
+                doc_ref = movement.document or movement.file.file_number
+                suffix = f" (+{len(ref_docs)} reference doc(s))" if ref_docs else ""
+                create_notification(
+                    user=recipient.user,
+                    message=f"{sender_name} forwarded document '{doc_ref}' to you for approval{suffix}.",
+                    obj=movement.file,
+                    link=reverse_lazy("document_management:inbox"),
+                )
+                log_action(
+                    request.user,
+                    "DOCUMENT_FORWARDED_TO_HOD",
+                    request=request,
+                    obj=movement.file,
+                    details={
+                        "document": str(movement.document),
+                        "file": movement.file.file_number,
+                        "to_hod": recipient.user.get_full_name(),
+                        "to_staff_id": recipient.pk,
+                        "note": note,
+                        "reference_doc_ids": [d.pk for d in ref_docs],
+                        "forward_movement_id": new_movement.pk,
+                    },
+                )
+                messages.success(request, f"Document forwarded ({recipient.user.get_full_name()}).")
+
+            elif is_top_approver or staff.is_effective_supervisor:
+                # HOD / Supervisor / MD / Executive / Mayor: Final approval
                 movement.status = "approved"
                 movement.save(update_fields=["status"])
                 if movement.document:
@@ -1835,54 +1981,81 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 )
                 messages.success(request, "Document approved.")
 
-            elif staff.is_unit_manager and not (staff.is_hod or staff.is_effective_supervisor):
-                # Unit Manager: "Approve" = forward to HOD (note optional)
-                from organization.models import Staff as StaffModel
-                from django.db.models import Q as DQ
+        elif action == "forward":
+            # Explicit forward for supervisors / HODs / HOU to another
+            # supervisor/HOD with optional reference docs + note.
+            if not staff or not (
+                is_top_approver or is_hou_forwarder or staff.is_effective_supervisor
+            ):
+                messages.error(request, "Only HODs, supervisors, and unit managers can forward documents.")
+                return redirect("document_management:inbox")
 
-                hod = StaffModel.objects.filter(
-                    department=staff.department,
-                    is_hod=True
-                ).first()
+            recipient_staff_id = (
+                request.POST.get("recipient_staff_id") or request.POST.get("recipient") or ""
+            ).strip()
+            if not recipient_staff_id:
+                messages.error(request, "Select a supervisor or HOD to forward to.")
+                return redirect("document_management:inbox")
 
-                if not hod:
-                    messages.error(request, "No HOD found for your department.")
-                    return redirect("document_management:inbox")
+            recipient = None
+            try:
+                eligible = get_dispatch_recipients(request.user, movement.file)
+                recipient = eligible.filter(pk=recipient_staff_id).first()
+            except Exception:
+                recipient = None
+            if recipient is None:
+                messages.error(request, "Selected recipient is not eligible for forwarding.")
+                return redirect("document_management:inbox")
 
-                movement.status = "forwarded"
-                movement.save(update_fields=["status"])
-                FileMovement.objects.create(
-                    file=movement.file,
-                    document=movement.document,
-                    sent_by=request.user,
-                    from_location=staff,
-                    sent_to=hod,
-                    note=note,
-                    action="sent",
+            ref_ids = request.POST.getlist("reference_documents")
+            ref_docs = []
+            if ref_ids:
+                ref_docs = list(
+                    movement.file.documents.exclude(
+                        pk=movement.document.pk if movement.document else None
+                    ).filter(pk__in=ref_ids)
                 )
-                movement.file.current_location = hod
-                movement.file.save(update_fields=["current_location"])
-                sender_name = request.user.get_full_name() or request.user.username
-                doc_ref = movement.document or movement.file.file_number
-                create_notification(
-                    user=hod.user,
-                    message=f"{sender_name} forwarded document '{doc_ref}' to you for approval.",
-                    obj=movement.file,
-                    link=reverse_lazy("document_management:inbox"),
-                )
-                log_action(
-                    request.user,
-                    "DOCUMENT_FORWARDED_TO_HOD",
-                    request=request,
-                    obj=movement.file,
-                    details={
-                        "document": str(movement.document),
-                        "file": movement.file.file_number,
-                        "to_hod": hod.user.get_full_name(),
-                        "note": note,
-                    },
-                )
-                messages.success(request, f"Document forwarded to HOD ({hod.user.get_full_name()}).")
+                for ref_doc in ref_docs:
+                    ref_doc.shared_with.add(recipient.user)
+
+            movement.status = "forwarded"
+            movement.save(update_fields=["status"])
+            new_movement = FileMovement.objects.create(
+                file=movement.file,
+                document=movement.document,
+                sent_by=request.user,
+                from_location=staff,
+                sent_to=recipient,
+                note=note,
+                action="sent",
+            )
+            movement.file.current_location = recipient
+            movement.file.save(update_fields=["current_location"])
+            sender_name = request.user.get_full_name() or request.user.username
+            doc_ref = movement.document or movement.file.file_number
+            suffix = f" (+{len(ref_docs)} reference doc(s))" if ref_docs else ""
+            create_notification(
+                user=recipient.user,
+                message=f"{sender_name} forwarded document '{doc_ref}' to you{suffix}.",
+                obj=movement.file,
+                link=reverse_lazy("document_management:inbox"),
+            )
+            log_action(
+                request.user,
+                "DOCUMENT_FORWARDED",
+                request=request,
+                obj=movement.file,
+                details={
+                    "document": str(movement.document),
+                    "file": movement.file.file_number,
+                    "to": recipient.user.get_full_name(),
+                    "to_staff_id": recipient.pk,
+                    "note": note,
+                    "reference_doc_ids": [d.pk for d in ref_docs],
+                    "forward_movement_id": new_movement.pk,
+                },
+            )
+            messages.success(request, f"Document forwarded ({recipient.user.get_full_name()}).")
 
         elif action == "reject":
             if not staff or not (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager):
