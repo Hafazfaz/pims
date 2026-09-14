@@ -238,14 +238,14 @@
 
           {% if can_approve %}
           {% if is_hou_forwarder %}
-          <!-- HOU: forward is the approve decision; binary choice vs reject.
-               Forward expands in place (pairing hidden while the form is open). -->
+          <!-- HOU: Approve auto-forwards to their own HOD; binary choice vs reject.
+               Approve expands in place (pairing hidden while the form is open). -->
           <div x-data="{ view: 'default' }">
           <div x-show="view === 'default'" class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
               <button type="button" @click="view = 'forward'; document.getElementById('hou-reject-form').classList.add('hidden')" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Forward
+                Approve
               </button>
               <button type="button" onclick="document.getElementById('hou-reject-form').classList.toggle('hidden')" class="action-btn w-full py-3 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -271,20 +271,9 @@
           <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3">
             {% csrf_token %}
             <input type="hidden" name="action" value="approve">
-            <div>
-              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Forward to supervisor / HOD</label>
-              <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="{{ prefilled_recipient.pk|default:'' }}">
-              <input type="text" id="detail-forward-search" placeholder="Search supervisors / HODs..."
-                     value="{{ prefilled_recipient.user.get_full_name|default:'' }}"
-                     data-default-id="{{ prefilled_recipient.pk|default:'' }}"
-                     data-default-name="{{ prefilled_recipient.user.get_full_name|default:'' }}"
-                     autocomplete="off"
-                     class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500">
-              <div id="detail-forward-results"></div>
-              {% if prefilled_recipient %}
-              <p class="text-[10px] text-slate-400 mt-1">Default: {{ prefilled_recipient.user.get_full_name }} (HOD)</p>
-              {% endif %}
-            </div>
+            {% if prefilled_recipient %}
+            <p class="text-[10px] text-slate-500 font-medium">This will be sent to your HOD: <span class="font-bold">{{ prefilled_recipient.user.get_full_name }}</span></p>
+            {% endif %}
             <div>
               <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note (optional)</label>
               <textarea name="note" rows="3" placeholder="Add a note..."
@@ -316,7 +305,7 @@
               </button>
               <button type="submit" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Forward to HOD
+                Approve
               </button>
             </div>
           </form>

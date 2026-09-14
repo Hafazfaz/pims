@@ -1812,9 +1812,9 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
 
     - HOD/MD/Executive/Mayor/Supervisor: Approve (final) or Reject (with note).
       Supervisors can also Forward to another supervisor/HOD with references.
-    - Unit Manager (HOU, not top approver): Approve = forward to a chosen
-      supervisor/HOD (defaults to department HOD, note optional) and may
-      attach other documents from the same file as references.
+    - Unit Manager (HOU, not top approver): Approve auto-forwards to
+      their own department HOD (note optional) and may attach other
+      documents from the same file as references.
       Reject = return to sender (note required).
     - Reject always requires a note.
     """
@@ -1861,51 +1861,20 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 return redirect("document_management:inbox")
 
             if is_hou_forwarder:
-                # Head-of-Unit: "Approve" = forward to a chosen supervisor/HOD
-                # (defaults to department HOD, note optional). May also attach
-                # other documents from the same file as references.
+                # Head-of-Unit: "Approve" auto-forwards to their own
+                # department HOD (note optional). A unit manager cannot
+                # forward to other supervisors/HODs, so any posted
+                # recipient is ignored. May also attach other documents
+                # from the same file as references.
                 from organization.models import Staff as StaffModel
                 from django.db.models import Q as DQ
 
                 recipient = None
-                recipient_staff_id = (
-                    request.POST.get("recipient_staff_id")
-                    or request.POST.get("recipient")
-                    or ""
-                ).strip()
-                if recipient_staff_id:
-                    try:
-                        eligible = get_dispatch_recipients(request.user, movement.file)
-                        recipient = eligible.filter(pk=recipient_staff_id).first()
-                    except Exception:
-                        recipient = None
-                    if recipient is None:
-                        # Fall back to direct lookup but still enforce
-                        # supervisor/HOD-only forwarding for HOU.
-                        try:
-                            candidate = StaffModel.objects.select_related(
-                                "user", "department", "unit"
-                            ).get(pk=recipient_staff_id)
-                            if candidate.pk != staff.pk and (
-                                candidate.is_hod
-                                or candidate.is_head_of_unit
-                                or candidate.is_head_of_section
-                                or candidate.is_head_of_division
-                                or candidate.is_effective_supervisor
-                            ):
-                                recipient = candidate
-                        except Exception:
-                            recipient = None
-                    if recipient is None:
-                        messages.error(request, "Selected recipient is not eligible for forwarding.")
-                        return redirect("document_management:inbox")
-
-                if recipient is None:
-                    # Default: department.head is the source of truth (is_hod
-                    # is a @property and cannot be used in a queryset filter).
-                    dept = staff.department
-                    if dept and dept.head and dept.head.pk != staff.pk:
-                        recipient = dept.head
+                # department.head is the source of truth (is_hod is a
+                # @property and cannot be used in a queryset filter).
+                dept = staff.department
+                if dept and dept.head and dept.head.pk != staff.pk:
+                    recipient = dept.head
                     if recipient is None and dept is not None:
                         recipient = (
                             StaffModel.objects.filter(department=dept)
@@ -2016,12 +1985,17 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 messages.success(request, "Document approved.")
 
         elif action == "forward":
-            # Explicit forward for supervisors / HODs / HOU to another
+            # Explicit forward for supervisors / HODs to another
             # supervisor/HOD with optional reference docs + note.
+            # Unit managers cannot use this: they approve straight to
+            # their own HOD via the Approve action.
+            if is_hou_forwarder:
+                messages.error(request, "Unit managers approve documents to their HOD.")
+                return redirect("document_management:inbox")
             if not staff or not (
-                is_top_approver or is_hou_forwarder or staff.is_effective_supervisor
+                is_top_approver or staff.is_effective_supervisor
             ):
-                messages.error(request, "Only HODs, supervisors, and unit managers can forward documents.")
+                messages.error(request, "Only HODs and supervisors can forward documents.")
                 return redirect("document_management:inbox")
 
             recipient_staff_id = (
