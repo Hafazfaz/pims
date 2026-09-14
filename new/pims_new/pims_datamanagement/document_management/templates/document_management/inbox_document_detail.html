@@ -238,12 +238,12 @@
 
           {% if can_approve %}
           {% if is_hou_forwarder %}
-          <!-- HOU: forward is the approve decision; binary choice vs reject -->
-          <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="approve">
+          <!-- HOU: forward is the approve decision; binary choice vs reject.
+               Forward expands in place (pairing hidden while the form is open). -->
+          <div x-data="{ view: 'default' }">
+          <div x-show="view === 'default'" class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
-              <button type="submit" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+              <button type="button" @click="view = 'forward'; document.getElementById('hou-reject-form').classList.add('hidden')" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 Forward
               </button>
@@ -252,11 +252,32 @@
                 Reject
               </button>
             </div>
+            <div id="hou-reject-form" class="hidden space-y-2">
+              <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <input type="text" name="note" placeholder="Reason (required)"
+                       class="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-red-400 focus:border-red-400"
+                       required>
+                <button type="submit" class="w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800">Confirm Reject</button>
+              </form>
+            </div>
+          </div>
+          <div x-show="view === 'forward'" x-cloak class="space-y-3" id="hou-forward-form-wrap">
+            <button type="button" @click="view = 'default'; resetForwardForm('hou-forward-form-wrap')" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Back
+            </button>
+          <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="approve">
             <div>
               <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Forward to supervisor / HOD</label>
               <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="{{ prefilled_recipient.pk|default:'' }}">
               <input type="text" id="detail-forward-search" placeholder="Search supervisors / HODs..."
                      value="{{ prefilled_recipient.user.get_full_name|default:'' }}"
+                     data-default-id="{{ prefilled_recipient.pk|default:'' }}"
+                     data-default-name="{{ prefilled_recipient.user.get_full_name|default:'' }}"
                      autocomplete="off"
                      class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500">
               <div id="detail-forward-results"></div>
@@ -266,35 +287,46 @@
             </div>
             <div>
               <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note (optional)</label>
-              <input type="text" name="note" placeholder="Add a note..."
-                     class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500">
+              <textarea name="note" rows="3" placeholder="Add a note..."
+                     class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 resize-none"></textarea>
             </div>
             {% if other_docs %}
-            <div>
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Attach reference documents</p>
-              <div class="space-y-1.5 max-h-40 overflow-y-auto border border-slate-100 rounded-xl p-2">
+            <div data-ref-wrap>
+              <div class="flex items-center justify-between mb-1">
+                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Attach reference documents <span class="ref-count hidden">· 0 selected</span></p>
+                {% if other_docs|length > 4 %}
+                <button type="button" class="ref-select-all text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700">Select all</button>
+                {% endif %}
+              </div>
+              <input type="text" class="ref-filter-input w-full border border-slate-100 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500" placeholder="Search reference documents..." autocomplete="off">
+              <div class="ref-list space-y-1.5 max-h-40 overflow-y-auto border border-slate-100 rounded-xl p-2 mt-1">
                 {% for doc in other_docs %}
-                <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                <label class="ref-item flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer" data-name="{{ doc.title|default:'Untitled'|lower|escape }}">
                   <input type="checkbox" name="reference_documents" value="{{ doc.pk }}" class="rounded border-slate-300">
                   <span class="truncate">{{ doc.title|default:"Untitled" }}</span>
                 </label>
                 {% endfor %}
+                <p class="ref-no-matches hidden text-xs text-slate-400 italic text-center py-2">No matching documents</p>
               </div>
             </div>
             {% endif %}
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="view = 'default'; resetForwardForm('hou-forward-form-wrap')" class="action-btn w-full py-3 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 flex items-center justify-center gap-2">
+                Cancel
+              </button>
+              <button type="submit" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Forward to HOD
+              </button>
+            </div>
           </form>
-          <div id="hou-reject-form" class="hidden space-y-2">
-            <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-2">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="reject">
-              <input type="text" name="note" placeholder="Reason (required)"
-                     class="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-red-400 focus:border-red-400"
-                     required>
-              <button type="submit" class="w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800">Confirm Reject</button>
-            </form>
+          </div>
           </div>
           {% else %}
-          <!-- Binary decision: Approve / Reject side by side -->
+          <!-- Binary decision: Approve / Reject side by side.
+               Forward replaces this pairing in place (never inserted between). -->
+          <div x-data="{ view: 'default' }">
+          <div x-show="view === 'default'" class="space-y-2">
           <div class="grid grid-cols-2 gap-2">
             <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}">
               {% csrf_token %}
@@ -322,11 +354,16 @@
             </div>
           </div>
           <!-- Secondary action: forward (outline, not filled) -->
-          <div x-data="{ open: false }" class="space-y-2">
-            <button @click="open = !open" class="action-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 flex items-center justify-center gap-2">
-              Forward to supervisor / HOD
+          <button @click="view = 'forward'" class="action-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 flex items-center justify-center gap-2">
+            Forward to supervisor / HOD
+          </button>
+          </div>
+          <div x-show="view === 'forward'" x-cloak class="space-y-3" id="forward-form-wrap">
+            <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Back
             </button>
-            <div x-show="open" x-cloak x-transition class="space-y-3 border border-slate-100 rounded-xl p-3">
+            <div class="space-y-3 border border-slate-100 rounded-xl p-3">
               <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="forward">
@@ -334,30 +371,42 @@
                   <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipient</label>
                   <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="">
                   <input type="text" id="detail-forward-search" placeholder="Search supervisors / HODs..." autocomplete="off"
+                         data-default-id="" data-default-name=""
                          class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500">
                   <div id="detail-forward-results"></div>
                 </div>
                 <div>
                   <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note (optional)</label>
-                  <input type="text" name="note" placeholder="Add a note..."
-                         class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                  <textarea name="note" rows="3" placeholder="Add a note..."
+                         class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none"></textarea>
                 </div>
                 {% if other_docs %}
-                <div>
-                  <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Reference documents</p>
-                  <div class="space-y-1.5 max-h-40 overflow-y-auto border border-slate-100 rounded-xl p-2">
+                <div data-ref-wrap>
+                  <div class="flex items-center justify-between mb-1">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference documents <span class="ref-count hidden">· 0 selected</span></p>
+                    {% if other_docs|length > 4 %}
+                    <button type="button" class="ref-select-all text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700">Select all</button>
+                    {% endif %}
+                  </div>
+                  <input type="text" class="ref-filter-input w-full border border-slate-100 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500" placeholder="Search reference documents..." autocomplete="off">
+                  <div class="ref-list space-y-1.5 max-h-40 overflow-y-auto border border-slate-100 rounded-xl p-2 mt-1">
                     {% for doc in other_docs %}
-                    <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                    <label class="ref-item flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer" data-name="{{ doc.title|default:'Untitled'|lower|escape }}">
                       <input type="checkbox" name="reference_documents" value="{{ doc.pk }}" class="rounded border-slate-300">
                       <span class="truncate">{{ doc.title|default:"Untitled" }}</span>
                     </label>
                     {% endfor %}
+                    <p class="ref-no-matches hidden text-xs text-slate-400 italic text-center py-2">No matching documents</p>
                   </div>
                 </div>
                 {% endif %}
-                <button type="submit" id="detail-forward-submit" class="w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50">Confirm Forward</button>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50">Cancel</button>
+                  <button type="submit" id="detail-forward-submit" class="w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50">Confirm Forward</button>
+                </div>
               </form>
             </div>
+          </div>
           </div>
           {% endif %}
           {% endif %}
@@ -436,7 +485,57 @@
 </div>
 
 <script>
+function updateRefCount(list) {
+  var wrap = list.closest('[data-ref-wrap]');
+  if (!wrap) return;
+  var boxes = list.querySelectorAll('input[type="checkbox"]');
+  var checked = list.querySelectorAll('input[type="checkbox"]:checked').length;
+  var countEl = wrap.querySelector('.ref-count');
+  if (countEl) {
+    countEl.textContent = '· ' + checked + ' selected';
+    countEl.classList.toggle('hidden', checked === 0);
+  }
+  var toggle = wrap.querySelector('.ref-select-all');
+  if (toggle && boxes.length) {
+    toggle.textContent = (checked === boxes.length) ? 'Clear' : 'Select all';
+  }
+}
+function resetForwardForm(wrapId) {
+  var wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  var searchInput = wrap.querySelector('#detail-forward-search');
+  var idInput = wrap.querySelector('#detail-recipient-id');
+  var resultsDiv = wrap.querySelector('#detail-forward-results');
+  if (searchInput) searchInput.value = searchInput.getAttribute('data-default-name') || '';
+  if (idInput) idInput.value = searchInput ? (searchInput.getAttribute('data-default-id') || '') : '';
+  if (resultsDiv) resultsDiv.innerHTML = '';
+  var note = wrap.querySelector('textarea[name="note"]');
+  if (note) note.value = '';
+  var filter = wrap.querySelector('.ref-filter-input');
+  if (filter) filter.value = '';
+  wrap.querySelectorAll('.ref-item').forEach(function(item) { item.style.display = ''; });
+  var noMatches = wrap.querySelector('.ref-no-matches');
+  if (noMatches) noMatches.classList.add('hidden');
+  wrap.querySelectorAll('.ref-list input[type="checkbox"]').forEach(function(box) { box.checked = false; });
+  var list = wrap.querySelector('.ref-list');
+  if (list) updateRefCount(list);
+}
 document.addEventListener('input', function(e) {
+  if (e.target && e.target.classList && e.target.classList.contains('ref-filter-input')) {
+    var wrap = e.target.closest('[data-ref-wrap]');
+    if (!wrap) return;
+    var q = e.target.value.trim().toLowerCase();
+    var visible = 0;
+    wrap.querySelectorAll('.ref-item').forEach(function(item) {
+      var name = (item.getAttribute('data-name') || '');
+      var match = !q || name.indexOf(q) !== -1;
+      item.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    var noMatches = wrap.querySelector('.ref-no-matches');
+    if (noMatches) noMatches.classList.toggle('hidden', visible !== 0);
+    return;
+  }
   if (e.target && e.target.id === 'detail-forward-search') {
     const q = e.target.value.trim();
     const resultsDiv = document.getElementById('detail-forward-results');
@@ -448,7 +547,25 @@ document.addEventListener('input', function(e) {
       .catch(() => {});
   }
 });
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.matches && e.target.matches('.ref-list input[type="checkbox"]')) {
+    var list = e.target.closest('.ref-list');
+    if (list) updateRefCount(list);
+  }
+});
 document.addEventListener('click', function(e) {
+  var toggle = e.target.closest ? e.target.closest('.ref-select-all') : null;
+  if (toggle) {
+    var wrap = toggle.closest('[data-ref-wrap]');
+    if (wrap) {
+      var boxes = wrap.querySelectorAll('.ref-list input[type="checkbox"]');
+      var allChecked = boxes.length > 0 && Array.from(boxes).every(function(b) { return b.checked; });
+      boxes.forEach(function(b) { b.checked = !allChecked; });
+      var list = wrap.querySelector('.ref-list');
+      if (list) updateRefCount(list);
+    }
+    return;
+  }
   const option = e.target.closest('.inbox-recipient-option');
   if (!option) return;
   const resultsDiv = document.getElementById('detail-forward-results');
