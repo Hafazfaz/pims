@@ -91,8 +91,10 @@ class File(models.Model):
 
     @property
     def current_location_display(self):
+        # Custody must never render as empty — legacy rows with NULL
+        # (from the old recall bug) are treated as with Registry.
         if not self.current_location:
-            return None
+            return "Registry"
         if self.current_location.is_registry:
             return "Registry"
         return self.current_location.user.get_full_name() or self.current_location.user.username

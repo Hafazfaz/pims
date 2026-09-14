@@ -457,7 +457,26 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         old_location = file_obj.current_location
-        file_obj.current_location = None  # always returns to registry
+        # Recall must never leave custody empty (Unknown Location).
+        # Registry recall -> back to recalling registry staff.
+        # Owner recall -> back to owner. Fallback -> any registry staff.
+        recall_target = None
+        if staff_user and staff_user.is_registry:
+            recall_target = staff_user
+        elif file_obj.owner and staff_user and file_obj.owner == staff_user:
+            recall_target = staff_user
+        else:
+            from organization.models import Staff as StaffModel
+
+            from django.db.models import Q
+
+            recall_target = StaffModel.objects.filter(
+                Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
+            ).first()
+        if recall_target is None:
+            messages.error(request, "No Registry custodian found. Recall aborted — custody would be empty.")
+            return redirect(file_obj.get_absolute_url())
+        file_obj.current_location = recall_target
         file_obj.status = "active"
         file_obj.save()
 
@@ -465,7 +484,7 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
             file=file_obj,
             sent_by=request.user,
             from_location=old_location,
-            sent_to=None,
+            sent_to=recall_target,
             action="recalled",
         )
 
@@ -610,7 +629,11 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         is_custodian = hasattr(user, "staff") and file_obj.current_location == user.staff
         is_owner = hasattr(user, "staff") and file_obj.owner == user.staff
 
-        if is_custodian or is_owner:
+        # Custodian always carries access. Owner carries automatic access
+        # ONLY while holding custody — when file is at rest with Registry
+        # (or in transit with someone else) the owner must request access
+        # like anyone else instead of silently keeping Full Access.
+        if is_custodian or (is_owner and is_custodian):
             has_approved_access = True
             has_rw_access = True
         else:
@@ -658,6 +681,25 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["can_send_file"] = (
             (is_custodian or is_registry) and not file_obj.is_in_active_chain and file_obj.status == "active"
         )
+        # Custody-derived gating: at rest with Registry vs in transit with third party.
+        # At rest (active + holder is Registry)  -> request access FROM Registry.
+        # In transit (status in_transit, or holder is neither owner nor Registry)
+        #   -> requests blocked until receipt is acknowledged.
+        holder = file_obj.current_location
+        holder_is_registry = bool(holder and holder.is_registry)
+        is_at_rest_with_registry = bool(holder_is_registry and file_obj.status == "active")
+        is_in_transit = file_obj.status == "in_transit"
+        custodian_is_third_party = bool(holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry)
+        pending_access_request = FileAccessRequest.objects.filter(
+            file=file_obj, requested_by=user, status="pending"
+        ).exists()
+        can_request_access = bool(
+            not has_approved_access
+            and not pending_access_request
+            and not is_registry
+            and file_obj.status == "active"
+            and is_at_rest_with_registry
+        )
         context["is_custodian"] = is_custodian
         context["is_owner"] = is_owner
         context["has_approved_access"] = has_approved_access
@@ -666,12 +708,14 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
         context["is_limited_view"] = not context["can_view_original"]
+        context["is_at_rest_with_registry"] = is_at_rest_with_registry
+        context["is_in_transit"] = is_in_transit
+        context["custodian_is_third_party"] = custodian_is_third_party
+        context["can_request_access"] = can_request_access
         sender_staff = getattr(user, "staff", None)
         context["send_file_form"] = SendFileForm(user=user, staff=sender_staff, file_obj=file_obj)
         context["access_request_form"] = FileAccessRequestForm()
-        context["pending_access_request"] = FileAccessRequest.objects.filter(
-            file=file_obj, requested_by=user, status="pending"
-        ).exists()
+        context["pending_access_request"] = pending_access_request
         context["movements"] = file_obj.movements.select_related("sent_by", "from_location__user", "sent_to__user")[:20]
         # Share document permission
         from document_management.permissions import can_share_document
@@ -754,8 +798,14 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             already_pending = FileAccessRequest.objects.filter(
                 file=file_obj, requested_by=request.user, status="pending"
             ).exists()
+            holder = file_obj.current_location
+            holder_is_registry = bool(holder and holder.is_registry)
             if already_pending:
                 messages.warning(request, "You already have a pending access request for this file.")
+            elif file_obj.status == "in_transit" or (holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry):
+                messages.error(request, "File is in transit with another custodian. Wait until it returns to Registry before requesting access.")
+            elif not (holder_is_registry and file_obj.status == "active"):
+                messages.error(request, "Access can only be requested when the file is at rest with Registry.")
             else:
                 FileAccessRequest.objects.create(
                     file=file_obj,
@@ -1580,7 +1630,7 @@ class InboxRefDocView(HTMXLoginRequiredMixin, View):
             messages.error(request, "You do not have access to this document.")
             return redirect("document_management:inbox")
 
-        can_view_content = can_view_document_content(request.user)
+        can_view_content = can_view_document_content(request.user, file=doc.file)
 
         return render(
             request,
@@ -1619,7 +1669,7 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
             .order_by("-uploaded_at")
         )
 
-        can_view_content = can_view_document_content(request.user)
+        can_view_content = can_view_document_content(request.user, file=file_obj)
 
         return render(
             request,
@@ -1685,7 +1735,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
             "sent_by", "sent_to__user", "from_location__user", "document"
         ).order_by("-moved_at")
 
-        can_view_content = can_view_document_content(request.user)
+        can_view_content = can_view_document_content(request.user, file=file_obj)
 
         return render(
             request,
