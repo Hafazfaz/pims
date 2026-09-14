@@ -164,21 +164,55 @@ def can_share_document(user):
 def can_view_document_content(user, file=None):
     """
     Who can view the actual contents of documents (minute_content, attachments).
-    Only HODs, Supervisors, Executives, and MD — NOT registry or general staff.
-    If file is sensitive, same restriction applies regardless of other factors.
+
+    Role base: HODs, Supervisors, Executives, MD can always view.
+    Registry can NEVER view contents (separation-of-duties), even as custodian.
+    Contextual grants (non-registry only): file owner, current custodian,
+    holder of an approved (unexpired) FileAccessRequest, or recipient of an
+    active FileMovement can view — otherwise an owner with "Full Access"
+    would still see a "Limited Access View" banner (the reported bug).
+    Sensitive files still require HOD+ / supervisor / executive / MD unless
+    one of the contextual grants above applies.
     """
     if user.is_superuser:
         return True
     staff = get_staff(user)
     if not staff:
         return False
+    # Role base — always allowed (registry excluded below).
+    is_privileged = bool(
+        staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md
+    )
+    if is_privileged:
+        return True
     if staff.is_registry:
         return False
-    # Sensitive files: only HOD+, supervisors, executives, MD
-    if file and file.is_sensitive:
-        return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
-    # Non-sensitive: HOD+, supervisors, executives, MD can view
-    return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+    if file is None:
+        return False
+    # Contextual grants for regular staff.
+    # Owner alone is NOT enough when file is at rest with Registry —
+    # owner must hold custody or hold an approved request/movement/share.
+    # This enforces "request from Registry" instead of silent auto-view.
+    if file.owner == staff and file.current_location == staff:
+        return True
+    if file.current_location == staff:
+        return True
+    from document_management.models import FileAccessRequest
+
+    has_approved = (
+        FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved")
+        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+        .exists()
+    )
+    if has_approved:
+        return True
+    latest_movement = file.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
+    if latest_movement and latest_movement.is_active_access:
+        return True
+    # Shared directly on a document in this file.
+    if file.documents.filter(shared_with=user).exists():
+        return True
+    return False
 
 
 def can_view_document(user, document):

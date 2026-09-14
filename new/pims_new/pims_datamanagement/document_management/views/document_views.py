@@ -147,11 +147,12 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         except Staff.DoesNotExist:
             return False
 
-        # Only HODs, Supervisors, Executives, and MD can view document contents
-        # Registry and general staff cannot view document contents
+        # Content ACL (role + owner/custodian/approved-request/movement/share).
+        # Must pass file_obj so contextual grants apply — otherwise owners
+        # with full admin access are wrongly denied here.
         from ..permissions import can_view_document_content, can_view_document
 
-        if not can_view_document_content(user):
+        if not can_view_document_content(user, file=file_obj):
             return False
 
         if can_view_document(user, document):
@@ -442,7 +443,7 @@ class DocumentShareView(LoginRequiredMixin, View):
         document = get_object_or_404(Document, pk=pk)
         from ..permissions import can_view_document_content
 
-        if not can_view_document_content(request.user) and document.uploaded_by != request.user:
+        if not can_view_document_content(request.user, file=document.file) and document.uploaded_by != request.user:
             messages.error(request, "You do not have permission to share this document.")
             return redirect(document.file.get_absolute_url())
         user_ids = request.POST.getlist("user_ids")
@@ -545,7 +546,7 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
         from ..permissions import can_view_document_content, is_registry
 
         if (
-            not can_view_document_content(request.user)
+            not can_view_document_content(request.user, file=original.file)
             and not is_registry(request.user)
             and original.uploaded_by != request.user
         ):
@@ -583,10 +584,10 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         file_obj = document.file
         user = request.user
 
-        # Enforce content access restriction
+        # Enforce content access restriction (with file context for owner/custodian grants)
         from ..permissions import can_view_document_content
 
-        if not can_view_document_content(user):
+        if not can_view_document_content(user, file=file_obj):
             messages.error(request, "You do not have permission to download this document.")
             return redirect(file_obj.get_absolute_url())
 
