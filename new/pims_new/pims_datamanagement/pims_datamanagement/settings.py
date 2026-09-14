@@ -99,6 +99,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "notifications.context_processors.unread_notifications",
                 "notifications.context_processors.pending_activation_count",
+                "notifications.context_processors.unread_inbox",
             ],
         },
     },

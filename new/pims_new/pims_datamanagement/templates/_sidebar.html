@@ -46,8 +46,8 @@
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider flex-1">Inbox</span>
-                            {% if unread_notifications_count > 0 %}
-                                <span class="text-[9px] font-black bg-nigeria-green text-white px-1.5 py-0.5 rounded-full">{{ unread_notifications_count }}</span>
+                            {% if unread_inbox_count > 0 %}
+                                <span class="text-[9px] font-black bg-nigeria-green text-white px-1.5 py-0.5 rounded-full">{{ unread_inbox_count }}</span>
                             {% endif %}
                         </a>
 
@@ -81,8 +81,8 @@
                            class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider flex-1">Inbox</span>
-                            {% if unread_notifications_count > 0 %}
-                                <span class="text-[9px] font-black bg-nigeria-green text-white px-1.5 py-0.5 rounded-full">{{ unread_notifications_count }}</span>
+                            {% if unread_inbox_count > 0 %}
+                                <span class="text-[9px] font-black bg-nigeria-green text-white px-1.5 py-0.5 rounded-full">{{ unread_inbox_count }}</span>
                             {% endif %}
                         </a>
                     {% endif %}

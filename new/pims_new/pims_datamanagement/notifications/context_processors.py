@@ -17,3 +17,16 @@ def pending_activation_count(request):
             "pending_access_count": FileAccessRequest.objects.filter(status="pending").count(),
         }
     return {"pending_activation_count": 0, "pending_access_count": 0}
+
+
+def unread_inbox(request):
+    if request.user.is_authenticated:
+        staff = getattr(request.user, "staff", None)
+        if staff is not None:
+            from document_management.models import FileMovement
+
+            count = FileMovement.objects.filter(
+                sent_to=staff, action="sent", status="pending"
+            ).count()
+            return {"unread_inbox_count": count}
+    return {"unread_inbox_count": 0}
