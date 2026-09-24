@@ -4,6 +4,7 @@ from audit_log.utils import log_action
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -845,7 +846,11 @@ class AttachmentViewerView(HTMXLoginRequiredMixin, View):
             field_file = document.attachment
             download_url = reverse_lazy("document_management:document_download", kwargs={"pk": document.pk})
         else:
-            attachment = get_object_or_404(DocumentAttachment, pk=att_key, document=document)
+            try:
+                att_pk = int(att_key)
+            except (TypeError, ValueError):
+                raise Http404
+            attachment = get_object_or_404(DocumentAttachment, pk=att_pk, document=document)
             field_file = attachment.file
             download_url = reverse_lazy("document_management:attachment_download", kwargs={"att_pk": attachment.pk})
 
