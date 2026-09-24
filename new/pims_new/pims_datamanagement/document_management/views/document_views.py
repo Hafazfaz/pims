@@ -470,7 +470,7 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
                 self.request.user.is_superuser
                 or staff.is_registry
                 or staff.is_hod
-                or staff.is_effective_supervisor
+                or staff.is_privileged_head
                 or staff.is_executive
                 or staff.is_md
                 or getattr(staff, "is_mayor", False)
@@ -657,25 +657,22 @@ def can_download_document_file(user, document):
     allowed = False
     staff = getattr(user, "staff", None)
 
-    # Unit-head scoped download: same unit as the file owner (safe reverse-O2O).
-    try:
-        _headed_unit = staff.headed_unit if staff else None
-    except Exception:
-        _headed_unit = None
-    unit_scoped = bool(
+    # Oversight-head scoped download: same department as the file owner.
+    # Pure heads-of-unit are treated like regular staff (no scope grant).
+    dept_scoped = bool(
         staff
-        and staff.is_effective_supervisor
+        and staff.is_privileged_head
         and file_obj.file_type == "personal"
         and file_obj.owner
-        and _headed_unit
-        and file_obj.owner.unit_id == _headed_unit.pk
+        and staff.department_id
+        and file_obj.owner.department_id == staff.department_id
     )
 
     if user.is_superuser or (
         staff
         and (
             staff.is_hod
-            or staff.is_effective_supervisor
+            or staff.is_privileged_head
             or staff.is_executive
             or staff.is_md
             or getattr(staff, "is_mayor", False)
@@ -687,14 +684,7 @@ def can_download_document_file(user, document):
             or staff.is_executive
             or staff.is_md
             or (staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department)
-            or (
-                staff.is_effective_supervisor
-                and file_obj.file_type == "personal"
-                and file_obj.owner
-                and staff.department_id
-                and file_obj.owner.department_id == staff.department_id
-            )
-            or unit_scoped
+            or dept_scoped
         )
     ):
         allowed = True
@@ -705,7 +695,7 @@ def can_download_document_file(user, document):
         and staff
         and (
             staff.is_hod
-            or staff.is_effective_supervisor
+            or staff.is_privileged_head
             or staff.is_executive
             or staff.is_md
             or getattr(staff, "is_mayor", False)
@@ -1073,16 +1063,24 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         send_to_staff = None if is_registry_upload else form.cleaned_data.get("send_to")
         staff_user = getattr(self.request.user, "staff", None)
 
-        if not send_to_staff and staff_user and not staff_user.is_effective_supervisor and not staff_user.is_hod and not staff_user.is_md and not staff_user.is_executive:
-            # Auto-route normal users to their head
-            if staff_user.unit and staff_user.unit.head:
-                send_to_staff = staff_user.unit.head
-            elif staff_user.section and staff_user.section.head:
-                send_to_staff = staff_user.section.head
-            elif staff_user.division and staff_user.division.head:
-                send_to_staff = staff_user.division.head
-            elif staff_user.department and staff_user.department.head:
-                send_to_staff = staff_user.department.head
+        from ..permissions import is_privileged_viewer
+
+        if (
+            not send_to_staff
+            and staff_user
+            and not is_privileged_viewer(self.request.user)
+        ):
+            # Auto-route lower staff (including pure heads-of-unit) up the
+            # chain — skipping self so a unit manager routes to THEIR head.
+            for head in (
+                staff_user.unit.head if staff_user.unit else None,
+                staff_user.section.head if staff_user.section else None,
+                staff_user.division.head if staff_user.division else None,
+                staff_user.department.head if staff_user.department else None,
+            ):
+                if head and head.pk != staff_user.pk:
+                    send_to_staff = head
+                    break
 
         if send_to_staff:
             from_location = staff_user

@@ -141,6 +141,18 @@ class Staff(models.Model):
         )
 
     @property
+    def is_privileged_head(self):
+        """Oversight heads: HOD / section / division heads, flagged supervisors,
+        executives, MD, Mayor — but NOT pure heads-of-unit, who are treated
+        like regular staff for viewing personnel documents."""
+        try:
+            if self.is_hod or self.is_head_of_section or self.is_head_of_division:
+                return True
+        except Exception:
+            pass
+        return bool(self.is_supervisor or self.is_executive or self.is_md or self.is_mayor)
+
+    @property
     def is_executive(self):
         return self.user.groups.filter(name__iexact="Executive").exists()
 

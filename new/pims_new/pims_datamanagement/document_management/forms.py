@@ -254,14 +254,15 @@ class DocumentForm(forms.ModelForm):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        # Only HODs or Unit Managers can see the signature checkbox
+        # Only HODs, oversight heads, and supervisors can see the signature checkbox.
+        # Pure heads-of-unit are treated like regular staff.
         can_sign = False
         is_supervisor_plus = False
         if self.user and hasattr(self.user, "staff"):
             staff = self.user.staff
-            if staff.is_hod or staff.is_unit_manager or staff.is_registry:
+            if staff.is_hod or staff.is_privileged_head or staff.is_registry:
                 can_sign = True
-            if staff.is_effective_supervisor or staff.is_hod or staff.is_md or staff.is_executive:
+            if staff.is_privileged_head or staff.is_hod or staff.is_md or staff.is_executive:
                 is_supervisor_plus = True
 
         if not can_sign:

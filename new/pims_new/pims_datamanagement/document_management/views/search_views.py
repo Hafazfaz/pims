@@ -8,6 +8,20 @@ from organization.models import Staff, Unit
 from .base import EXCLUDE_REGISTRY_Q
 
 
+def _chain_of_command_pks(sender_staff):
+    """Heads above the sender, skipping self (a unit manager's direct head
+    is THEIR head, not themselves)."""
+    for head in (
+        sender_staff.unit.head if sender_staff.unit else None,
+        sender_staff.section.head if sender_staff.section else None,
+        sender_staff.division.head if sender_staff.division else None,
+        sender_staff.department.head if sender_staff.department else None,
+    ):
+        if head and head.pk != sender_staff.pk:
+            return [head.pk]
+    return []
+
+
 class RecipientSearchView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         query = request.GET.get("q", "").strip()
@@ -24,7 +38,7 @@ class RecipientSearchView(LoginRequiredMixin, View):
         if sender_staff:
             if sender_staff.is_md or sender_staff.is_executive:
                 eligible_qs = base_qs
-            elif sender_staff.is_hod or sender_staff.is_head_of_unit:
+            elif sender_staff.is_hod or (sender_staff.is_head_of_unit and sender_staff.is_privileged_head):
                 from organization.models import Department as Dept
                 from organization.models import Unit
 
@@ -48,12 +62,9 @@ class RecipientSearchView(LoginRequiredMixin, View):
                     pks.add(u.head.pk)
                 eligible_qs = base_qs.filter(pk__in=pks)
             else:
-                allowed_pks = []
-                if sender_staff.unit and sender_staff.unit.head:
-                    allowed_pks.append(sender_staff.unit.head.pk)
-                elif sender_staff.department and sender_staff.department.head:
-                    allowed_pks.append(sender_staff.department.head.pk)
-                eligible_qs = base_qs.filter(pk__in=allowed_pks)
+                # Lower staff (and pure heads-of-unit): direct head only,
+                # walking up the chain and skipping self.
+                eligible_qs = base_qs.filter(pk__in=_chain_of_command_pks(sender_staff))
         else:
             eligible_qs = base_qs
 
@@ -183,7 +194,7 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
         if sender_staff:
             if sender_staff.is_md or sender_staff.is_executive:
                 eligible_qs = base_qs
-            elif sender_staff.is_hod or sender_staff.is_head_of_unit:
+            elif sender_staff.is_hod or (sender_staff.is_head_of_unit and sender_staff.is_privileged_head):
                 # Any HOD, any head of unit, any supervisor
                 from organization.models import Department as Dept
                 from organization.models import Unit
@@ -208,12 +219,9 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
                     pks.add(u.head.pk)
                 eligible_qs = base_qs.filter(pk__in=pks)
             else:
-                allowed_pks = []
-                if sender_staff.unit and sender_staff.unit.head:
-                    allowed_pks.append(sender_staff.unit.head.pk)
-                elif sender_staff.department and sender_staff.department.head:
-                    allowed_pks.append(sender_staff.department.head.pk)
-                eligible_qs = base_qs.filter(pk__in=allowed_pks)
+                # Lower staff (and pure heads-of-unit): direct head only,
+                # walking up the chain and skipping self.
+                eligible_qs = base_qs.filter(pk__in=_chain_of_command_pks(sender_staff))
         else:
             eligible_qs = base_qs
 

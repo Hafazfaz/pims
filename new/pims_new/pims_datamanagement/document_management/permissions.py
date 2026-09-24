@@ -53,18 +53,23 @@ def is_mayor(user):
 
 
 def is_head_or_supervisor(user):
-    """Any head (HOD / unit / section / division) or supervisor / executive / MD / Mayor."""
+    """Oversight heads (HOD / section / division) or supervisor / executive /
+    MD / Mayor. Pure heads-of-unit are treated like regular staff."""
+    return is_privileged_viewer(user)
+
+
+def is_privileged_viewer(user):
+    """Who counts as oversight for VIEWING personnel documents.
+
+    HOD, section/division heads, flagged supervisors, executives, MD, Mayor
+    (and superusers). Pure heads-of-unit are NOT included — they get the same
+    lower-staff treatment: no own-file contents, in-transit-only My Files,
+    no subordinate browsing.
+    """
     staff = get_staff(user)
     if not staff:
         return user.is_superuser
-    return bool(
-        user.is_superuser
-        or staff.is_hod
-        or staff.is_effective_supervisor
-        or staff.is_executive
-        or staff.is_md
-        or staff.is_mayor
-    )
+    return bool(user.is_superuser or staff.is_privileged_head)
 
 
 def can_view_staff_documents(user):
@@ -103,7 +108,7 @@ def can_view_file(user, file):
         return False
     if file.owner == staff or file.current_location == staff:
         return True
-    if file.file_type == "policy" and (is_hod(user) or is_unit_manager(user)) and file.department == staff.department:
+    if file.file_type == "policy" and is_hod(user) and file.department == staff.department:
         return True
     if file.file_type == "personal":
         owner = file.owner
@@ -114,13 +119,11 @@ def can_view_file(user, file):
             (owner and owner_dept == staff.department) or file_dept == staff.department
         ):
             return True
-        # Unit / section / division heads + supervisors see staff files
-        # in their own jurisdiction (unit / section / division / department).
-        if staff.is_effective_supervisor:
+        # Section / division heads + supervisors see staff files in their own
+        # jurisdiction (section / division / department). Pure heads-of-unit
+        # are treated like regular staff and get nothing here.
+        if staff.is_privileged_head:
             if owner:
-                if staff.is_head_of_unit and owner.unit_id and staff.headed_unit:
-                    if owner.unit_id == staff.headed_unit.pk:
-                        return True
                 if staff.is_head_of_section and owner.section_id:
                     try:
                         if owner.section_id == staff.headed_section.pk:
@@ -133,7 +136,7 @@ def can_view_file(user, file):
                             return True
                     except Exception:
                         pass
-                # Fallback: same-department visibility for any head/supervisor.
+                # Fallback: same-department visibility for any oversight head.
                 if owner_dept and staff.department and owner_dept.pk == staff.department.pk:
                     return True
             elif file_dept and staff.department and file_dept.pk == staff.department.pk:
@@ -255,11 +258,9 @@ def can_view_document_content(user, file=None):
     if not staff:
         return False
     # Role base — always allowed (registry excluded below).
-    # Mayor carries full read access like MD/Executive.
-    is_privileged = bool(
-        staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md or staff.is_mayor
-    )
-    if is_privileged:
+    # Mayor carries full read access like MD/Executive. Pure heads-of-unit
+    # are NOT included — they are treated like regular staff.
+    if is_privileged_viewer(user):
         return True
     if staff.is_registry:
         return False
@@ -339,11 +340,12 @@ def get_dispatch_recipients(user, file):
     if is_registry(user) or is_executive(user) or is_md(user) or is_mayor(user):
         return base_qs
 
-    if is_hod(user) or is_unit_manager(user):
-        # HOD and Unit Manager can send to:
+    if is_hod(user) or (is_unit_manager(user) and is_privileged_viewer(user)):
+        # HODs (and unit managers who ALSO hold an oversight role) can send to:
         # - Other HODs
         # - Heads of units, sections, divisions
         # - Supervisors
+        # Pure heads-of-unit fall through to the regular chain below.
         allowed_pks = set()
         
         # Other HODs
@@ -388,15 +390,16 @@ def get_dispatch_recipients(user, file):
             head_pks.append(staff.department.head.pk)
         return base_qs.filter(pk__in=set(supervisor_pks + head_pks))
 
-    # Regular staff: Unit Head → Section Head → Division Head → HOD
-    if staff.unit and staff.unit.head:
-        return base_qs.filter(pk=staff.unit.head.pk)
-    if staff.section and staff.section.head:
-        return base_qs.filter(pk=staff.section.head.pk)
-    if staff.division and staff.division.head:
-        return base_qs.filter(pk=staff.division.head.pk)
-    if staff.department and staff.department.head:
-        return base_qs.filter(pk=staff.department.head.pk)
+    # Regular staff (and pure heads-of-unit): up the chain of command,
+    # skipping self so a unit manager routes to THEIR head, not themselves.
+    for head in (
+        staff.unit.head if staff.unit else None,
+        staff.section.head if staff.section else None,
+        staff.division.head if staff.division else None,
+        staff.department.head if staff.department else None,
+    ):
+        if head and head.pk != staff.pk:
+            return base_qs.filter(pk=head.pk)
     return base_qs.none()
 
 

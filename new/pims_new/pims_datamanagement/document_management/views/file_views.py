@@ -367,7 +367,7 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             base_q |= Q()
             # org-wide: drop the filter entirely
             queryset = File.objects.all()
-        elif staff_user.is_effective_supervisor or staff_user.is_hod:
+        elif staff_user.is_privileged_head or staff_user.is_hod:
             if staff_user.is_hod and staff_user.department:
                 base_q |= Q(owner__department=staff_user.department, file_type="personal")
                 base_q |= Q(department=staff_user.department, file_type="personal")
@@ -435,14 +435,15 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         context["personal_file"] = personal_folder
 
         context["selected_search_query"] = self.request.GET.get("q", "")
-        # Lower staff must never see contents of their OWN personal file.
-        # Heads / supervisors / executives / MD / Mayor / registry / superuser keep access.
+        # Lower staff (including pure heads-of-unit) must never see contents
+        # of their OWN personal file. Oversight heads / supervisors /
+        # executives / MD / Mayor / registry / superuser keep access.
         user = self.request.user
         context["can_view_own_docs"] = bool(
             user.is_superuser
             or staff_user.is_registry
             or staff_user.is_hod
-            or staff_user.is_effective_supervisor
+            or staff_user.is_privileged_head
             or staff_user.is_executive
             or staff_user.is_md
             or getattr(staff_user, "is_mayor", False)
@@ -605,8 +606,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if file_obj.file_type == "policy":
             if staff_user.is_hod and file_obj.department == staff_user.department:
                 return True
-            if staff_user.is_unit_manager and file_obj.department == staff_user.department:
-                return True
 
         if (
             file_obj.file_type == "personal"
@@ -618,17 +617,11 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         ):
             return True
 
-        # Unit / section / division heads + supervisors see personal files
-        # of staff in their jurisdiction (same unit / section / division,
-        # falling back to same department).
-        if file_obj.file_type == "personal" and staff_user.is_effective_supervisor and file_obj.owner:
+        # Section / division heads + supervisors see personal files of staff
+        # in their jurisdiction (same section / division, falling back to
+        # same department). Pure heads-of-unit are treated like regular staff.
+        if file_obj.file_type == "personal" and staff_user.is_privileged_head and file_obj.owner:
             owner = file_obj.owner
-            try:
-                headed_unit = staff_user.headed_unit
-            except Exception:
-                headed_unit = None
-            if headed_unit and owner.unit_id and owner.unit_id == headed_unit.pk:
-                return True
             try:
                 headed_section = staff_user.headed_section
             except Exception:
@@ -731,7 +724,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         staff = getattr(user, "staff", None)
         is_privileged_viewer = bool(
             user.is_superuser
-            or (staff and (staff.is_registry or staff.is_hod or staff.is_effective_supervisor
+            or (staff and (staff.is_registry or staff.is_hod or staff.is_privileged_head
                            or staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False)))
         )
         is_own_personal_file = bool(

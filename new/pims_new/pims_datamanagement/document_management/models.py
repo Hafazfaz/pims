@@ -228,7 +228,7 @@ class File(models.Model):
         if getattr(staff, "is_mayor", False):
             return True
         if self.is_sensitive:
-            return bool(staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md)
+            return bool(staff.is_privileged_head)
         return True
 
 

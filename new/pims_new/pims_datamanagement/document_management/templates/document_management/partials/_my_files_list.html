@@ -60,7 +60,7 @@
                                             <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                             </svg>
-                                            {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
+                                            {% if user.staff.is_hod or user.staff.is_privileged_head or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
                                             <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="font-bold text-slate-700 text-sm hover:text-nigeria-green hover:underline transition-colors">
                                                 {% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}
                                             </a>
@@ -76,7 +76,7 @@
                                         <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
                                     </td>
                                     <td class="px-8 py-5 text-right">
-                                        {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
+                                        {% if user.staff.is_hod or user.staff.is_privileged_head or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
                                             {% if doc.has_files %}
                                                 <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}" class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest mr-3">View</a>
                                                 <a href="{% url 'document_management:document_download' doc.pk %}" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download{% if doc.attachment_count > 1 %} ({{ doc.attachment_count }}){% endif %}</a>
