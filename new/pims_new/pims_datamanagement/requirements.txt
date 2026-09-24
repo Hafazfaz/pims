@@ -7,6 +7,7 @@ asgiref==3.11.0
 attrs==25.4.0
 billiard==4.2.4
 bleach==6.3.0
+boto3==1.43.82
 celery==5.4.0
 certifi==2025.11.12
 charset-normalizer==3.4.4
@@ -18,6 +19,7 @@ Django==6.0
 django-axes==8.0.0
 django-otp==1.6.3
 django-phonenumber-field==8.4.0
+django-storages==1.14.6
 django-summernote==0.8.20.0
 django-unfold==0.77.1
 django-widget-tweaks==1.5.0

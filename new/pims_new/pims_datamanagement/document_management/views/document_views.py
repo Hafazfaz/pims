@@ -726,25 +726,75 @@ def can_download_document_file(user, document):
     return allowed
 
 
-def _serve_field_file(field_file, inline):
-    """Stream a FileField with inline-view or download disposition."""
-    import mimetypes
-    from pathlib import Path
+def _s3_presigned_url(field_file, inline, mime_type, filename, expiry=None):
+    """Short-lived S3 URL for one file — issued only AFTER access is granted.
 
+    The bucket itself stays fully private (no public access); this URL dies
+    after PROTECTED_FILE_URL_EXPIRY seconds.
+    """
+    import boto3
+    from botocore.config import Config
+    from django.conf import settings as dj_settings
+
+    storage = field_file.storage
+    bucket = getattr(storage, "bucket_name", None) or dj_settings.AWS_STORAGE_BUCKET_NAME
+    s3 = boto3.client(
+        "s3",
+        region_name=getattr(storage, "region_name", None) or dj_settings.AWS_S3_REGION_NAME,
+        endpoint_url=getattr(storage, "endpoint_url", None) or dj_settings.AWS_S3_ENDPOINT_URL,
+        aws_access_key_id=getattr(storage, "access_key", None) or dj_settings.AWS_S3_ACCESS_KEY_ID,
+        aws_secret_access_key=getattr(storage, "secret_key", None) or dj_settings.AWS_S3_SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4"),
+    )
+    params = {"Bucket": bucket, "Key": field_file.name}
+    if mime_type:
+        params["ResponseContentType"] = mime_type
+    params["ResponseContentDisposition"] = "inline" if inline else f'attachment; filename="{filename}"'
+    return s3.generate_presigned_url(
+        "get_object", Params=params, ExpiresIn=expiry or dj_settings.PROTECTED_FILE_URL_EXPIRY
+    )
+
+
+def _serve_field_file(field_file, inline):
+    """Serve a FileField with inline-view or download disposition.
+
+    Local disk: direct FileResponse (SAMEORIGIN framing for inline views).
+    S3 / remote storage: redirect to a short-lived presigned URL minted after
+    the caller's permission check — the bucket itself is never public.
+    """
+    import logging
+    import mimetypes
+
+    from django.core.files.storage import FileSystemStorage
     from django.http import FileResponse
 
-    file_path = field_file.path
-    if not Path(file_path).exists():
-        return None
-    mime_type, _ = mimetypes.guess_type(file_path)
+    logger = logging.getLogger("document_management")
     filename = field_file.name.split("/")[-1]
-    disposition = "inline" if inline else f'attachment; filename="{filename}"'
-    f = Path(file_path).open("rb")  # noqa: SIM115  # FileResponse manages closure
-    response = FileResponse(f, content_type=mime_type or "application/octet-stream")
-    response["Content-Disposition"] = disposition
-    if inline:
-        response["X-Frame-Options"] = "SAMEORIGIN"
-    return response
+    mime_type, _ = mimetypes.guess_type(filename)
+
+    if isinstance(field_file.storage, FileSystemStorage):
+        from pathlib import Path
+
+        file_path = field_file.path
+        if not Path(file_path).exists():
+            return None
+        f = Path(file_path).open("rb")  # noqa: SIM115  # FileResponse manages closure
+        response = FileResponse(f, content_type=mime_type or "application/octet-stream")
+        response["Content-Disposition"] = "inline" if inline else f'attachment; filename="{filename}"'
+        if inline:
+            response["X-Frame-Options"] = "SAMEORIGIN"
+        return response
+
+    try:
+        return redirect(_s3_presigned_url(field_file, inline, mime_type, filename))
+    except Exception:
+        logger.warning("Presigned URL failed; streaming file through Django.", exc_info=True)
+        f = field_file.open("rb")
+        response = FileResponse(f, content_type=mime_type or "application/octet-stream")
+        response["Content-Disposition"] = "inline" if inline else f'attachment; filename="{filename}"'
+        if inline:
+            response["X-Frame-Options"] = "SAMEORIGIN"
+        return response
 
 
 class DocumentDownloadView(LoginRequiredMixin, View):

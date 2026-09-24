@@ -170,6 +170,43 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/attachments/"
 MEDIA_ROOT = BASE_DIR / "attachments"
 
+# File storage: local disk by default; private S3 bucket in prod.
+# Set USE_S3=true plus the AWS_* vars to store uploads in S3. The bucket must
+# NOT allow public access — every file is served through the permission-gated
+# download/viewer views, which issue short-lived presigned URLs (see
+# document_management.views.document_views._serve_field_file).
+USE_S3 = os.environ.get("USE_S3", "false").lower() == "true"
+
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
+AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
+AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL") or None
+AWS_S3_ACCESS_KEY_ID = os.environ.get("AWS_S3_ACCESS_KEY_ID") or None
+AWS_S3_SECRET_ACCESS_KEY = os.environ.get("AWS_S3_SECRET_ACCESS_KEY") or None
+# Lifetime (seconds) of presigned URLs issued by the gated file views.
+PROTECTED_FILE_URL_EXPIRY = int(os.environ.get("PROTECTED_FILE_URL_EXPIRY", "300"))
+
+if USE_S3:
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": AWS_STORAGE_BUCKET_NAME,
+                "region_name": AWS_S3_REGION_NAME,
+                "endpoint_url": AWS_S3_ENDPOINT_URL,
+                "access_key": AWS_S3_ACCESS_KEY_ID,
+                "secret_key": AWS_S3_SECRET_ACCESS_KEY,
+                "default_acl": None,
+                "file_overwrite": False,
+                # Template .url links (signatures etc.) also expire.
+                "querystring_auth": True,
+                "querystring_expire": 3600,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+    }
+
 AUTH_USER_MODEL = "user_management.CustomUser"
 
 # Email settings
