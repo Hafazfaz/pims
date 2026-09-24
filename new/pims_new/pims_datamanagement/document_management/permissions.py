@@ -52,6 +52,38 @@ def is_mayor(user):
     return staff is not None and staff.is_mayor
 
 
+def is_head_or_supervisor(user):
+    """Any head (HOD / unit / section / division) or supervisor / executive / MD / Mayor."""
+    staff = get_staff(user)
+    if not staff:
+        return user.is_superuser
+    return bool(
+        user.is_superuser
+        or staff.is_hod
+        or staff.is_effective_supervisor
+        or staff.is_executive
+        or staff.is_md
+        or staff.is_mayor
+    )
+
+
+def can_view_staff_documents(user):
+    """
+    Gate for seeing staff personnel documents — even just titles/metadata.
+
+    Granted via the ``document_management.view_staff_documents`` permission,
+    which every group EXCEPT Registry holds (see migration 0045). Registry is
+    hard-denied here regardless (separation of duties): registry staff manage
+    file custody but must never see what documents a staff member has.
+    """
+    if user.is_superuser:
+        return True
+    staff = get_staff(user)
+    if staff is not None and staff.is_registry:
+        return False
+    return user.has_perm("document_management.view_staff_documents")
+
+
 # ---------------------------------------------------------------------------
 # File permissions
 # ---------------------------------------------------------------------------
@@ -73,10 +105,39 @@ def can_view_file(user, file):
         return True
     if file.file_type == "policy" and (is_hod(user) or is_unit_manager(user)) and file.department == staff.department:
         return True
-    if file.file_type == "personal" and is_hod(user) and (
-        (file.owner and file.owner.department == staff.department) or file.department == staff.department
-    ):
-        return True
+    if file.file_type == "personal":
+        owner = file.owner
+        owner_dept = owner.department if owner else None
+        file_dept = file.department
+        # HOD sees personal files in their department.
+        if is_hod(user) and (
+            (owner and owner_dept == staff.department) or file_dept == staff.department
+        ):
+            return True
+        # Unit / section / division heads + supervisors see staff files
+        # in their own jurisdiction (unit / section / division / department).
+        if staff.is_effective_supervisor:
+            if owner:
+                if staff.is_head_of_unit and owner.unit_id and staff.headed_unit:
+                    if owner.unit_id == staff.headed_unit.pk:
+                        return True
+                if staff.is_head_of_section and owner.section_id:
+                    try:
+                        if owner.section_id == staff.headed_section.pk:
+                            return True
+                    except Exception:
+                        pass
+                if staff.is_head_of_division and owner.division_id:
+                    try:
+                        if owner.division_id == staff.headed_division.pk:
+                            return True
+                    except Exception:
+                        pass
+                # Fallback: same-department visibility for any head/supervisor.
+                if owner_dept and staff.department and owner_dept.pk == staff.department.pk:
+                    return True
+            elif file_dept and staff.department and file_dept.pk == staff.department.pk:
+                return True
     # Approved access request
     from document_management.models import FileAccessRequest
 
@@ -203,6 +264,11 @@ def can_view_document_content(user, file=None):
     if staff.is_registry:
         return False
     if file is None:
+        return False
+    # Lower staff can NEVER view contents of their OWN personal file —
+    # not via custody, movement, share, or access request. Only heads/
+    # supervisors / executives / MD / Mayor may view a staff member's file.
+    if file.file_type == "personal" and file.owner_id and file.owner_id == staff.pk:
         return False
     # Contextual grants for regular staff.
     # Owner alone is NOT enough when file is at rest with Registry —

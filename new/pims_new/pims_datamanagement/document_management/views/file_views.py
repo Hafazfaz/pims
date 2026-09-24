@@ -268,7 +268,12 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         self.object = form.save()
 
         for f in self.request.FILES.getlist("attachments"):
-            Document.objects.create(file=self.object, attachment=f, uploaded_by=self.request.user)
+            # File creators are always registry: their uploads are official
+            # records, so documents start out approved. The file itself stays
+            # active (it only leaves active when dispatched for review).
+            Document.objects.create(
+                file=self.object, attachment=f, uploaded_by=self.request.user, status="approved"
+            )
 
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
@@ -353,9 +358,49 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
-        queryset = File.objects.filter(
-            Q(owner=staff_user) | Q(created_by=self.request.user) | Q(current_location=staff_user)
-        ).distinct()
+        base_q = Q(owner=staff_user) | Q(created_by=self.request.user) | Q(current_location=staff_user)
+
+        # Heads see personal files of staff in their jurisdiction on My Files,
+        # so a unit/section/division head or HOD can open a subordinate's file.
+        user = self.request.user
+        if user.is_superuser or staff_user.is_executive or staff_user.is_md or getattr(staff_user, "is_mayor", False):
+            base_q |= Q()
+            # org-wide: drop the filter entirely
+            queryset = File.objects.all()
+        elif staff_user.is_effective_supervisor or staff_user.is_hod:
+            if staff_user.is_hod and staff_user.department:
+                base_q |= Q(owner__department=staff_user.department, file_type="personal")
+                base_q |= Q(department=staff_user.department, file_type="personal")
+            try:
+                headed_unit = staff_user.headed_unit
+            except Exception:
+                headed_unit = None
+            if headed_unit:
+                base_q |= Q(owner__unit=headed_unit, file_type="personal")
+            try:
+                headed_section = staff_user.headed_section
+            except Exception:
+                headed_section = None
+            if headed_section:
+                base_q |= Q(owner__section=headed_section, file_type="personal")
+            try:
+                headed_division = staff_user.headed_division
+            except Exception:
+                headed_division = None
+            if headed_division:
+                base_q |= Q(owner__division=headed_division, file_type="personal")
+            # Supervisors (flag-only) fall back to same-department visibility.
+            if staff_user.is_supervisor and staff_user.department:
+                base_q |= Q(owner__department=staff_user.department, file_type="personal")
+            queryset = File.objects.filter(base_q).distinct()
+        else:
+            queryset = File.objects.filter(base_q).distinct()
+            if not staff_user.is_registry:
+                # Lower staff: My Files shows ONLY pending files still in
+                # transit (their own at-rest files are restricted anyway).
+                # Once a file is acknowledged/approved and back to active,
+                # it leaves this list. Registry keeps the wider custody list.
+                queryset = queryset.filter(status="in_transit")
 
         if not staff_user.is_registry:
             queryset = queryset.exclude(status__in=["inactive", "closed"])
@@ -387,8 +432,27 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
 
         personal_folder = File.objects.filter(owner=staff_user, file_type="personal").first()
         context["staff_file_number"] = personal_folder.file_number if personal_folder else "NOT ASSIGNED"
+        context["personal_file"] = personal_folder
 
         context["selected_search_query"] = self.request.GET.get("q", "")
+        # Lower staff must never see contents of their OWN personal file.
+        # Heads / supervisors / executives / MD / Mayor / registry / superuser keep access.
+        user = self.request.user
+        context["can_view_own_docs"] = bool(
+            user.is_superuser
+            or staff_user.is_registry
+            or staff_user.is_hod
+            or staff_user.is_effective_supervisor
+            or staff_user.is_executive
+            or staff_user.is_md
+            or getattr(staff_user, "is_mayor", False)
+        )
+        # Staff-document metadata gate (titles/lists). Registry lacks the
+        # view_staff_documents permission, so registry sees file custody info
+        # only — never what documents a staff member has.
+        from ..permissions import can_view_staff_documents
+
+        context["can_view_staff_docs"] = can_view_staff_documents(user)
         return context
 
     def get_staff_user(self):
@@ -554,6 +618,36 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         ):
             return True
 
+        # Unit / section / division heads + supervisors see personal files
+        # of staff in their jurisdiction (same unit / section / division,
+        # falling back to same department).
+        if file_obj.file_type == "personal" and staff_user.is_effective_supervisor and file_obj.owner:
+            owner = file_obj.owner
+            try:
+                headed_unit = staff_user.headed_unit
+            except Exception:
+                headed_unit = None
+            if headed_unit and owner.unit_id and owner.unit_id == headed_unit.pk:
+                return True
+            try:
+                headed_section = staff_user.headed_section
+            except Exception:
+                headed_section = None
+            if headed_section and owner.section_id and owner.section_id == headed_section.pk:
+                return True
+            try:
+                headed_division = staff_user.headed_division
+            except Exception:
+                headed_division = None
+            if headed_division and owner.division_id and owner.division_id == headed_division.pk:
+                return True
+            if (
+                owner.department_id
+                and staff_user.department_id
+                and owner.department_id == staff_user.department_id
+            ):
+                return True
+
         if file_obj.owner == staff_user:
             # Owner can see the file page but needs an access request to view content
             return True
@@ -629,11 +723,26 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         is_custodian = hasattr(user, "staff") and file_obj.current_location == user.staff
         is_owner = hasattr(user, "staff") and file_obj.owner == user.staff
 
-        # Custodian always carries access. Owner carries automatic access
+        # Lower staff can NEVER auto-view contents of their OWN personal file —
+        # even while holding custody. Only heads / supervisors / executives /
+        # MD / Mayor keep automatic access. (Enforced centrally in
+        # can_view_document_content; mirror it here so the file page does not
+        # grant Full Access via custody.)
+        staff = getattr(user, "staff", None)
+        is_privileged_viewer = bool(
+            user.is_superuser
+            or (staff and (staff.is_registry or staff.is_hod or staff.is_effective_supervisor
+                           or staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False)))
+        )
+        is_own_personal_file = bool(
+            staff and file_obj.file_type == "personal" and file_obj.owner_id and file_obj.owner_id == staff.pk
+        )
+        # Custodian always carries access — EXCEPT a non-privileged owner
+        # holding their own personal file. Owner carries automatic access
         # ONLY while holding custody — when file is at rest with Registry
         # (or in transit with someone else) the owner must request access
         # like anyone else instead of silently keeping Full Access.
-        if is_custodian or (is_owner and is_custodian):
+        if (is_custodian or (is_owner and is_custodian)) and not (is_own_personal_file and not is_privileged_viewer):
             has_approved_access = True
             has_rw_access = True
         else:
@@ -645,7 +754,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 latest_movement = (
                     file_obj.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
                 )
-            if latest_movement and latest_movement.is_active_access:
+            if latest_movement and latest_movement.is_active_access and not (is_own_personal_file and not is_privileged_viewer):
                 has_approved_access = True
                 has_rw_access = True
             else:
@@ -654,6 +763,10 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
                     .exists()
                 )
+                # Own personal file: an approved request must NOT re-grant
+                # contents to a non-privileged owner.
+                if is_own_personal_file and not is_privileged_viewer:
+                    has_approved_access = False
 
                 has_rw_access = (
                     FileAccessRequest.objects.filter(
@@ -665,6 +778,8 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
                     .exists()
                 )
+                if is_own_personal_file and not is_privileged_viewer:
+                    has_rw_access = False
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
         is_mayor = bool(hasattr(user, "staff") and getattr(user.staff, "is_mayor", False))

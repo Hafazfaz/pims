@@ -76,6 +76,11 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
             return redirect(file_obj.get_absolute_url())
 
         document.uploaded_by = user
+        # Registry uploads are official records: auto-approved. Everyone else's
+        # uploads stay pending until an approver signs off. The file itself
+        # keeps its current status (active until dispatched).
+        if file_obj is not None and (user.is_superuser or is_registry):
+            document.status = "approved"
         document.save()
         messages.success(self.request, "Document uploaded successfully.")
         return redirect(self.get_success_url())
@@ -433,7 +438,36 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
     paginate_by = 1
 
     def get_queryset(self):
+        from django.http import Http404
+
+        from ..permissions import can_view_staff_documents
+
+        # Registry (and anyone lacking view_staff_documents) must not page
+        # through staff document titles either.
+        if not can_view_staff_documents(self.request.user):
+            return Document.objects.none()
+
         file_pk = self.kwargs.get("pk")
+        # Enforce the same own-file restriction as My Files: a non-privileged
+        # owner paging through their own personal file gets no rows (titles
+        # alone would leak). Heads / registry / exec keep access.
+        try:
+            file_obj = File.objects.select_related("owner").get(pk=file_pk)
+        except File.DoesNotExist:
+            raise Http404
+        staff = getattr(self.request.user, "staff", None)
+        if staff and file_obj.file_type == "personal" and file_obj.owner_id == staff.pk:
+            is_privileged = bool(
+                self.request.user.is_superuser
+                or staff.is_registry
+                or staff.is_hod
+                or staff.is_effective_supervisor
+                or staff.is_executive
+                or staff.is_md
+                or getattr(staff, "is_mayor", False)
+            )
+            if not is_privileged:
+                return Document.objects.none()
         queryset = Document.objects.filter(file_id=file_pk)
 
         search_query = self.request.GET.get("q")
@@ -567,7 +601,15 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
         minute_content = request.POST.get("minute_content", "").strip()
         attachment = request.FILES.get("attachment")
 
-        # New version chains off the original via parent
+        # New version chains off the original via parent.
+        # Registry versions are official records: auto-approved. Other
+        # versions start pending until approved.
+        staff = getattr(request.user, "staff", None)
+        new_status = (
+            "approved"
+            if (request.user.is_superuser or (staff and staff.is_registry))
+            else "pending"
+        )
         new_doc = Document.objects.create(
             file=original.file,
             uploaded_by=request.user,
@@ -575,6 +617,7 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
             minute_content=minute_content or original.minute_content,
             document_type=original.document_type,
             parent=original,
+            status=new_status,
         )
         if attachment:
             new_doc.attachment = attachment
@@ -606,6 +649,20 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         allowed = False
         staff = getattr(user, "staff", None)
 
+        # Unit-head scoped download: same unit as the file owner (safe reverse-O2O).
+        try:
+            _headed_unit = staff.headed_unit if staff else None
+        except Exception:
+            _headed_unit = None
+        unit_scoped = bool(
+            staff
+            and staff.is_effective_supervisor
+            and file_obj.file_type == "personal"
+            and file_obj.owner
+            and _headed_unit
+            and file_obj.owner.unit_id == _headed_unit.pk
+        )
+
         if user.is_superuser or (
             staff
             and (
@@ -622,6 +679,14 @@ class DocumentDownloadView(LoginRequiredMixin, View):
                 or staff.is_executive
                 or staff.is_md
                 or (staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department)
+                or (
+                    staff.is_effective_supervisor
+                    and file_obj.file_type == "personal"
+                    and file_obj.owner
+                    and staff.department_id
+                    and file_obj.owner.department_id == staff.department_id
+                )
+                or unit_scoped
             )
         ):
             allowed = True
@@ -771,6 +836,15 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         form.instance.file = self.file_obj
         form.instance.uploaded_by = self.request.user
 
+        # Registry uploads are official records: auto-approved, no routing.
+        # Everyone else's uploads stay pending and route for review until the
+        # last approver signs off (which flips the document to approved and
+        # the file back to active).
+        staff = getattr(self.request.user, "staff", None)
+        is_registry_upload = self.request.user.is_superuser or (staff and staff.is_registry)
+        if is_registry_upload:
+            form.instance.status = "approved"
+
         if getattr(self.file_obj, "active_dispatch_document", None):
             is_custodian = (
                 hasattr(self.request.user, "staff") and self.file_obj.current_location == self.request.user.staff
@@ -799,8 +873,10 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             except Exception:
                 pass
 
-        # Route the file
-        send_to_staff = form.cleaned_data.get("send_to")
+        # Route the file — SKIPPED for registry uploads: the document is
+        # already approved, the file keeps its status, and the owner is
+        # simply notified instead of dispatching anything.
+        send_to_staff = None if is_registry_upload else form.cleaned_data.get("send_to")
         staff_user = getattr(self.request.user, "staff", None)
 
         if not send_to_staff and staff_user and not staff_user.is_effective_supervisor and not staff_user.is_hod and not staff_user.is_md and not staff_user.is_executive:
@@ -853,7 +929,31 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 self.request, f"Document added and routed to {send_to_staff.user.get_full_name()} for review."
             )
         else:
-            messages.success(self.request, "Document/Minute added successfully.")
+            if is_registry_upload:
+                # Registry filing: notify the file owner (personal) or the
+                # department head (policy) that an approved document landed.
+                notify_user = None
+                if self.file_obj.file_type == "personal" and self.file_obj.owner:
+                    notify_user = self.file_obj.owner.user
+                elif (
+                    self.file_obj.file_type == "policy"
+                    and self.file_obj.department
+                    and self.file_obj.department.head
+                ):
+                    notify_user = self.file_obj.department.head.user
+                if notify_user and notify_user != self.request.user:
+                    create_notification(
+                        user=notify_user,
+                        message=(
+                            f"Registry added '{document.title or 'Untitled'}' to file "
+                            f"{self.file_obj.file_number} — {self.file_obj.title}."
+                        ),
+                        obj=self.file_obj,
+                        link=self.file_obj.get_absolute_url(),
+                    )
+                messages.success(self.request, "Document added and approved. Owner notified.")
+            else:
+                messages.success(self.request, "Document/Minute added successfully.")
 
         log_action(
             self.request.user,

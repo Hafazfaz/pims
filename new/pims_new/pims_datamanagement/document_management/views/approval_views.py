@@ -286,9 +286,11 @@ class ApprovalChainStartView(HTMXLoginRequiredMixin, View):
         # Grant read-only access to all approvers in the chain
         _grant_chain_read_access(chain)
 
-        # File goes to first approver in read-only mode (status unchanged)
+        # File goes to first approver in read-only mode, marked in transit
+        # while the chain is pending.
         file_obj.current_location = first_step.approver
-        file_obj.save()
+        file_obj.status = "in_transit"
+        file_obj.save(update_fields=["current_location", "status"])
 
         _notify_approver(first_step)
         messages.success(request, f"Chain started. File dispatched to {first_step.approver} in read-only mode.")

@@ -323,10 +323,18 @@ class StaffFolderHubView(RegistryRequiredMixin, DetailView):
         personal_file = File.objects.filter(file_type="personal", owner=staff).first()
         context["personal_file"] = personal_file
         context["can_view_content"] = False  # Registry cannot view document contents
-        if personal_file:
+        from document_management.permissions import can_view_staff_documents
+
+        can_view_docs = can_view_staff_documents(self.request.user)
+        context["can_view_staff_docs"] = can_view_docs
+        if personal_file and can_view_docs:
             context["documents"] = personal_file.documents.select_related("uploaded_by").order_by("-uploaded_at")
             context["active_chain"] = ApprovalChain.objects.filter(file=personal_file, status="active").first()
             context["all_chains"] = ApprovalChain.objects.filter(file=personal_file).order_by("-created_at")
+        else:
+            context["documents"] = personal_file.documents.none() if personal_file else []
+            context["active_chain"] = None
+            context["all_chains"] = ApprovalChain.objects.none()
         return context
 
 
@@ -443,6 +451,16 @@ class RegistryFileView(RegistryRequiredMixin, View):
         # Registry cannot view document contents per MD directive
         can_view_content = False
 
+        # Staff personnel documents (even titles/metadata) require the
+        # view_staff_documents permission, which Registry does not hold.
+        from document_management.permissions import can_view_staff_documents
+
+        can_view_docs = can_view_staff_documents(request.user)
+        if not can_view_docs:
+            documents = file_obj.documents.none()
+            active_chain = None
+            all_chains = ApprovalChain.objects.none()
+
         return render(
             request,
             "document_management/registry_file_view.html",
@@ -457,6 +475,7 @@ class RegistryFileView(RegistryRequiredMixin, View):
                 "movements_total": movements.count(),
                 "movements_all": movements,
                 "can_view_content": can_view_content,
+                "can_view_staff_docs": can_view_docs,
             },
         )
 
