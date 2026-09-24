@@ -160,6 +160,7 @@ def create_fixtures():
         ("document_management", "file", "archive_file"),
         ("document_management", "document", "add_minute"),
         ("document_management", "document", "add_attachment"),
+        ("document_management", "document", "view_staff_documents"),
     ]
 
     for app, model, codename in custom_perms:
@@ -174,8 +175,11 @@ def create_fixtures():
     staff_group, _ = Group.objects.get_or_create(name="Staff")
     executives_group, _ = Group.objects.get_or_create(name="Executives")
 
-    # Assign all gathered perms to both for simplicity in dev (refine as needed)
-    registry_group.permissions.set(perms_list)
+    # Assign all gathered perms for simplicity in dev — EXCEPT view_staff_documents,
+    # which Registry must never hold (Registry cannot see staff personnel documents,
+    # not even titles/metadata).
+    registry_perms = [p for p in perms_list if p.codename != "view_staff_documents"]
+    registry_group.permissions.set(registry_perms)
     staff_group.permissions.set(perms_list)
     executives_group.permissions.set(perms_list)
 

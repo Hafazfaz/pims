@@ -305,6 +305,11 @@ class Document(models.Model):
         permissions = [
             ("add_minute", "Can add a minute to a file"),
             ("add_attachment", "Can add an attachment to a file"),
+            (
+                "view_staff_documents",
+                "Can view staff personnel documents (titles and metadata). "
+                "Granted to every group except Registry.",
+            ),
         ]
 
     def save(self, *args, **kwargs):
@@ -494,7 +499,8 @@ class ApprovalChain(models.Model):
             self.current_step = next_step.order
             self.save()
             file_obj.current_location = next_step.approver
-            file_obj.save()
+            file_obj.status = "in_transit"
+            file_obj.save(update_fields=["current_location", "status"])
         else:
             self.status = "closed"
             self.save()
@@ -502,10 +508,11 @@ class ApprovalChain(models.Model):
             if self.document:
                 self.document.status = "approved"
                 self.document.save(update_fields=["status"])
-            # Return file to registry
+            # Return file to registry at rest — no longer in transit.
             registry = self._get_registry()
             file_obj.current_location = registry
-            file_obj.save()
+            file_obj.status = "active"
+            file_obj.save(update_fields=["current_location", "status"])
             # Notify sender
             from notifications.utils import create_notification
 
@@ -531,7 +538,8 @@ class ApprovalChain(models.Model):
             self.current_step = prev_step.order
             self.save()
             file_obj.current_location = prev_step.approver
-            file_obj.save()
+            file_obj.status = "in_transit"
+            file_obj.save(update_fields=["current_location", "status"])
         else:
             self.status = "rejected"
             self.save()
@@ -555,7 +563,9 @@ class ApprovalChain(models.Model):
                 file_obj.current_location = sender_staff
             except Exception:
                 pass
-            file_obj.save()
+            # Back with the sender at rest — no longer in transit.
+            file_obj.status = "active"
+            file_obj.save(update_fields=["current_location", "status"])
 
 
 class ApprovalStep(models.Model):
