@@ -34,9 +34,13 @@
             </div>
             <!-- Documents under this Folder -->
             <div class="p-0">
-                {% if user.staff.is_registry %}
+                {% if not can_view_staff_docs %}
                     <div class="px-8 py-6 text-center">
                         <span class="text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">Document contents restricted — Registry may not view document details per policy.</span>
+                    </div>
+                {% elif folder.owner_id == user.staff.id and folder.file_type == "personal" and not can_view_own_docs %}
+                    <div class="px-8 py-6 text-center">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Personnel file contents are restricted — contact your Unit Head / HOD for access.</span>
                     </div>
                 {% else %}
                     <table class="w-full text-left text-sm">
@@ -56,7 +60,7 @@
                                             <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                             </svg>
-                                            {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md %}
+                                            {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
                                             <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="font-bold text-slate-700 text-sm hover:text-nigeria-green hover:underline transition-colors">
                                                 {% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}
                                             </a>
@@ -72,7 +76,7 @@
                                         <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
                                     </td>
                                     <td class="px-8 py-5 text-right">
-                                        {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md %}
+                                        {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
                                             {% if doc.attachment %}
                                                 <a href="{% url 'document_management:document_download' doc.pk %}" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
                                             {% else %}

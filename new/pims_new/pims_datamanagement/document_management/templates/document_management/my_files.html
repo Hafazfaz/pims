@@ -9,39 +9,73 @@
 {% endblock %}
 {% block content %}
     <div class="space-y-8">
-        <!-- Header Section -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-[0.03]">
-                <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
-                </svg>
-            </div>
-            <div class="relative">
-                <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em] text-gov-green mb-1">
-                    {% if user.staff.is_registry %}
-                        Folder Distribution
-                    {% else %}
+        {% if not can_view_own_docs %}
+            <!-- Lower-staff hub: personnel identity + quick links + pending files.
+                 Staff never see their own document contents here. -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-[0.03]">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                    </svg>
+                </div>
+                <div class="relative">
+                    <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em] text-gov-green mb-1">
                         My Records
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest italic pr-2 border-r border-slate-200">Personnel Identity</span>
+                        <span class="text-xl font-black text-nigeria-green tracking-tighter">{{ staff_file_number }}</span>
+                    </div>
+                    {% if personal_file %}
+                        <p class="text-xs text-slate-400 font-medium mt-2">
+                            {{ personal_file.title }} &bull; {{ personal_file.get_status_display }} &bull; With {{ personal_file.current_location_display }}
+                        </p>
                     {% endif %}
-                </h2>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest italic pr-2 border-r border-slate-200">Personnel Identity</span>
-                    <span class="text-xl font-black text-nigeria-green tracking-tighter">{{ staff_file_number }}</span>
+                </div>
+                <div class="flex items-center gap-3 relative">
+                    {% if personal_file %}
+                        <a href="{% url 'document_management:file_detail' pk=personal_file.pk %}?tab=chronicle"
+                           class="inline-flex items-center px-5 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-nigeria-green transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
+                                </path>
+                            </svg>
+                            View My History
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'document_management:inbox' %}"
+                       class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4">
+                            </path>
+                        </svg>
+                        Inbox
+                    </a>
+                    <a href="{% url 'document_management:my_chains' %}"
+                       class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1">
+                            </path>
+                        </svg>
+                        My Approvals
+                    </a>
                 </div>
             </div>
-            <div class="flex items-center gap-4 relative">
-                <!-- Search Bar -->
-                <form method="GET" class="relative group min-w-[300px]" hx-boost="true">
+            <!-- Pending Files (only files still in transit show here) -->
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Pending Files</h3>
+                {% if owned_folders %}
+                <form method="GET" class="relative group min-w-[260px]" hx-boost="true">
                     <input type="text"
                            name="q"
                            value="{{ selected_search_query }}"
-                           placeholder="Search your records..."
+                           placeholder="Search pending files..."
                            hx-get="{% url 'document_management:my_files' %}"
                            hx-trigger="keyup changed delay:10ms, q"
                            hx-target="#my-files-list"
                            hx-indicator="#search-indicator"
                            hx-push-url="true"
-                           class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-inner">
+                           class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-sm">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors"
                              fill="none"
@@ -51,7 +85,6 @@
                             </path>
                         </svg>
                     </div>
-                    <!-- Search Indicator -->
                     <div id="search-indicator"
                          class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
                         <svg class="animate-spin h-5 w-5 text-nigeria-green"
@@ -63,9 +96,100 @@
                         </svg>
                     </div>
                 </form>
+                {% endif %}
             </div>
-        </div>
-        <!-- Personnel Folders & Documents -->
-        {% include 'document_management/partials/_my_files_list.html' %}
+            {% if owned_folders %}
+                {% include 'document_management/partials/_my_files_list.html' %}
+            {% else %}
+                <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl py-20 text-center">
+                    <div class="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm border border-slate-100">
+                        <svg class="w-8 h-8 text-nigeria-green"
+                             fill="none"
+                             stroke="currentColor"
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h5 class="text-sm font-black text-slate-500 uppercase tracking-[0.3em] italic mb-2">
+                        You're All Caught Up
+                    </h5>
+                    <p class="text-xs text-slate-400 font-medium italic mb-6">
+                        No pending files need your attention right now.
+                    </p>
+                    <div class="flex items-center justify-center gap-3">
+                        <a href="{% url 'document_management:inbox' %}"
+                           class="inline-flex items-center px-5 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-nigeria-green transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
+                            Go to Inbox
+                        </a>
+                        {% if personal_file %}
+                            <a href="{% url 'document_management:file_detail' pk=personal_file.pk %}?tab=chronicle"
+                               class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
+                                View My History
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <!-- Header Section -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-[0.03]">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                    </svg>
+                </div>
+                <div class="relative">
+                    <h2 class="text-3xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em] text-gov-green mb-1">
+                        {% if user.staff.is_registry %}
+                            Folder Distribution
+                        {% else %}
+                            My Records
+                        {% endif %}
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest italic pr-2 border-r border-slate-200">Personnel Identity</span>
+                        <span class="text-xl font-black text-nigeria-green tracking-tighter">{{ staff_file_number }}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 relative">
+                    <!-- Search Bar -->
+                    <form method="GET" class="relative group min-w-[300px]" hx-boost="true">
+                        <input type="text"
+                               name="q"
+                               value="{{ selected_search_query }}"
+                               placeholder="Search your records..."
+                               hx-get="{% url 'document_management:my_files' %}"
+                               hx-trigger="keyup changed delay:10ms, q"
+                               hx-target="#my-files-list"
+                               hx-indicator="#search-indicator"
+                               hx-push-url="true"
+                               class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all shadow-inner">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-slate-400 group-focus-within:text-nigeria-green transition-colors"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z">
+                                </path>
+                            </svg>
+                        </div>
+                        <!-- Search Indicator -->
+                        <div id="search-indicator"
+                             class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <svg class="animate-spin h-5 w-5 text-nigeria-green"
+                                 fill="none"
+                                 viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <!-- Personnel Folders & Documents -->
+            {% include 'document_management/partials/_my_files_list.html' %}
+        {% endif %}
     </div>
 {% endblock %}
