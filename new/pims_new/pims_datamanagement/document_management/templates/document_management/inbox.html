@@ -50,6 +50,26 @@
 
   {% if current_mode == 'inbox' %}
     <!-- INBOX MODE -->
+    <nav class="flex gap-1 bg-white rounded-xl shadow-sm border border-slate-200 p-1 w-fit" aria-label="Inbox tabs">
+      <a href="{% url 'document_management:inbox' %}?tab=untreated"
+         class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors
+                {% if current_tab == 'untreated' %}bg-slate-900 text-white{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-50{% endif %}">
+        Untreated
+        <span class="ml-2 px-2 py-0.5 text-[9px] font-bold rounded-full
+             {% if current_tab == 'untreated' %}bg-white/20 text-white{% else %}bg-amber-50 text-amber-600{% endif %}">
+          {{ untreated_count }}
+        </span>
+      </a>
+      <a href="{% url 'document_management:inbox' %}?tab=treated"
+         class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors
+                {% if current_tab == 'treated' %}bg-slate-900 text-white{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-50{% endif %}">
+        Treated
+        <span class="ml-2 px-2 py-0.5 text-[9px] font-bold rounded-full
+             {% if current_tab == 'treated' %}bg-white/20 text-white{% else %}bg-green-50 text-green-600{% endif %}">
+          {{ treated_count }}
+        </span>
+      </a>
+    </nav>
     <section class="space-y-4">
       {% if movements %}
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -151,10 +171,19 @@
       </div>
       {% else %}
       <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-24 text-center">
-        <svg class="w-16 h-16 text-slate-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-16 h-16 {% if current_tab == 'treated' %}text-green-200{% else %}text-slate-200{% endif %} mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {% if current_tab == 'treated' %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          {% else %}
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          {% endif %}
         </svg>
+        {% if current_tab == 'treated' %}
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">Nothing treated yet.</p>
+        <p class="text-[11px] text-slate-400 font-medium italic mt-2">Approved, rejected, and forwarded items will appear here.</p>
+        {% else %}
         <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">No documents in your inbox.</p>
+        {% endif %}
       </div>
       {% endif %}
     </section>

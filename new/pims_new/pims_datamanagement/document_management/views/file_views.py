@@ -1590,7 +1590,10 @@ def _get_allowed_forward_pks(staff):
 
 
 class InboxView(HTMXLoginRequiredMixin, ListView):
-    """Shows all pending FileMovements sent to the current staff member.
+    """Shows FileMovements sent to the current staff member, split into tabs.
+
+    Untreated (default): still pending — needs review, approval, or forwarding.
+    Treated: already approved, rejected, or forwarded by the user.
     Supports 'urgent' mode to show urgent/high priority documents needing attention.
     """
 
@@ -1598,6 +1601,8 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
     template_name = "document_management/inbox.html"
     context_object_name = "movements"
     paginate_by = 15
+
+    TREATED_STATUSES = ["approved", "rejected", "forwarded"]
 
     def get_queryset(self):
         staff = getattr(self.request.user, "staff", None)
@@ -1634,12 +1639,19 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
             # We'll handle this in the template with a different context variable
             return FileMovement.objects.none()
 
-        # Default inbox: movements sent to this user
-        return (
+        # Default inbox: movements sent to this user, split by treated tab.
+        qs = (
             FileMovement.objects.filter(sent_to=staff, action="sent")
             .select_related("file", "document", "sent_by", "from_location__user")
             .order_by("-moved_at")
         )
+        if self.get_current_tab() == "treated":
+            return qs.filter(status__in=self.TREATED_STATUSES)
+        return qs.filter(status="pending")
+
+    def get_current_tab(self):
+        tab = self.request.GET.get("tab", "untreated")
+        return tab if tab in ("untreated", "treated") else "untreated"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1647,6 +1659,16 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         context["can_approve"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
         context["is_hod_or_supervisor"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
         context["current_mode"] = self.request.GET.get("mode", "inbox")
+        context["current_tab"] = self.get_current_tab()
+        if staff:
+            base = FileMovement.objects.filter(sent_to=staff, action="sent")
+            context["untreated_count"] = base.filter(status="pending").count()
+            context["treated_count"] = base.filter(status__in=self.TREATED_STATUSES).count()
+        else:
+            context["untreated_count"] = 0
+            context["treated_count"] = 0
+        # Keeps ?tab= / ?mode= across pagination links.
+        context["pagination_extra"] = f"&tab={context['current_tab']}&mode={context['current_mode']}"
 
         # For unit managers: pre-fill their HOD as the only forward recipient
         prefilled_recipient = None
