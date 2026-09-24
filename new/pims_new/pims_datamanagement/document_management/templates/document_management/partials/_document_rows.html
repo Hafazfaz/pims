@@ -32,9 +32,11 @@
         </td>
         <td class="px-8 py-5 text-right">
             {% if user.staff.is_hod or user.staff.is_effective_supervisor or user.staff.is_executive or user.staff.is_md %}
-                {% if doc.attachment %}
+                {% if doc.has_files %}
+                    <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}"
+                       class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest mr-3">View</a>
                     <a href="{% url 'document_management:document_download' doc.pk %}"
-                       class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download</a>
+                       class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download{% if doc.attachment_count > 1 %} ({{ doc.attachment_count }}){% endif %}</a>
                 {% else %}
                     <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
                 {% endif %}

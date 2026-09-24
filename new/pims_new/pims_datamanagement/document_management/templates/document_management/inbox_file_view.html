@@ -101,7 +101,7 @@
                                class="px-3 py-1.5 bg-nigeria-green text-white rounded-lg text-[10px] font-bold hover:bg-green-700 transition-all">
                                 View
                             </a>
-                            {% if doc.attachment %}
+                            {% if doc.has_files %}
                             <a href="{% url 'document_management:document_download' doc.pk %}"
                                class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all">
                                 ↓
@@ -131,7 +131,7 @@
                         <p class="text-sm font-semibold text-slate-800">{{ doc.title|default:"Untitled" }}</p>
                         <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_at|date:"M d, Y" }}</p>
                         <div class="flex gap-2 mt-2">
-                            {% if doc.attachment %}
+                            {% if doc.has_files %}
                             <a href="{% url 'document_management:document_download' doc.pk %}"
                                class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all">
                                 Download

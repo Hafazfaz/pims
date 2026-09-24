@@ -19,6 +19,8 @@ from .approval_views import (  # noqa: F401
 )
 from .base import HTMXLoginRequiredMixin  # noqa: F401
 from .document_views import (  # noqa: F401
+    AttachmentDownloadView,
+    AttachmentViewerView,
     DocumentCreateView,
     DocumentDeleteView,
     DocumentDetailView,

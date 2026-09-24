@@ -8,6 +8,22 @@ from django.db import models
 from organization.models import Department, Division, Section, Staff, Unit
 
 
+def _apply_pdf_watermark(field_file):
+    """Stamp the PIMS watermark onto a PDF FieldFile in place (no save)."""
+    import io
+
+    if not field_file or not field_file.name.lower().endswith(".pdf"):
+        return
+    if not settings.ENABLE_DOCUMENT_WATERMARKING:
+        return
+    original_pdf_content = field_file.read()
+    watermarked_pdf_content = watermark_pdf_file(
+        io.BytesIO(original_pdf_content), watermark_text=settings.DOCUMENT_WATERMARK_TEXT
+    )
+    filename = Path(field_file.name).name
+    field_file.save(filename, ContentFile(watermarked_pdf_content.getvalue()), save=False)
+
+
 class File(models.Model):
     """
     Represents a File, which is a container for documents, minutes, and actions.
@@ -313,23 +329,8 @@ class Document(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if self.attachment and settings.ENABLE_DOCUMENT_WATERMARKING and self.attachment.name.lower().endswith(".pdf"):
-            import io
-
-            # Read the original PDF content
-            original_pdf_content = self.attachment.read()
-            original_pdf_file = io.BytesIO(original_pdf_content)
-
-            # Watermark the PDF
-            watermarked_pdf_content = watermark_pdf_file(
-                original_pdf_file, watermark_text=settings.DOCUMENT_WATERMARK_TEXT
-            )
-
-            # Create a new ContentFile from the watermarked content
-            # And replace the attachment with the watermarked version
-            filename = Path(self.attachment.name).name
-            self.attachment.save(filename, ContentFile(watermarked_pdf_content.getvalue()), save=False)
-
+        if self.attachment:
+            _apply_pdf_watermark(self.attachment)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -338,6 +339,51 @@ class Document(models.Model):
         elif self.attachment:
             return f"Attachment for {self.file.title} at {self.uploaded_at.strftime('%Y-%m-%d')}"
         return f"Empty document entry for {self.file.title}"
+
+    @property
+    def has_files(self):
+        """True if the document carries any file (legacy or extra attachments)."""
+        return bool(self.attachment) or self.extra_attachments.exists()
+
+    @property
+    def attachment_count(self):
+        """Total number of files on this document (legacy + extras)."""
+        return (1 if self.attachment else 0) + self.extra_attachments.count()
+
+    @property
+    def attachment_filename(self):
+        """Basename of the legacy attachment file."""
+        return Path(self.attachment.name).name if self.attachment else ""
+
+
+class DocumentAttachment(models.Model):
+    """An additional file on a Document — one document can carry many files.
+
+    The first upload still lives on ``Document.attachment`` (back-compat);
+    every further file from a multi-select upload lands here.
+    """
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="extra_attachments")
+    file = models.FileField(upload_to="document_attachments/")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="uploaded_attachments"
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at"]
+
+    def __str__(self):
+        return f"Attachment {Path(self.file.name).name} on {self.document}"
+
+    @property
+    def filename(self):
+        return Path(self.file.name).name
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            _apply_pdf_watermark(self.file)
+        super().save(*args, **kwargs)
 
 
 class DocumentSignature(models.Model):

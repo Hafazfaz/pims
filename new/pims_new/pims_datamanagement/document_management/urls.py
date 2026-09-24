@@ -55,6 +55,16 @@ urlpatterns = [
     path("staff-search/", views.StaffSearchView.as_view(), name="staff_search"),
     path("units-for-department/", views.UnitsForDepartmentView.as_view(), name="units_for_department"),
     path("document/<int:pk>/download/", views.DocumentDownloadView.as_view(), name="document_download"),
+    path(
+        "attachment/<int:att_pk>/download/",
+        views.AttachmentDownloadView.as_view(),
+        name="attachment_download",
+    ),
+    path(
+        "document/<int:doc_pk>/attachment/<str:att_key>/view/",
+        views.AttachmentViewerView.as_view(),
+        name="attachment_view",
+    ),
     path("document/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
     path("document/<int:pk>/share/", views.DocumentShareView.as_view(), name="document_share"),
     path("document/<int:pk>/share-email/", views.DocumentShareEmailView.as_view(), name="document_share_email"),

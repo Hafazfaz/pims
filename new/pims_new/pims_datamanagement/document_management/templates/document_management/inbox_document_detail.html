@@ -120,7 +120,7 @@
                 <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"Unknown" }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                {% if doc.attachment %}
+                {% if doc.has_files %}
                 <a href="{% url 'document_management:document_download' doc.pk %}"
                    class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">
                   Download

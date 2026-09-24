@@ -181,6 +181,25 @@ class FileForm(forms.ModelForm):
         return cleaned_data
 
 
+class MultipleFileInput(forms.FileInput):
+    """File input rendering with the HTML ``multiple`` attribute."""
+
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """FileField accepting a multi-select upload; validates the first file.
+
+    The full selection stays available via ``form.files.getlist(name)`` so
+    views can persist the remaining files as extra attachments.
+    """
+
+    def clean(self, data, initial=None):
+        if isinstance(data, (list, tuple)):
+            data = data[0] if data else None
+        return super().clean(data, initial)
+
+
 class DocumentForm(forms.ModelForm):
     send_to = forms.ModelChoiceField(
         queryset=Staff.objects.all(),
@@ -195,6 +214,11 @@ class DocumentForm(forms.ModelForm):
         label="Document Type",
         empty_label="— Select type —",
         widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    attachment = MultipleFileField(
+        required=False,
+        label="Upload Attachment(s) — you may select multiple files",
+        widget=MultipleFileInput(attrs={"class": "form-control"}),
     )
 
     class Meta:
@@ -215,14 +239,11 @@ class DocumentForm(forms.ModelForm):
                     "placeholder": "Enter minute content...",
                 }
             ),
-            "attachment": forms.FileInput(attrs={"class": "form-control"}),
         }
         labels = {
             "title": "Subject",
             "minute_content": "Minute Content",
-            "attachment": "Upload Attachment",
         }
-
     include_signature = forms.BooleanField(
         required=False,
         label="Attach Digital Signature",
@@ -347,6 +368,11 @@ class DocumentUploadForm(forms.ModelForm):
         label="Attach Digital Signature",
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+    attachment = MultipleFileField(
+        required=False,
+        label="Upload Document(s) — you may select multiple files",
+        widget=MultipleFileInput(attrs={"class": "form-control"}),
+    )
 
     class Meta:
         model = Document
@@ -358,11 +384,9 @@ class DocumentUploadForm(forms.ModelForm):
                     "placeholder": "e.g., MSc Degree Certificate, Appraisal Form, etc.",
                 }
             ),
-            "attachment": forms.FileInput(attrs={"class": "form-control"}),
         }
         labels = {
             "title": "Document Title/Label",
-            "attachment": "Upload Document",
         }
 
     def __init__(self, *args, **kwargs):

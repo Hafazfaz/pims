@@ -4,7 +4,7 @@ from audit_log.utils import log_action
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, View
@@ -82,6 +82,14 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
         if file_obj is not None and (user.is_superuser or is_registry):
             document.status = "approved"
         document.save()
+        # Multi-file upload: first file lives on the document, the rest land
+        # on DocumentAttachment rows.
+        _save_extra_uploads(
+            document,
+            form.files.getlist("attachment"),
+            skip=form.cleaned_data.get("attachment"),
+            uploaded_by=user,
+        )
         messages.success(self.request, "Document uploaded successfully.")
         return redirect(self.get_success_url())
 
@@ -599,7 +607,7 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
             return redirect(original.file.get_absolute_url())
         title = request.POST.get("title", original.title)
         minute_content = request.POST.get("minute_content", "").strip()
-        attachment = request.FILES.get("attachment")
+        uploads = request.FILES.getlist("attachment")
 
         # New version chains off the original via parent.
         # Registry versions are official records: auto-approved. Other
@@ -619,12 +627,123 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
             parent=original,
             status=new_status,
         )
-        if attachment:
-            new_doc.attachment = attachment
+        if uploads:
+            new_doc.attachment = uploads[0]
             new_doc.save()
+            _save_extra_uploads(new_doc, uploads[1:], uploaded_by=request.user)
 
         messages.success(request, "New version created.")
         return redirect("document_management:document_detail", pk=original.pk)
+
+
+def can_download_document_file(user, document):
+    """Full protection gate for viewing/downloading a document's files.
+
+    Layer 1 (content ACL): HODs, supervisors, executives, MD/Mayor always pass;
+    registry NEVER passes; lower staff pass only via custody, approved request,
+    active movement, or direct share — and never for their OWN personal file.
+    Layer 2 (scope): privileged viewer must also be owner/custodian, hold an
+    approved request/share, or sit in the file's jurisdiction.
+    """
+    from ..permissions import can_view_document_content
+
+    file_obj = document.file
+    if file_obj is None:
+        return user.is_superuser or document.uploaded_by == user
+    if not can_view_document_content(user, file=file_obj):
+        return False
+
+    allowed = False
+    staff = getattr(user, "staff", None)
+
+    # Unit-head scoped download: same unit as the file owner (safe reverse-O2O).
+    try:
+        _headed_unit = staff.headed_unit if staff else None
+    except Exception:
+        _headed_unit = None
+    unit_scoped = bool(
+        staff
+        and staff.is_effective_supervisor
+        and file_obj.file_type == "personal"
+        and file_obj.owner
+        and _headed_unit
+        and file_obj.owner.unit_id == _headed_unit.pk
+    )
+
+    if user.is_superuser or (
+        staff
+        and (
+            staff.is_hod
+            or staff.is_effective_supervisor
+            or staff.is_executive
+            or staff.is_md
+            or getattr(staff, "is_mayor", False)
+        )
+        and (
+            staff == file_obj.owner
+            or staff == file_obj.current_location
+            or getattr(staff, "is_mayor", False)
+            or staff.is_executive
+            or staff.is_md
+            or (staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department)
+            or (
+                staff.is_effective_supervisor
+                and file_obj.file_type == "personal"
+                and file_obj.owner
+                and staff.department_id
+                and file_obj.owner.department_id == staff.department_id
+            )
+            or unit_scoped
+        )
+    ):
+        allowed = True
+
+    if (
+        not allowed
+        and document.uploaded_by == user
+        and staff
+        and (
+            staff.is_hod
+            or staff.is_effective_supervisor
+            or staff.is_executive
+            or staff.is_md
+            or getattr(staff, "is_mayor", False)
+        )
+    ):
+        allowed = True
+
+    if not allowed:
+        allowed = (
+            FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
+            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+            .exists()
+        )
+
+    if not allowed:
+        allowed = document.shared_with.filter(pk=user.pk).exists()
+
+    return allowed
+
+
+def _serve_field_file(field_file, inline):
+    """Stream a FileField with inline-view or download disposition."""
+    import mimetypes
+    from pathlib import Path
+
+    from django.http import FileResponse
+
+    file_path = field_file.path
+    if not Path(file_path).exists():
+        return None
+    mime_type, _ = mimetypes.guess_type(file_path)
+    filename = field_file.name.split("/")[-1]
+    disposition = "inline" if inline else f'attachment; filename="{filename}"'
+    f = Path(file_path).open("rb")  # noqa: SIM115  # FileResponse manages closure
+    response = FileResponse(f, content_type=mime_type or "application/octet-stream")
+    response["Content-Disposition"] = disposition
+    if inline:
+        response["X-Frame-Options"] = "SAMEORIGIN"
+    return response
 
 
 class DocumentDownloadView(LoginRequiredMixin, View):
@@ -638,111 +757,122 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         file_obj = document.file
         user = request.user
 
-        # Enforce content access restriction (with file context for owner/custodian grants)
-        from ..permissions import can_view_document_content
-
-        if not can_view_document_content(user, file=file_obj):
+        if not can_download_document_file(user, document):
             messages.error(request, "You do not have permission to download this document.")
-            return redirect(file_obj.get_absolute_url())
-
-        # Check permission
-        allowed = False
-        staff = getattr(user, "staff", None)
-
-        # Unit-head scoped download: same unit as the file owner (safe reverse-O2O).
-        try:
-            _headed_unit = staff.headed_unit if staff else None
-        except Exception:
-            _headed_unit = None
-        unit_scoped = bool(
-            staff
-            and staff.is_effective_supervisor
-            and file_obj.file_type == "personal"
-            and file_obj.owner
-            and _headed_unit
-            and file_obj.owner.unit_id == _headed_unit.pk
-        )
-
-        if user.is_superuser or (
-            staff
-            and (
-                staff.is_hod
-                or staff.is_effective_supervisor
-                or staff.is_executive
-                or staff.is_md
-                or getattr(staff, "is_mayor", False)
-            )
-            and (
-                staff == file_obj.owner
-                or staff == file_obj.current_location
-                or getattr(staff, "is_mayor", False)
-                or staff.is_executive
-                or staff.is_md
-                or (staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department)
-                or (
-                    staff.is_effective_supervisor
-                    and file_obj.file_type == "personal"
-                    and file_obj.owner
-                    and staff.department_id
-                    and file_obj.owner.department_id == staff.department_id
-                )
-                or unit_scoped
-            )
-        ):
-            allowed = True
-
-        if (
-            not allowed
-            and document.uploaded_by == user
-            and staff
-            and (
-                staff.is_hod
-                or staff.is_effective_supervisor
-                or staff.is_executive
-                or staff.is_md
-                or getattr(staff, "is_mayor", False)
-            )
-        ):
-            allowed = True
-
-        if not allowed:
-            allowed = (
-                FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
-                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-                .exists()
-            )
-
-        if not allowed:
-            allowed = document.shared_with.filter(pk=user.pk).exists()
-
-        if not allowed:
-            messages.error(request, "You do not have permission to download this document.")
-            return redirect(file_obj.get_absolute_url())
-
-        import mimetypes
-        from pathlib import Path
-
-        from django.http import FileResponse
+            return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
 
         if not document.attachment:
+            # Legacy slot empty but extras may exist — point at the first file.
+            first_extra = document.extra_attachments.first()
+            if first_extra:
+                return redirect("document_management:attachment_download", att_pk=first_extra.pk)
             messages.error(request, "This document has no attachment.")
             return redirect(file_obj.get_absolute_url())
 
-        file_path = document.attachment.path
-        if not Path(file_path).exists():
+        inline = request.GET.get("inline") == "1"
+        response = _serve_field_file(document.attachment, inline=inline)
+        if response is None:
             messages.error(request, "Attachment file not found on server.")
             return redirect(file_obj.get_absolute_url())
-
-        mime_type, _ = mimetypes.guess_type(file_path)
-        inline = request.GET.get("inline") == "1"
-        disposition = "inline" if inline else f'attachment; filename="{document.attachment.name.split("/")[-1]}"'
-        f = Path(file_path).open("rb")  # noqa: SIM115  # FileResponse manages closure
-        response = FileResponse(f, content_type=mime_type or "application/octet-stream")
-        response["Content-Disposition"] = disposition
-        if inline:
-            response["X-Frame-Options"] = "SAMEORIGIN"
         log_action(user, "DOCUMENT_DOWNLOADED", request=request, obj=document)
         return response
+
+
+def _save_extra_uploads(document, uploads, skip=None, uploaded_by=None):
+    """Persist every file from a multi-select upload beyond the primary one."""
+    from ..models import DocumentAttachment
+
+    saved = 0
+    for f in uploads:
+        if skip is not None and f is skip:
+            continue
+        DocumentAttachment.objects.create(document=document, file=f, uploaded_by=uploaded_by)
+        saved += 1
+    return saved
+
+
+class AttachmentDownloadView(LoginRequiredMixin, View):
+    """Serve one extra attachment of a document — same protection as downloads."""
+
+    def get(self, request, att_pk):
+        from ..models import DocumentAttachment
+
+        attachment = get_object_or_404(DocumentAttachment, pk=att_pk)
+        document = attachment.document
+        file_obj = document.file
+
+        if not can_download_document_file(request.user, document):
+            messages.error(request, "You do not have permission to download this document.")
+            return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
+
+        inline = request.GET.get("inline") == "1"
+        response = _serve_field_file(attachment.file, inline=inline)
+        if response is None:
+            messages.error(request, "Attachment file not found on server.")
+            return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
+        log_action(request.user, "DOCUMENT_DOWNLOADED", request=request, obj=document)
+        return response
+
+
+class AttachmentViewerView(HTMXLoginRequiredMixin, View):
+    """In-browser viewer for one file on a document (PDF/image preview).
+
+    ``att_key`` is ``main`` for the legacy slot or a DocumentAttachment pk.
+    Same protection gate as downloads — anyone blocked there is blocked here.
+    """
+
+    def get(self, request, doc_pk, att_key):
+        from ..models import DocumentAttachment
+
+        document = get_object_or_404(Document, pk=doc_pk)
+        file_obj = document.file
+
+        if not can_download_document_file(request.user, document):
+            messages.error(request, "You do not have permission to view this document.")
+            if file_obj:
+                return redirect(file_obj.get_absolute_url())
+            return redirect("document_management:my_files")
+
+        if att_key == "main":
+            if not document.attachment:
+                first_extra = document.extra_attachments.first()
+                if first_extra:
+                    return redirect(
+                        "document_management:attachment_view", att_pk=first_extra.pk
+                    )
+                messages.error(request, "This document has no attachment.")
+                return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
+            field_file = document.attachment
+            download_url = reverse_lazy("document_management:document_download", kwargs={"pk": document.pk})
+        else:
+            attachment = get_object_or_404(DocumentAttachment, pk=att_key, document=document)
+            field_file = attachment.file
+            download_url = reverse_lazy("document_management:attachment_download", kwargs={"att_pk": attachment.pk})
+
+        import mimetypes
+
+        filename = field_file.name.split("/")[-1]
+        mime_type, _ = mimetypes.guess_type(filename)
+        kind = "other"
+        if (mime_type or "").startswith("image/"):
+            kind = "image"
+        elif (mime_type or "") == "application/pdf" or filename.lower().endswith(".pdf"):
+            kind = "pdf"
+
+        return render(
+            request,
+            "document_management/attachment_view.html",
+            {
+                "document": document,
+                "file": file_obj,
+                "filename": filename,
+                "mime_type": mime_type,
+                "kind": kind,
+                "download_url": download_url,
+                "inline_url": f"{download_url}?inline=1",
+                "att_key": att_key,
+            },
+        )
 
 
 class DocumentCreateView(LoginRequiredMixin, CreateView):
@@ -854,6 +984,15 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
         response = super().form_valid(form)
         document = self.object
+
+        # Multi-file upload: first file lives on the document, the rest land
+        # on DocumentAttachment rows.
+        _save_extra_uploads(
+            document,
+            form.files.getlist("attachment"),
+            skip=form.cleaned_data.get("attachment"),
+            uploaded_by=self.request.user,
+        )
 
         if form.cleaned_data.get("include_signature"):
             try:
