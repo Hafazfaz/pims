@@ -39,13 +39,35 @@ def new_context(browser):
     return browser.new_context(viewport=VIEWPORT, device_scale_factor=SCALE)
 
 
+class CaptureError(RuntimeError):
+    """Raised when a page could not be captured as intended."""
+
+
 def login(context, username):
+    """Log in and fail loudly if we do not actually end up authenticated.
+
+    Without this guard a locked-out or password-expired account silently
+    produces screenshots of the login page.
+    """
     page = context.new_page()
     page.goto(f"{BASE}/accounts/login/")
     page.fill("input[name=username]", username)
     page.fill("input[name=password]", PW)
     page.click("button[type=submit]")
     page.wait_for_load_state("networkidle")
+
+    url = page.url
+    if "/accounts/login" in url:
+        raise CaptureError(
+            f"login failed for {username!r} (still on login page). "
+            "Account may be locked out or the password may have changed — "
+            "reset it before capturing."
+        )
+    if "/password/change/force" in url:
+        raise CaptureError(
+            f"{username!r} is forced to change password; clear "
+            "must_change_password before capturing."
+        )
     return page
 
 
@@ -54,9 +76,15 @@ def shot(page, path, slug, max_h=MAX_H, selector=None, scroll=0):
 
     Tall pages are intentionally cropped to the visible viewport — that is the
     part a user sees first. Pass ``scroll`` to capture further down the page.
+    Refuses to save a screenshot that redirected to login / password change.
     """
     page.goto(f"{BASE}{path}")
     page.wait_for_load_state("networkidle")
+
+    url = page.url
+    if "/accounts/login" in url or "/password/change/force" in url:
+        raise CaptureError(f"{slug}: {path} redirected to {url} — not captured.")
+
     if scroll:
         page.mouse.wheel(0, scroll)
         page.wait_for_timeout(400)

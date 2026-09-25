@@ -323,6 +323,8 @@ def ch_staff():
             "The panel changes to <b>Access Pending</b>. Registry reviews it under <b>Tools → Access Requests</b>.",
             "Once approved the panel turns green and shows your grant type. A read &amp; write grant lets you add documents; a read-only grant is for viewing (your own file contents still remain hidden — the grant is for administrative actions).",
         ]),
+        *screenshot_slot("supervisor-view", "Administrative Controls panel — Identity Locked with the "
+                                           "Request Access from Registry button, shown when a file is at rest with Registry"),
         warning("You can only submit an access request while the file is <b>at rest with Registry</b>. "
                 "If it is with another custodian the panel reads <b>File In Transit — Requests Disabled</b>; "
                 "wait for it to return to Registry."),
@@ -387,17 +389,20 @@ def ch_hod():
 def ch_mid_heads():
     return [
         h1("6. Section / division heads and supervisors"),
-        *screenshot_slot("supervisor-view", "Supervisor viewing a personal file — Registry custody notice + Add Document"),
+        *screenshot_slot("supervisor-view", "A head opening a departmental personal file that is at rest with Registry — "
+                                           "administrative controls show Identity Locked with Request Access from Registry"),
         bullets([
             "You can open and read personal files of every staff member in your section, division, or department.",
             "<b>My Files</b> includes those subordinate files alongside your own.",
-            "Downloads and the attachment viewer work for you exactly as described in Chapter 10.",
+            "Downloads and the attachment viewer work for you exactly as described in Chapter 11.",
             "Your own personal file follows the hidden-from-self rule: you can add documents but not read existing contents.",
             "Dispatch and approval work exactly as described for HODs in Chapter 5.",
         ]),
-        note("The file pictured shows Registry as custodian with the yellow notice — this is the "
-             "'Administrative Access Only — Contents Hidden' banner that Registry sees. "
-             "As a supervisor you would see your own access state in that panel."),
+        note("Reading a file and holding <b>administrative</b> rights over it are separate things. "
+             "In the screenshot above the head can open the file and read its Chronicle, but the "
+             "<b>Administrative Controls</b> panel reads <b>Identity Locked</b> because no access grant is "
+             "held — the file is at rest with Registry. Clicking <b>Request Access from Registry</b> asks "
+             "for custody so that documents can be added."),
     ]
 
 
