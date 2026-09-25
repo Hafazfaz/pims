@@ -31,7 +31,7 @@ from reportlab.platypus.tableofcontents import TableOfContents
 BASE_DIR = Path(__file__).resolve().parent
 OUT_DEFAULT = BASE_DIR / "PIMS_User_Manual.pdf"
 SCREENSHOT_DIR = BASE_DIR / "screenshots"
-USE_SCREENSHOTS = False  # Phase 4: set True once docs/screenshots/*.png exist
+USE_SCREENSHOTS = True  # Phase 4: real captures in docs/screenshots/*.png
 
 GREEN = colors.HexColor("#008751")
 DARK = colors.HexColor("#1e293b")
@@ -233,8 +233,8 @@ def ch_concepts():
         table(
             ["Role", "Own file contents", "Subordinate files", "All files"],
             [
-                ["Regular staff", "Hidden (can add, cannot view)", "—", "—"],
-                ["Unit manager", "Hidden (can add, cannot view)", "Own unit: no browsing", "—"],
+                ["Regular staff", "Tracking only while in transit (titles + statuses, never contents); can add", "—", "—"],
+                ["Unit manager", "Tracking only while in transit (titles + statuses, never contents); can add", "Own unit: no browsing", "—"],
                 ["HOD / Section / Division head", "Visible", "Same jurisdiction", "—"],
                 ["Executive / MD / Mayor", "Visible", "Visible", "Yes"],
                 ["Registry", "Hidden (custody only)", "File info only, no documents", "Custody view"],
@@ -259,7 +259,7 @@ def ch_staff():
                 "Your <b>Personnel Identity</b> card: file number, title, status, and current custodian.",
                 "<b>View My History</b> — opens your file's limited history page.",
                 "<b>Inbox</b> shortcut for items needing you.",
-                "<b>Pending Files</b> — only files still <b>in transit</b> involving you appear here. Once a file is settled (active), it leaves this list.",
+                "<b>Pending Files</b> — only files still <b>in transit</b> involving you appear here. Your own in-transit file shows a tracking list (titles and statuses, no links); settled files show a restricted notice instead. Once a file is settled (active), it leaves this list.",
                 "If nothing is pending you will see <b>You're All Caught Up</b> instead of a file list.",
             ]
         ),
@@ -269,7 +269,7 @@ def ch_staff():
             [
                 "Open your file (View My History) and click <b>Add Minute / Document</b>.",
                 "Enter a title, choose the document type, type minute content and/or <b>select one or more files</b>.",
-                "Submit. Your upload starts as <b>Pending</b> and is auto-routed to your head for review — you will not see its contents afterwards, but it is safely filed.",
+                "Submit. Your upload starts as <b>Pending</b> and is auto-routed to your head for review — you can track its titles and statuses while it travels, but never open its contents.",
             ]
         ),
         h2("3.3 Inbox: Untreated and Treated"),
