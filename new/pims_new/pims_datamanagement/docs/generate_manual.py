@@ -119,15 +119,28 @@ def warning(body):
     return box("Important", body, bg=AMBER_BG, border=AMBER_BORDER)
 
 
-def screenshot_slot(slug, caption):
-    """Phase 4 hook: real screenshot if available, else a labelled placeholder."""
+CONTENT_W = 17 * cm  # usable width with 2cm margins on A4 (21cm)
+
+
+def screenshot_slot(slug, caption, width=CONTENT_W, max_h=13 * cm):
+    """Embed a real screenshot scaled to fit, preserving aspect ratio."""
     path = SCREENSHOT_DIR / f"{slug}.png"
     if USE_SCREENSHOTS and path.exists():
-        from reportlab.platypus import Image
+        from reportlab.lib.utils import ImageReader
+        from reportlab.platypus import Image, KeepTogether
 
-        return [Image(str(path), width=16 * cm, height=9 * cm, kind="proportional"), Paragraph(caption, styles["Caption"])]
+        iw, ih = ImageReader(str(path)).getSize()
+        w = width
+        h = w * ih / iw
+        if h > max_h:  # very tall capture: bound by height instead
+            h = max_h
+            w = h * iw / ih
+        img = Image(str(path), width=w, height=h)
+        img.hAlign = "CENTER"
+        cap = Paragraph(caption, styles["Caption"])
+        return [Spacer(1, 3 * mm), KeepTogether([img, Spacer(1, 1.5 * mm), cap]), Spacer(1, 4 * mm)]
     inner = [[Paragraph(f"[Screenshot: {caption}]", styles["Caption"])]]
-    t = Table(inner, colWidths=[16 * cm], rowHeights=[3.2 * cm])
+    t = Table(inner, colWidths=[width], rowHeights=[3.2 * cm])
     t.setStyle(
         TableStyle(
             [
@@ -141,10 +154,15 @@ def screenshot_slot(slug, caption):
     return [t, Spacer(1, 2 * mm)]
 
 
-def table(headers, rows):
+def table(headers, rows, widths=None):
     data = [[Paragraph(f"<b>{h}</b>", styles["CellHead"]) for h in headers]]
     data += [[Paragraph(str(c), styles["Cell"]) for c in row] for row in rows]
-    t = Table(data, colWidths=[16 * cm / len(headers)] * len(headers), repeatRows=1)
+    if widths:
+        total = sum(widths)
+        col_widths = [CONTENT_W * w / total for w in widths]
+    else:
+        col_widths = [CONTENT_W / len(headers)] * len(headers)
+    t = Table(data, colWidths=col_widths, repeatRows=1)
     t.setStyle(
         TableStyle(
             [
@@ -167,37 +185,35 @@ def ch_welcome():
         h1("1. Welcome to PIMS"),
         p(
             "The <b>Personnel Information Management System (PIMS)</b> of the Federal Medical Centre Abuja "
-            "is the digital home of personnel records. Physical folders live with Registry; PIMS tracks every "
-            "folder, every document inside it, and every movement between officers — who holds what, what is "
-            "pending, and what has been approved."
+            "is the digital home of every personnel folder. Physical folders live with Registry; "
+            "PIMS tracks the folder, everything filed inside it, and every hand-off between officers — "
+            "who holds what, what is pending, and what has been decided."
         ),
         h2("1.1 Logging in"),
-        steps(
-            [
-                "Open the application and go to the login page (<b>Accounts &gt; Login</b>).",
-                "Enter your <b>username and password</b>, then submit.",
-                "If this is your first login, you will be asked to <b>change your temporary password</b> before continuing.",
-                "If email verification is enabled, enter the 6-digit code sent to your email.",
-                "You land on your <b>Dashboard</b> (or Home page for regular staff).",
-            ]
-        ),
-        *screenshot_slot("login", "Login page"),
-        h2("1.2 If you get locked out"),
-        p(
-            "Three wrong passwords in a row locks your account for <b>15 minutes</b>. Contact your administrator, "
-            "who can unlock it from <b>Management &gt; Users</b>. Your failed attempts are logged for security."
-        ),
+        *screenshot_slot("login", "Login page — enter your username and password"),
+        steps([
+            "Open the application. You land on the <b>Staff Portal Login</b> page.",
+            "Enter your <b>Username</b> and <b>Password</b> exactly as given by your administrator.",
+            "Click <b>Sign In</b>.",
+            "If this is your first login you will be redirected to <b>Change Password</b> — enter your current temporary password then choose a new one. Your new password is saved and you proceed to the dashboard.",
+            "If your organisation uses email verification, a 6-digit code is sent to your registered address. Enter it on the verification screen (valid 5 minutes).",
+        ]),
+        h2("1.2 Account lockout"),
+        p("Three consecutive wrong passwords lock your account for <b>15 minutes</b>. "
+          "You will see a dedicated lockout page. An administrator can unlock you immediately from "
+          "<b>Management → Users → Unlock</b> without waiting for the timer."),
         h2("1.3 Your profile and digital signature"),
-        steps(
-            [
-                "Click your name (bottom-left) or open <b>Accounts &gt; Profile</b>.",
-                "In the <b>Digital Signature</b> section, upload a clear PNG/JPG of your signature (or draw it).",
-                "Your signature stays <b>Pending</b> until verified; approvals and signing require a verified signature.",
-            ]
-        ),
+        *screenshot_slot("profile", "Profile page — signature section"),
+        steps([
+            "Click your name in the bottom-left of the sidebar, or open <b>Activity → Profile</b>.",
+            "Scroll to <b>Digital Signature</b>.",
+            "Either draw your signature on the canvas pad or upload a clear PNG/JPG image.",
+            "Submit. Your signature is saved as <b>Pending Verification</b>.",
+            "Contact Registry or your administrator to have it verified. Once verified, you can sign minutes and approve documents.",
+        ]),
         warning(
-            "You cannot approve documents, sign minutes, or action inbox items until you have an "
-            "<b>active, verified</b> signature on your profile."
+            "Approvals, signing, and inbox actions all require an <b>active, verified</b> signature. "
+            "Until verification is complete you can read and navigate but cannot take decision actions."
         ),
     ]
 
@@ -205,45 +221,58 @@ def ch_welcome():
 def ch_concepts():
     return [
         h1("2. Core concepts"),
-        h2("2.1 Files, documents, movements"),
-        bullets(
-            [
-                "<b>File (folder):</b> a container with a file number (e.g. FMCAB/2026/PS/0004). <b>Personal</b> files belong to one staff member; <b>policy</b> files belong to a department.",
-                "<b>Document:</b> a minute (typed content) or attachment(s) filed inside a file. One document can carry <b>multiple files</b>.",
-                "<b>Movement (dispatch):</b> a record of a file or document sent from one officer to another. The file has exactly one <b>current custodian</b> at a time.",
-            ]
-        ),
+        h2("2.1 Files, documents, and movements"),
+        bullets([
+            "<b>File (folder):</b> the primary container, identified by a unique file number "
+            "(e.g. FMCAB/2026/PS/0004). A <b>Personal</b> file belongs to one named staff member; "
+            "a <b>Policy</b> file belongs to a department or external party.",
+            "<b>Document:</b> one entry inside a file — either a typed minute or one or more "
+            "uploaded attachments. One document can carry <b>multiple attachment files</b>.",
+            "<b>Movement / dispatch:</b> a digital record of a file or document being sent from "
+            "one officer to another. At any moment a file has exactly one <b>current custodian</b>.",
+        ]),
         h2("2.2 File statuses"),
-        bullets(
+        table(
+            ["Status", "What it means"],
             [
-                "<b>Active</b> — at rest with its custodian; the normal state.",
-                "<b>In Transit</b> — sent and awaiting acknowledgement; still pending work.",
-                "<b>Pending Activation / Inactive / Closed / Archived</b> — Registry-managed lifecycle states.",
-            ]
+                ["Active", "At rest with its custodian — the normal working state."],
+                ["In Transit", "Sent to another officer; awaiting acknowledgement or approval."],
+                ["Pending Activation", "Registry created the file but owner or HOD must formally accept it before it goes active."],
+                ["Inactive", "Created but not yet activated."],
+                ["Closed", "Formally closed by Registry; no further entries."],
+                ["Archived", "Long-term storage; read-only."],
+            ],
+            widths=[3, 7],
         ),
         h2("2.3 Document statuses"),
-        bullets(
-            [
-                "<b>Pending</b> — newly added, awaiting review.",
-                "<b>In Transit</b> — dispatched for review/approval.",
-                "<b>Approved / Rejected / Cancelled</b> — decided by the approver.",
-            ]
-        ),
-        h2("2.4 Who can see what (summary)"),
         table(
-            ["Role", "Own file contents", "Subordinate files", "All files"],
+            ["Status", "What it means"],
             [
-                ["Regular staff", "Tracking only while in transit (titles + statuses, never contents); can add", "—", "—"],
-                ["Unit manager", "Tracking only while in transit (titles + statuses, never contents); can add", "Own unit: no browsing", "—"],
-                ["HOD / Section / Division head", "Visible", "Same jurisdiction", "—"],
+                ["Pending", "Filed; awaiting review or approval."],
+                ["In Transit", "Dispatched to a recipient's inbox."],
+                ["Approved", "Accepted by the approver; signature recorded."],
+                ["Rejected", "Declined; reason stored on the entry."],
+                ["Cancelled", "Withdrawn before a decision."],
+            ],
+            widths=[3, 7],
+        ),
+        h2("2.4 Visibility matrix"),
+        table(
+            ["Role", "Own file contents", "Subordinate files", "Org-wide"],
+            [
+                ["Regular staff", "Tracking only (titles + statuses while in transit, no content links)", "—", "—"],
+                ["Unit manager (head of unit)", "Same as regular staff", "Unit: no document browsing", "—"],
+                ["Section / division head, supervisor", "Visible", "Own section/division/dept", "—"],
+                ["HOD", "Visible", "Entire department", "—"],
                 ["Executive / MD / Mayor", "Visible", "Visible", "Yes"],
-                ["Registry", "Hidden (custody only)", "File info only, no documents", "Custody view"],
+                ["Registry", "Hidden — custody management only", "File metadata only, never document content or titles", "Custody view"],
                 ["Administrator", "Visible", "Visible", "Yes"],
             ],
+            widths=[4, 5, 5, 2],
         ),
         note(
-            "Registry manages custody of every file but can never see document contents — not even titles. "
-            "This separation of duties is enforced everywhere, including search, lists, and downloads."
+            "Registry handles physical custody but must never see document contents — not even titles. "
+            "This separation of duties is enforced at every layer: views, search, downloads, and the viewer."
         ),
     ]
 
@@ -251,286 +280,516 @@ def ch_concepts():
 def ch_staff():
     return [
         h1("3. Regular staff"),
-        p("Staff see a personal hub — not a file browser. You can file new records and track pending work, but the contents of your own personnel file are hidden from you by policy."),
-        h2("3.1 My Records hub"),
-        p("Open <b>My Files</b> in the sidebar to find:"),
-        bullets(
-            [
-                "Your <b>Personnel Identity</b> card: file number, title, status, and current custodian.",
-                "<b>View My History</b> — opens your file's limited history page.",
-                "<b>Inbox</b> shortcut for items needing you.",
-                "<b>Pending Files</b> — only files still <b>in transit</b> involving you appear here. Your own in-transit file shows a tracking list (titles and statuses, no links); settled files show a restricted notice instead. Once a file is settled (active), it leaves this list.",
-                "If nothing is pending you will see <b>You're All Caught Up</b> instead of a file list.",
-            ]
-        ),
-        *screenshot_slot("staff-hub", "My Records hub with Pending Files"),
-        h2("3.2 Adding a document (e.g. a certificate)"),
-        steps(
-            [
-                "Open your file (View My History) and click <b>Add Minute / Document</b>.",
-                "Enter a title, choose the document type, type minute content and/or <b>select one or more files</b>.",
-                "Submit. Your upload starts as <b>Pending</b> and is auto-routed to your head for review — you can track its titles and statuses while it travels, but never open its contents.",
-            ]
-        ),
-        h2("3.3 Inbox: Untreated and Treated"),
-        bullets(
-            [
-                "<b>Untreated</b> (default) — items still needing you: review, forward, approve, or reject.",
-                "<b>Treated</b> — everything you already approved, rejected, or forwarded, with counts on each tab.",
-                "Use <b>Sent</b> to see what you dispatched to others.",
-            ]
-        ),
-        *screenshot_slot("inbox-tabs", "Inbox with Untreated and Treated tabs"),
-        h2("3.4 Requesting access to a file"),
-        steps(
-            [
-                "Open the file. If it is <b>at rest with Registry</b> you will see <b>Request Access from Registry</b>.",
-                "Choose read-only or read &amp; write, give a reason, and submit.",
-                "While waiting you will see <b>Access Pending</b>. Registry reviews it under <b>Access Requests</b>.",
-            ]
-        ),
-        warning(
-            "You can only request access while a file is at rest with Registry. "
-            "If it is with another custodian, wait until it returns — the page will say so."
-        ),
+        p("As regular staff your main touchpoints are <b>My Files</b>, <b>Inbox</b>, and "
+          "<b>Notifications</b>. Your personnel file exists and is managed by Registry; "
+          "the contents are hidden from you by policy, but you can track your documents while they "
+          "travel and file new records at any time."),
+        h2("3.1 My Records hub (My Files)"),
+        *screenshot_slot("staff-hub", "My Records hub — personnel identity card and pending files"),
+        bullets([
+            "<b>Personnel Identity card</b> — your file number, title, current status, and current custodian at a glance.",
+            "<b>View My History</b> — opens the limited file history page (Movement History tab).",
+            "<b>Inbox</b> shortcut — jumps straight to items waiting for your action.",
+            "<b>Pending Files</b> — the section below the identity card. Only files that are currently <b>in transit</b> and involve you are listed here.",
+            "When your own file is in transit you see a <b>tracking table</b>: document titles, types, and statuses — no clickable content links.",
+            "When nothing is pending you see <b>You're All Caught Up</b>.",
+        ]),
+        h2("3.2 Filing a new document (e.g. a certificate or leave form)"),
+        *screenshot_slot("add-document", "New Document form — Subject, Document Type, Minute Content, attachments"),
+        steps([
+            "From the My Records hub click <b>View My History</b> on your file.",
+            "Click the green <b>+ Add Document</b> button.",
+            "Fill <b>Subject</b> — a clear label (e.g. B.Sc ECONOMICS CERTIFICATE).",
+            "Choose a <b>Document Type</b> from the dropdown.",
+            "Either write text in <b>Minute Content</b> (rich editor) or leave it blank.",
+            "Click the attachment area to select <b>one or more files</b> — PDF, Word, images. Multi-select is supported.",
+            "If you are authorised and have a verified signature, tick <b>Attach Digital Signature</b>.",
+            "Click <b>Submit</b>. The document is saved as <b>Pending</b> and auto-routed to your direct head.",
+        ]),
+        note("Once submitted you can track the document's status (Pending → In Transit → Approved/Rejected) from the tracking table on your hub. You cannot open or download it — that is restricted by policy."),
+        h2("3.3 Inbox — Untreated and Treated tabs"),
+        *screenshot_slot("inbox-tabs", "Inbox — Untreated (2 pending) and Treated (5 done) tabs"),
+        bullets([
+            "<b>Untreated</b> (default) — items still needing action: forwarding, approving, or rejecting. The sidebar badge shows this count.",
+            "<b>Treated</b> — items you have already acted on, each with its outcome badge (Approved / Rejected / Forwarded). Nothing here needs action.",
+            "<b>Urgent</b> tab — urgent and high-priority documents across your accessible files.",
+            "<b>Sent →</b> (top right) — your outbox, filterable by status.",
+        ]),
+        h2("3.4 Requesting access to your file"),
+        steps([
+            "Open your file from My Files → View My History.",
+            "In the <b>Administrative Controls</b> panel on the right, look for <b>Request Access from Registry</b>. This button appears only when the file is <b>at rest with Registry</b>.",
+            "Choose <b>Read-only</b> or <b>Read &amp; write</b>, enter a reason, and submit.",
+            "The panel changes to <b>Access Pending</b>. Registry reviews it under <b>Tools → Access Requests</b>.",
+            "Once approved the panel turns green and shows your grant type. A read &amp; write grant lets you add documents; a read-only grant is for viewing (your own file contents still remain hidden — the grant is for administrative actions).",
+        ]),
+        warning("You can only submit an access request while the file is <b>at rest with Registry</b>. "
+                "If it is with another custodian the panel reads <b>File In Transit — Requests Disabled</b>; "
+                "wait for it to return to Registry."),
     ]
 
 
 def ch_unit_managers():
     return [
         h1("4. Unit managers (heads of unit)"),
-        p(
-            "For viewing personnel documents, unit managers are treated exactly like regular staff "
-            "(Chapter 3 applies in full). Your managerial sending powers are unchanged:"
-        ),
-        bullets(
-            [
-                "Your <b>Approve</b> button in the inbox <b>auto-forwards to your HOD</b> — you cannot pick other recipients.",
-                "Adding a document auto-routes it up your chain of command (never to yourself).",
-                "If you also hold another oversight role (e.g. flagged supervisor), the wider head permissions apply to you.",
-            ]
-        ),
-        *screenshot_slot("hou-inbox", "Unit manager inbox with auto-forward to HOD"),
+        p("For viewing personnel documents, unit managers have the same restrictions as regular staff "
+          "(all of Chapter 3 applies). Your additional capability is a structured forwarding path:"),
+        bullets([
+            "The <b>Approve</b> button in your inbox <b>auto-forwards to your HOD</b> — you confirm and "
+            "a movement is created to the department head. You do not pick the recipient manually.",
+            "Adding a document to a file auto-routes it up your reporting chain, skipping yourself as recipient.",
+            "If you also carry a flagged supervisor role your HOD-level visibility applies instead.",
+        ]),
+        *screenshot_slot("hou-inbox", "Unit manager inbox — Untreated items with Approve and Reject actions"),
+        h2("4.1 Treated tab"),
+        *screenshot_slot("treated-tab", "Treated tab — forwarded items with outcome badges"),
+        p("After you forward or reject an item it immediately moves from Untreated to Treated. "
+          "The Treated tab gives you a full audit trail of every item you have acted on, "
+          "with the outcome badge and the date."),
     ]
 
 
 def ch_hod():
     return [
         h1("5. Heads of department (HOD)"),
-        p("HODs have oversight of every personal file in their department, plus their department's policy files."),
-        h2("5.1 What you can see and do"),
-        bullets(
-            [
-                "<b>My Files</b> lists your own files <b>plus</b> personal files of staff in your department — open any of them to review contents and download attachments.",
-                "<b>Department Files</b> in the sidebar opens the record explorer scoped to your department.",
-                "Approve or reject dispatched documents sent to you, with your verified digital signature.",
-                "Dispatch files onward to other HODs, unit/section/division heads, and supervisors.",
-            ]
-        ),
-        h2("5.2 Approving a document"),
-        steps(
-            [
-                "Open the item from your <b>Inbox</b> (Untreated tab).",
-                "Review the document and any reference documents.",
-                "Click <b>Approve</b> (or <b>Reject</b> with a reason). Approval marks the document <b>approved</b> and returns the file to <b>active</b> with Registry; the sender is notified.",
-            ]
-        ),
-        h2("5.3 Sharing a document by email"),
-        p(
-            "HODs granted the <b>Share documents</b> permission (with a verified signature) can share a file's "
-            "documents by email from the file page, optionally attaching their signature image."
-        ),
-        *screenshot_slot("hod-files", "HOD view of a subordinate file"),
+        p("HODs can view and manage personal files of every staff member in their department, "
+          "their own policy files, and dispatch or approve documents."),
+        h2("5.1 Subordinate file access"),
+        *screenshot_slot("hod-files", "HOD viewing a subordinate personal file — Full Admin Access Granted"),
+        bullets([
+            "<b>My Files</b> shows your own files plus every personal file in your department.",
+            "Open any subordinate file: the <b>Administrative Controls</b> panel shows <b>Full Admin Access Granted — You can view and add documents</b>.",
+            "Navigate to the <b>Chronicle</b> tab to read all documents and download attachments.",
+            "<b>Department Files</b> in the sidebar opens the record explorer scoped to your department.",
+        ]),
+        h2("5.2 Approving a document from the inbox"),
+        steps([
+            "Open <b>Inbox → Untreated</b>.",
+            "Click <b>View Doc</b> on the item to read the full document, reference documents, and movement history.",
+            "Return to the inbox row. Click <b>Approve</b> to accept (signs with your verified signature) or <b>Reject</b> (enter a mandatory reason).",
+            "Approval marks the document <b>Approved</b>, returns the file to <b>Active</b> with Registry, and notifies the sender.",
+            "The item moves to the <b>Treated</b> tab.",
+        ]),
+        h2("5.3 Dispatching a file"),
+        steps([
+            "Open a file you hold. Click <b>+ Add Document</b> or use an existing document.",
+            "Scroll to the <b>Administrative Controls</b> sidebar — if the file is active and yours to send, a <b>Send File</b> (dispatch) section appears.",
+            "Search for the recipient by name, designation, or department.",
+            "Optionally attach reference documents from the same file.",
+            "Add a covering note and click <b>Dispatch</b>. The file moves to <b>In Transit</b>.",
+        ]),
+        h2("5.4 Email sharing (if permitted)"),
+        p("HODs granted the <b>Can share documents with other users</b> permission can open a document "
+          "and share it by email from the file's Chronicle tab, optionally including a signature image."),
     ]
 
 
 def ch_mid_heads():
     return [
         h1("6. Section / division heads and supervisors"),
-        bullets(
-            [
-                "You can open and review personal files of staff in your <b>section / division / department</b>, including downloads.",
-                "Your <b>My Files</b> includes those subordinate files alongside your own.",
-                "You can dispatch to fellow heads and supervisors per the routing rules.",
-                "Your own personal file contents follow the same hidden-from-self rule as regular staff.",
-            ]
-        ),
-        *screenshot_slot("supervisor-view", "Supervisor reviewing a subordinate file"),
+        *screenshot_slot("supervisor-view", "Supervisor viewing a personal file — Registry custody notice + Add Document"),
+        bullets([
+            "You can open and read personal files of every staff member in your section, division, or department.",
+            "<b>My Files</b> includes those subordinate files alongside your own.",
+            "Downloads and the attachment viewer work for you exactly as described in Chapter 10.",
+            "Your own personal file follows the hidden-from-self rule: you can add documents but not read existing contents.",
+            "Dispatch and approval work exactly as described for HODs in Chapter 5.",
+        ]),
+        note("The file pictured shows Registry as custodian with the yellow notice — this is the "
+             "'Administrative Access Only — Contents Hidden' banner that Registry sees. "
+             "As a supervisor you would see your own access state in that panel."),
     ]
 
 
 def ch_exec():
     return [
         h1("7. Executive, MD, and Mayor"),
-        bullets(
-            [
-                "The <b>Executive Dashboard</b> (sidebar &gt; Overview) shows organisation-wide totals: files by status and type, overdue files, documents added today, and pending access requests.",
-                "You can open <b>any file</b> and view/download any document, organisation-wide (<b>All Files</b> explorer for MD).",
-                "Dispatch to anyone; approvals and signatures work as for HODs.",
-            ]
-        ),
-        *screenshot_slot("exec-dashboard", "Executive dashboard"),
+        *screenshot_slot("exec-dashboard", "Executive Dashboard — organisation-wide totals and recent files"),
+        bullets([
+            "<b>Executive Dashboard</b> (sidebar → Dashboard / Overview): total record containers, "
+            "active/pending/overdue counts, activity velocity (documents today, files this week), "
+            "file distribution by type, staff file coverage, and a list of the most recent files.",
+            "All Files explorer — every file in the system, searchable and filterable.",
+            "Open and read any file, view/download any document.",
+            "Approve, reject, and dispatch from inbox exactly as HODs.",
+            "MD and Mayor see the same breadth; Mayor additionally carries a special override on certain access checks.",
+        ]),
     ]
 
 
 def ch_registry():
     return [
         h1("8. Registry"),
-        p("Registry is the custodian of every physical folder. You manage files, never their contents: even document titles are hidden from you by policy."),
-        h2("8.1 Creating a file"),
-        steps(
-            [
-                "Go to <b>Files &gt; Create File</b> (or find the staff member under <b>Staff Without Files</b> and create from there — details auto-fill).",
-                "Choose <b>Personal</b> (one per staff member, owner required, never a Registry officer) or <b>Policy</b> (department or external party required).",
-                "Attach initial documents if available — Registry uploads are official records and are saved <b>approved</b> automatically.",
-                "Save as draft, or dispatch immediately (recipient preview shows where it will go).",
-            ]
-        ),
-        h2("8.2 Activation lifecycle"),
-        bullets(
-            [
-                "New files needing owner sign-off sit at <b>Pending Activation</b> (<b>Pending Activation</b> sidebar, with counts).",
-                "Activate them once approved; close <b>active</b> files when done; archive <b>closed</b> files.",
-                "Only Registry can activate, close, and archive.",
-            ]
-        ),
-        h2("8.3 Tracking custody"),
-        bullets(
-            [
-                "<b>All Files / Registry Hub</b> — every file with its current custodian and custody duration; overdue files are flagged.",
-                "<b>Outgoing Dispatches</b> — every dispatch out, with detail pages and manual movement closure.",
-                "<b>All Folders</b> — browse personal, policy, and other files with search and filters.",
-            ]
-        ),
-        h2("8.4 Access requests"),
-        p(
-            "Staff requests land under <b>Tools &gt; Access Requests</b>. Approve (read-only or read &amp; write, "
-            "optionally expiring) or reject. Recalling a file automatically expires its grants."
-        ),
-        h2("8.5 Filing documents"),
-        p(
-            "Adding a document to a file as Registry skips routing entirely: the document is filed <b>approved</b>, "
-            "the file stays put, and the owner (or HOD for policy files) is notified. No dispatch is created."
-        ),
-        h2("8.6 Reference data"),
-        p("Manage <b>Document Types</b> under Tools. Departments, divisions, sections, units, and designations are managed by Administrators (Registry may manage divisions and sections)."),
-        *screenshot_slot("registry-hub", "Registry hub with custody tracking"),
+        p("Registry manages physical custody of every folder. "
+          "Document contents are hidden from Registry by policy — you see file metadata and "
+          "custody tracking, but never titles, document bodies, or attachments."),
+        h2("8.1 Registry hub (All Files)"),
+        *screenshot_slot("registry-hub", "Registry hub — status tiles, quick links, file list with custodians"),
+        bullets([
+            "Status tiles: <b>Active Files</b>, <b>Pending Activation</b>, <b>Archived</b>, <b>Files Out</b>, <b>Overdue</b>.",
+            "Quick-link cards: <b>Doc Types</b> (manage document type categories), <b>Divisions</b>, "
+            "<b>Sections</b>, <b>Staff Without Files</b> (staff who have no folder yet).",
+            "<b>All Files</b> table — every active file, current custodian, and status. "
+            "Search by file number, title, or keyword; filter by type, department, or status.",
+            "<b>Outgoing Files Tracking</b> below the main list — all files currently out with staff.",
+        ]),
+        h2("8.2 Creating a file"),
+        *screenshot_slot("file-create", "Initialize New Record form — Folder Title, Category, Associated Staff"),
+        steps([
+            "Go to <b>Files → Create File</b> (sidebar) or open a staff member's profile and click <b>Create File</b> — the title and owner auto-fill.",
+            "<b>Folder Title</b> — always uppercase, e.g. PERSONNEL RECORD OF ADAMU MUSA.",
+            "<b>Folder Category</b> — <b>Personal</b> (one staff member, owner required, Registry officers cannot be owners) or <b>Policy</b> (department-level or external party).",
+            "<b>Associated Staff</b> — search and select the file owner (Personal only). Use the <b>Assign to Staff</b> button.",
+            "<b>Mark as Sensitive</b> — tick this to restrict document contents to HOD/Supervisor/Executive/MD only.",
+            "The form previews <b>Will Be Dispatched To</b> — the first recipient in the owner's reporting chain. Fill a <b>Covering Note</b>.",
+            "Click <b>Initialize Record</b>. The file is created and dispatched in one step. Registry uploads attached to it are auto-approved.",
+        ]),
+        *screenshot_slot("staff-without-files", "Staff Without Files — list of staff with no folder yet, Create File button per row"),
+        h2("8.3 Activation lifecycle"),
+        bullets([
+            "<b>Pending Activation</b> sidebar tile shows files awaiting formal acceptance.",
+            "Click a file → use <b>Activate</b> once the owner has confirmed receipt.",
+            "<b>Close File</b> — moves an active file to Closed (available from the file's Administrative Controls sidebar).",
+            "<b>Return to Owner</b> — sends the file back to the owner from Registry.",
+            "Only Registry can activate, close, and archive.",
+        ]),
+        h2("8.4 Filing documents"),
+        *screenshot_slot("add-document", "New Document form — same form Registry uses, uploads auto-approved"),
+        steps([
+            "Open a file. Click <b>+ Add Document</b>.",
+            "Fill Subject, Document Type, content or attachment(s).",
+            "Click Submit. Because you are Registry, the document saves immediately as <b>Approved</b> and no dispatch is created.",
+            "The file owner and relevant HOD receive an in-app notification.",
+        ]),
+        h2("8.5 Outgoing dispatches"),
+        *screenshot_slot("outgoing-dispatches", "Outgoing Dispatches — every dispatch out with recipient and movement detail"),
+        p("Sidebar → <b>Outgoing Dispatches</b> lists every movement initiated from Registry, "
+          "with the recipient, date sent, and whether it has been acknowledged. "
+          "Click any row to open the dispatch detail and manually close a movement if needed."),
+        h2("8.6 Access requests"),
+        *screenshot_slot("access-requests", "Access Requests — staff requests listed with Approve and Reject actions"),
+        steps([
+            "Open <b>Tools → Access Requests</b>.",
+            "Each row shows the requester, file, access type (read-only or read &amp; write), date, and reason.",
+            "Click <b>Approve</b> — optionally set an expiry date. The requester is notified.",
+            "Click <b>Reject</b> — the requester is notified with your reason.",
+            "Approved grants expire when the file is recalled or when the expiry date passes.",
+        ]),
     ]
 
 
 def ch_admin():
     return [
         h1("9. Administrator"),
-        p("Administrators (superusers) manage people, structure, and system health. You can see everything."),
-        h2("9.1 Managing users"),
-        bullets(
-            [
-                "<b>Management &gt; Users</b>: search, filter, create, edit, unlock, suspend, and delete users.",
-                "Creating a user sets department/unit/designation, supervisor flag, the two special permissions (<b>Share documents</b>, <b>Urgent priority</b>), and a temporary password the user must change at first login.",
-                "<b>Batch upload</b>: download the sample CSV, fill one row per user, upload — each row reports success or the exact error.",
-                "Locked accounts (3 failed logins) can be unlocked; deactivated accounts reactivated from Edit.",
-            ]
-        ),
+        p("Administrators (superusers) manage the full user directory, org structure, and system health."),
+        h2("9.1 User management"),
+        *screenshot_slot("admin-users", "User directory — search, filters, and per-user action buttons"),
+        h3("Creating a user"),
+        *screenshot_slot("user-create", "Add Single User — Account Details and Organisation Placement panels"),
+        steps([
+            "Open <b>Management → Users → Add Single User</b>.",
+            "<b>Account Details</b> (left panel): Username, Email Address, First Name, Last Name, Password.",
+            "<b>Organisation Placement</b> (right panel): Department (required), Unit (optional, filtered by department), Designation, Staff Type (Permanent / Contract / Temp).",
+            "<b>Permissions</b> checkboxes: <b>Supervisor</b> (grants flagged-supervisor oversight), "
+            "<b>Can Mark Documents as Urgent/High Priority</b>, <b>Can Share Documents with Other Users</b>.",
+            "Click <b>Create User Account</b>. The user receives a welcome email with their password and must change it on first login.",
+        ]),
+        h3("Batch user upload"),
+        steps([
+            "Open <b>Management → Users → Batch Upload</b>.",
+            "Click <b>Download Sample CSV</b> to get the template (columns: username, email, first_name, last_name, department_code, unit_name, designation_name, staff_type).",
+            "Fill one row per user and upload the CSV. Each row is processed independently; per-row errors are shown without stopping the rest.",
+        ]),
+        h3("Other actions"),
+        bullets([
+            "<b>Edit</b> — update any field; add or remove the two per-user permissions.",
+            "<b>Unlock</b> — clear a lockout immediately (three failed logins).",
+            "<b>Suspend</b> — deactivate the account. Reactivate via Edit → is_active.",
+            "<b>Delete</b> — removes the user, their Staff record, notifications, and OTP devices. Cannot delete superusers.",
+        ]),
         h2("9.2 Organisation structure"),
-        p(
-            "Under <b>Management</b>: Departments, Divisions, Sections, Units, Designations. "
-            "Assign each unit/section/division/department <b>head</b> here — headship drives who can view and approve what."
-        ),
+        p("Under <b>Management</b>: Departments, Divisions, Sections, Units, Designations — each with create, edit, and delete. "
+          "Registry officers can manage Divisions and Sections; all other structure changes require a superuser."),
+        p("<b>Assigning heads:</b> open a Department/Division/Section/Unit, select the <b>Head</b> dropdown, "
+          "and save. Headship is the single factor that determines who can view and approve what in their jurisdiction. "
+          "Remove a head before deleting a unit to avoid orphaned permission data."),
         h2("9.3 Health dashboard and audit"),
-        bullets(
+        *screenshot_slot("admin-health", "Admin Health Dashboard — user stats and recent security events"),
+        bullets([
+            "<b>Admin → Dashboard</b>: active/inactive/locked users, files by status, documents total, last 5 security events (login failures, lockouts, unlocks).",
+            "<b>Management → Audit Logs</b>: every LOGIN, CREATE, DISPATCH, APPROVAL, DOWNLOAD with actor, timestamp, and IP.",
+            "<b>Activity → Activity Report</b>: your own action trail.",
+        ]),
+    ]
+
+
+def ch_permissions():
+    return [
+        h1("10. Permissions reference"),
+        p("Access in PIMS is decided by <b>three independent layers</b>. A user is allowed to do "
+          "something if any applicable layer grants it — and blocked wherever a policy rule denies it "
+          "outright (for example Registry viewing document contents)."),
+        table(
+            ["Layer", "Where it comes from", "Who changes it"],
             [
-                "<b>Admin &gt; Dashboard</b>: user totals, locked accounts, files by status, recent security events.",
-                "<b>Audit Logs</b>: every login, creation, dispatch, approval, and download, with actor and timestamp.",
-                "<b>Activity Report</b> (all users): your own trail.",
-            ]
+                ["1. Role (position)", "Derived automatically from the organisation chart — being the head of a department, division, section, or unit, or carrying the Supervisor flag.",
+                 "Administrator, by assigning heads under Management → Departments/Divisions/Sections/Units, or ticking Supervisor on the user."],
+                ["2. Group membership", "Named groups (Registry, Staff, HOD/HOU, Executive, Mayor, Administrator) each carry a bundle of permissions.",
+                 "Administrator, via the user's groups."],
+                ["3. Per-user permission", "Two special switches granted to an individual regardless of group.",
+                 "Administrator, via the checkboxes on the Add/Edit user form."],
+            ],
+            widths=[3, 7, 5],
         ),
-        *screenshot_slot("admin-users", "User management list"),
+        note("A <b>superuser</b> (Administrator account) bypasses all permission checks and sees everything. "
+             "Grant superuser sparingly."),
+
+        h2("10.1 Role-based permissions (from the organisation chart)"),
+        p("These are not checkboxes — they are consequences of <i>where a person sits</i>. "
+          "Assign the head of a unit and that person immediately gains the unit-head behaviour."),
+        table(
+            ["Role", "How a user gets it", "What it unlocks"],
+            [
+                ["Registry officer", "Designation contains 'registry', or membership of the <b>Registry</b> group.",
+                 "Create/activate/close/archive files; full custody tracking; approve access requests; file auto-approved documents. <b>Never</b> sees document contents or titles."],
+                ["Head of Unit (unit manager)", "Set as <b>Head</b> of a Unit.",
+                 "Inbox items auto-forward to their HOD. Treated like regular staff for viewing personnel documents."],
+                ["Head of Section / Division", "Set as <b>Head</b> of a Section or Division.",
+                 "View and download personnel documents of staff in that section/division; dispatch to peers and heads."],
+                ["HOD", "Set as <b>Head</b> of a Department, or designation contains 'head of department', 'hod', or 'director'.",
+                 "View/download every personal file in the department plus department policy files; approve or reject dispatched documents."],
+                ["Supervisor (flagged)", "Tick <b>Supervisor</b> on the user form.",
+                 "Oversight of personnel documents in their department, in addition to whatever their position gives."],
+                ["Executive / MD", "Membership of the <b>Executive</b> or <b>MD</b> group.",
+                 "Organisation-wide file visibility, the Executive Dashboard, and dispatch to anyone."],
+                ["Mayor", "Membership of the <b>Mayor</b> group, or designation contains 'mayor'.",
+                 "Organisation-wide read plus read &amp; write on every file."],
+            ],
+            widths=[3, 5, 8],
+        ),
+        warning("The single most important role rule: <b>a staff member can never read the contents of "
+                "their own personnel file</b> — not as owner, not as custodian, not with an approved "
+                "access grant. Only oversight heads (section/division head, HOD, supervisor, executive, "
+                "MD, Mayor) can. Pure unit managers are excluded."),
+
+        h2("10.2 Group permissions"),
+        p("Groups bundle permissions. These are the groups shipped with PIMS and what they actually hold:"),
+        table(
+            ["Group", "Permissions held", "Effect"],
+            [
+                ["Registry", "create_file, activate_file, close_file, archive_file, send_file, view_file, view_document, view_auditlogentry",
+                 "Full file lifecycle and custody management. Deliberately <b>excludes</b> view_staff_documents."],
+                ["Staff", "view_file, view_document, view_staff_documents",
+                 "Normal staff access: see own hub, inbox, and file pages they are entitled to."],
+                ["HOD/HOU", "view_file, view_document, view_staff_documents",
+                 "Same permission bundle as Staff — their extra power comes from the <b>role</b> layer (being a head)."],
+                ["Executive", "view_staff_documents",
+                 "Combined with the Executive role for organisation-wide reach."],
+                ["Mayor", "view_staff_documents", "Combined with the Mayor role."],
+                ["Administrator", "view_staff_documents (plus superuser status in practice)",
+                 "Administrator accounts are normally superusers, which bypasses permission checks entirely."],
+            ],
+            widths=[3, 6, 7],
+        ),
+
+        h2("10.3 Individual permission switches"),
+        p("Two switches appear as checkboxes on the <b>Add / Edit user</b> form. They are granted "
+          "per person and are independent of any group."),
+        *screenshot_slot("user-create", "Add Single User — the Permissions checkboxes on the right"),
+        table(
+            ["Checkbox", "Permission code", "What the user can then do"],
+            [
+                ["Supervisor", "(role flag, not a permission)",
+                 "Marks the user as a flagged supervisor — oversight of personnel documents in their department."],
+                ["Can Mark Documents as Urgent/High Priority", "user_management.can_set_urgent_priority",
+                 "Shows the <b>New Urgent</b> item in the sidebar and allows creating standalone urgent/high-priority documents that alert heads directly."],
+                ["Can Share Documents with Other Users", "user_management.can_share_documents",
+                 "Enables the <b>Share</b> action on a document, emailing it out with an optional signature image. Only effective for HODs, and requires a verified signature."],
+            ],
+            widths=[4, 6, 8],
+        ),
+
+        h2("10.4 Full permission catalogue"),
+        p("Every named permission in PIMS, what it governs, and who holds it out of the box:"),
+        table(
+            ["Permission", "Meaning / where you feel it", "Default holders"],
+            [
+                ["document_management.<b>create_file</b>",
+                 "Shows the <b>Create File</b> button and allows opening new folders (personal or policy).",
+                 "Registry, superusers"],
+                ["document_management.<b>activate_file</b>",
+                 "Move a pending/inactive file to Active.",
+                 "Registry, superusers"],
+                ["document_management.<b>close_file</b>",
+                 "Close an active file so no further entries can be filed.",
+                 "Registry, superusers"],
+                ["document_management.<b>archive_file</b>",
+                 "Shows the <b>Archive</b> action on a closed file and permits archiving.",
+                 "Registry, superusers"],
+                ["document_management.<b>send_file</b>",
+                 "Legacy dispatch permission. Dispatch is now governed by custody and the routing rules, not this flag.",
+                 "Registry, superusers"],
+                ["document_management.<b>view_file</b>",
+                 "Required to open file pages and the Executive Dashboard.",
+                 "Registry, Staff, HOD/HOU"],
+                ["document_management.<b>view_document</b>",
+                 "Required to open document pages.",
+                 "Registry, Staff, HOD/HOU"],
+                ["document_management.<b>view_staff_documents</b>",
+                 "Governs whether a user may see that a staff member <b>has</b> documents at all — titles, counts, and lists. Without it, document lists are replaced by a policy notice.",
+                 "Every group <b>except Registry</b>"],
+                ["document_management.<b>add_minute</b> / <b>add_attachment</b>",
+                 "Legacy filing permissions. Filing is governed in practice by custody, ownership, and access grants.",
+                 "Registry, Staff, HOD/HOU"],
+                ["user_management.<b>can_set_urgent_priority</b>",
+                 "Create urgent / high-priority documents; adds the New Urgent sidebar entry.",
+                 "Granted per user"],
+                ["user_management.<b>can_share_documents</b>",
+                 "Share a document by email (HODs with a verified signature).",
+                 "Granted per user"],
+                ["user_management.<b>view_customuser</b> / <b>change_customuser</b> / <b>delete_customuser</b>",
+                 "Standard Django permissions over user accounts.",
+                 "Superusers"],
+                ["audit_log.<b>view_auditlogentry</b>",
+                 "Read the audit trail.",
+                 "Registry, superusers, executives"],
+            ],
+            widths=[6, 9, 3.5],
+        ),
+
+        h2("10.5 Granting and revoking"),
+        steps([
+            "Open <b>Management → Users</b> and choose the person, then <b>Edit</b>.",
+            "To change <b>role-based</b> power: change their Department/Unit/Designation, tick or untick <b>Supervisor</b>, "
+            "or (for headship) assign them as Head under Management → Departments/Divisions/Sections/Units.",
+            "To change the <b>two switches</b>: tick or untick <b>Can Mark Documents as Urgent/High Priority</b> and "
+            "<b>Can Share Documents with Other Users</b>.",
+            "Save. Changes take effect on the user's next page load — no restart needed.",
+            "To remove all access immediately, use <b>Suspend</b> (deactivates the account) rather than deleting it, "
+            "so the audit trail stays intact.",
+        ]),
+        warning("Never add <b>view_staff_documents</b> to the Registry group. Registry's inability to see "
+                "document titles and contents is a deliberate separation-of-duties control, and the system "
+                "also blocks Registry in code as a second line of defence."),
+        note("Currently the user-management pages are effectively <b>superuser-only</b>: they require a "
+             "permission code (<i>auth.view_user</i>) that does not exist on this project's custom user model, "
+             "so no ordinary group can satisfy it. If you want a non-superuser role to administer accounts, "
+             "this needs a small code change to <i>user_management.view_customuser</i>."),
     ]
 
 
 def ch_documents():
     return [
-        h1("10. Documents in depth"),
-        h2("10.1 Adding documents and minutes"),
-        bullets(
+        h1("11. Documents, attachments, and the viewer"),
+        h2("11.1 The New Document form"),
+        *screenshot_slot("add-document", "New Document form — Subject, Document Type, Minute Content, attachment upload"),
+        p("The form is the same for everyone with access to a file. "
+          "All fields except Document Type and at least one of (Minute Content / Attachment) are optional."),
+        table(
+            ["Field", "What to fill"],
             [
-                "On any <b>active</b> file you hold or own, click <b>Add Minute / Document</b>.",
-                "Give a title and type; write minute content and/or <b>select multiple files</b> — one document can carry many attachments.",
-                "Attach your digital signature where permitted; new versions preserve the original (Edit saves as Version N+1).",
-            ]
+                ["Subject", "The document title — always shown in lists, e.g. APPLICATION FOR STUDY LEAVE 2026."],
+                ["Document Type", "Select from the configured type list (managed by Registry under Tools → Document Types)."],
+                ["Minute Content", "Rich-text body. Use for formal minutes, memos, or cover letters."],
+                ["Upload Attachment(s)", "Select one or more files (PDF, Word, image). All files land on the same document record."],
+                ["Attach Digital Signature", "Available only if your role permits signing. Requires a verified signature on your profile."],
+            ],
+            widths=[4, 8],
         ),
-        h2("10.2 Viewing attachments (protected viewer)"),
-        bullets(
-            [
-                "Open a document to see every file listed with <b>View</b> and <b>Download</b>.",
-                "The viewer previews PDFs in-page and images inline; other formats offer download instead.",
-                "Every view and download re-checks your permission at open time: HOD/supervisor/executive/MD/Mayor, custodian, approved-request holder, movement recipient, or directly-shared user. Registry and owners viewing their own file are always blocked.",
-                "Inline views cannot be embedded on other sites, and every serve is audit-logged.",
-            ]
-        ),
-        h2("10.3 Dispatch, approval, and return"),
-        steps(
-            [
-                "The custodian dispatches a document (optionally with reference documents) — file goes <b>in transit</b>.",
-                "Each recipient treats it from their inbox: <b>forward</b> onward, or (HOD/owner) <b>approve/reject</b> with a signature.",
-                "Approval marks the document <b>approved</b> and returns the file to <b>active</b> with Registry; rejection sends it back with reasons. Everyone involved is notified.",
-            ]
-        ),
-        *screenshot_slot("doc-viewer", "Protected attachment viewer"),
+        h2("11.2 Viewing attachments — the protected viewer"),
+        *screenshot_slot("doc-detail", "Document detail — every attachment listed with View and Download"),
+        *screenshot_slot("doc-viewer", "Attachment Viewer — filename header, file reference, Download button, inline viewer"),
+        bullets([
+            "Open a document from the Chronicle tab or the document detail page.",
+            "Every attachment is listed with a <b>View</b> link and a <b>Download</b> link. A count badge shows the total (e.g. Download (3)).",
+            "<b>View</b> opens the Attachment Viewer: PDFs render in-page, images inline, other formats show a Download-to-View fallback.",
+            "Every open and download re-checks your permission at that moment. The page cannot be embedded in other sites.",
+            "Every access is written to the audit log.",
+        ]),
+        h2("11.3 Who can view attachments"),
+        bullets([
+            "HODs, section/division heads, supervisors, executives, MD, Mayor — over files in their jurisdiction.",
+            "The file's current custodian.",
+            "A holder of an approved, unexpired <b>FileAccessRequest</b>.",
+            "A recipient of an active FileMovement (dispatch).",
+            "A user the document was directly shared with.",
+            "<b>Registry and owners of their own personal file</b> are always blocked, regardless of other grants.",
+        ]),
+        h2("11.4 Dispatch → review → return cycle"),
+        *screenshot_slot("send-file", "File detail page — Administrative Controls sidebar with registry custody notice and action buttons"),
+        steps([
+            "The custodian opens the file, clicks <b>+ Add Document</b> or selects an existing document.",
+            "Uses the dispatch (Send File) controls in the sidebar: search for the recipient, attach reference docs, write a note.",
+            "File moves to <b>In Transit</b>; recipient sees it in Inbox → Untreated.",
+            "Recipient opens the inbox item → View Doc → reads document and reference docs.",
+            "Recipient clicks <b>Approve</b> (signs) or <b>Reject</b> (reason required). HODs approve; unit managers forward to their HOD.",
+            "On final approval: document marked <b>Approved</b>, file returns to <b>Active</b> with Registry, sender notified.",
+        ]),
+        h2("11.5 New versions"),
+        p("Open a document → click <b>Edit / New Version</b>. Enter updated content and/or attachments. "
+          "The new version links back to the original via <b>Parent</b>; the original is preserved. "
+          "Registry versions are auto-approved; others follow the normal approval path."),
     ]
 
 
 def ch_inbox():
     return [
-        h1("11. Inbox, outbox, and notifications"),
-        h2("11.1 Inbox tabs"),
-        bullets(
-            [
-                "<b>Untreated</b>: pending items needing action (also the sidebar badge count).",
-                "<b>Treated</b>: items you approved, rejected, or forwarded — with counts and per-status badges.",
-                "Acting on an item moves it from Untreated to Treated automatically.",
-            ]
-        ),
-        h2("11.2 Urgent mode and outbox"),
-        bullets(
-            [
-                "<b>Urgent</b> mode lists urgent/high-priority documents across your accessible files.",
-                "<b>Sent</b> (outbox) shows everything you dispatched, filterable by status, with search.",
-            ]
-        ),
-        h2("11.3 Notifications"),
-        p(
-            "The bell lists everything addressed to you (dispatches, approvals, access decisions, lockouts). "
-            "Opening a notification marks it read and jumps to the related file. Some events also send email."
-        ),
-        *screenshot_slot("notifications", "Notifications list"),
+        h1("12. Inbox, outbox, and notifications"),
+        h2("12.1 Inbox tabs"),
+        *screenshot_slot("inbox-tabs", "Inbox — mode tabs (Inbox / Urgent) and Untreated / Treated sub-tabs with counts"),
+        bullets([
+            "<b>Inbox / Urgent mode tabs</b> (top): Inbox shows document movements; Urgent lists high-priority documents across accessible files.",
+            "<b>Untreated / Treated sub-tabs</b>: Untreated = pending, needs action. Treated = done, audit trail.",
+            "Acting on an item (Approve / Reject / Forward) moves it instantly from Untreated to Treated.",
+            "Sidebar badge always shows the <b>Untreated</b> count only.",
+        ]),
+        h2("12.2 Treated tab detail"),
+        *screenshot_slot("treated-tab", "Treated tab — outcome badges (Forwarded, Approved, Rejected)"),
+        bullets([
+            "Each treated row carries an outcome badge: green Approved, red Rejected, blue Forwarded.",
+            "View Doc still works — you can re-read what you decided on at any time.",
+        ]),
+        h2("12.3 Outbox"),
+        *screenshot_slot("outbox", "Sent / Outbox — dispatches you have initiated, filterable by status"),
+        p("Open <b>Sent →</b> from the inbox header, or <b>Sent</b> from the sidebar. "
+          "Every dispatch you have created is listed with the recipient, date, document, and current movement status. "
+          "Search by file number, title, document label, or recipient name."),
+        h2("12.4 Notifications"),
+        *screenshot_slot("notifications", "Notifications list — unread count, mark-all-read"),
+        bullets([
+            "Bell icon shows unread count. Click to open the full list.",
+            "Each notification links to the relevant file or document.",
+            "Click a notification to mark it read and jump to the target.",
+            "<b>Mark All as Read</b> button clears the badge.",
+            "Some events also send an email (e.g. access request decisions, approvals).",
+        ]),
     ]
 
 
 def ch_faq():
     faqs = [
-        ("I see “Limited Access View”. What does it mean?",
-         "You can open the file's page but not its contents. Either request access (if the file is at rest with Registry), or the contents are hidden from you by policy (e.g. your own personnel file, or Registry viewing any file)."),
-        ("“Identity Locked — Request Unavailable”. I already requested access. Why?",
-         "That panel means you currently hold no grant on this file. If your request is still pending you would see “Access Pending” instead — so an approved-then-expired or rejected request, or a request on a different file, are the usual causes. If the file is with another custodian, wait until it returns to Registry and request again. Owners adding to their own file: ask Registry for a read &amp; write grant — your approved grant lets you file new records (existing contents stay hidden)."),
-        ("“Access Pending” never changes. What now?",
-         "Only Registry can approve access requests (Tools &gt; Access Requests). Nudge your Registry officer; ensure the file is at rest with Registry, otherwise approval cannot land."),
-        ("“File In Transit — Requests Disabled”.",
-         "The file is with another custodian. You cannot request access mid-transit; wait until it returns to Registry."),
-        ("My file disappeared from My Files / My Records.",
-         "Lower staff only ever see files still <b>in transit</b>. Once settled (active), files leave that list — use <b>View My History</b> or your <b>Inbox</b>. Heads see wider lists."),
-        ("I approved something but the file still says In Transit.",
-         "Final approval returns the file to active automatically. If it lingers, the file is genuinely awaiting someone's acknowledgement — check Movement History on the file."),
-        ("I can't approve / sign — “need a verified signature”.",
-         "Upload a signature on your Profile and have it verified. Approvals, signing, and inbox actions all require it."),
-        ("Locked out after wrong passwords.",
-         "Three failures lock you for 15 minutes. An administrator can unlock you immediately from Management &gt; Users."),
-        ("I can't download an attachment I can see listed.",
-         "Listing titles and opening bytes are gated separately. You need one of: custody, an approved grant, an active movement, a direct share, or an oversight role over that file."),
-        ("A document I uploaded is still Pending.",
-         "Only Registry uploads are auto-approved. Yours routes to your head; it flips to approved once the last approver signs off."),
+        ("I see 'Limited Access View'. What does it mean?",
+         "You can open the file page but not its contents. Either your role restricts you from viewing that file's documents (e.g. your own personal file), or you have not yet been granted access. If the file is at rest with Registry, use Request Access from Registry. If it is in transit, wait."),
+        ("'Identity Locked — Request Unavailable'. I already submitted a request.",
+         "That panel means you currently hold no active grant. A still-pending request shows 'Access Pending' instead. Possible causes: your previous grant expired; you submitted on a different file; or the file moved to another custodian and the grant was revoked. Confirm the file is at rest with Registry and re-submit if needed."),
+        ("The 'Request Access' button is missing.",
+         "The button only appears when the file is active and held by Registry. If the file is in transit the panel says 'File In Transit — Requests Disabled'. Wait for it to return."),
+        ("I approved something but the file still shows 'In Transit'.",
+         "Final approval returns the file to active automatically. If it lingers, check Movement History on the file — there may be another open step or an unacknowledged movement."),
+        ("My file disappeared from My Files / Pending Files.",
+         "Regular staff only see files that are currently in transit. Once the file is settled (active) it leaves the list. Use View My History or your Inbox for historical items."),
+        ("I cannot sign or approve — 'no verified signature'.",
+         "Upload a signature on your Profile and ask Registry or an administrator to verify it. Until it is verified, signing and approval actions are blocked."),
+        ("I was locked out.",
+         "Three failed logins trigger a 15-minute lockout. An administrator can unlock you immediately from Management → Users → Unlock."),
+        ("I can see a document listed but cannot open or download it.",
+         "Listing and opening are gated separately. You need at least one of: custody of the file, an approved access grant, an active dispatch movement, a direct share, or an oversight role over that file."),
+        ("A document I uploaded is still 'Pending'.",
+         "Only Registry uploads auto-approve. Your document routes to your head for approval; it becomes 'Approved' once the last approver signs off. Track progress on your hub."),
+        ("How do I find a file for a staff member who left?",
+         "Registry: open All Files, filter by department or search by name. Files are never deleted; they can be closed or archived but remain searchable."),
     ]
-    story = [h1("12. Troubleshooting")]
+    story = [h1("13. Troubleshooting")]
     for q, a in faqs:
         story += [h3(q), p(a)]
     return story
@@ -543,27 +802,36 @@ def ch_appendix():
             ["Object", "Status", "Meaning"],
             [
                 ["File", "Active", "At rest with custodian; normal state."],
-                ["File", "In Transit", "Sent; awaiting acknowledgement. Still pending."],
-                ["File", "Pending Activation", "Approved creation; Registry must activate."],
-                ["File", "Inactive / Closed / Archived", "Registry lifecycle end-states."],
+                ["File", "In Transit", "Sent to another officer; awaiting action."],
+                ["File", "Pending Activation", "Created; Registry must activate."],
+                ["File", "Inactive / Closed / Archived", "Registry end-states; read-only."],
                 ["Document", "Pending", "Filed; awaiting review."],
                 ["Document", "In Transit", "Dispatched for review/approval."],
-                ["Document", "Approved / Rejected", "Decided by approver (signature recorded)."],
+                ["Document", "Approved / Rejected", "Decided by approver; signature on record."],
                 ["Movement", "Pending", "Untreated inbox item."],
-                ["Movement", "Approved / Rejected / Forwarded", "Treated; lives under the Treated tab."],
+                ["Movement", "Approved / Rejected / Forwarded", "Treated; recorded under the Treated tab."],
             ],
+            widths=[3, 4, 7],
         ),
+        Spacer(1, 6 * mm),
         h1("Appendix B. Glossary"),
-        bullets(
+        table(
+            ["Term", "Definition"],
             [
-                "<b>Custodian</b> — whoever currently holds a file.",
-                "<b>At rest with Registry</b> — active file held by Registry; the only time access can be requested.",
-                "<b>Oversight head</b> — HOD, section/division head, flagged supervisor, executive, MD, Mayor (excludes pure unit managers).",
-                "<b>Chronicle</b> — the file's unified history: documents and audit entries.",
-                "<b>Read &amp; write grant</b> — approved access request allowing adds as well as views.",
-            ]
+                ["Custodian", "The officer currently holding a file."],
+                ["At rest with Registry", "Active file held by Registry — the only state in which access can be requested."],
+                ["Oversight head", "HOD, section/division head, flagged supervisor, executive, MD, or Mayor — roles that can view personnel documents in their jurisdiction. Pure unit managers are excluded."],
+                ["Chronicle", "The file's unified history: documents filed and audit entries in chronological order."],
+                ["Read & write grant", "An approved access request allowing both viewing and adding documents."],
+                ["Treated", "An inbox item on which you have taken an action (approve, reject, or forward)."],
+                ["Untreated", "An inbox item still pending your action."],
+                ["Auto-approved", "Registry uploads are saved as Approved immediately, bypassing the approval workflow."],
+            ],
+            widths=[5, 9],
         ),
-        small("Generated from the live PIMS codebase. Screenshot placeholders will be filled in Phase 4 (Playwright)."),
+        Spacer(1, 6 * mm),
+        small("Generated from the live PIMS codebase with real Playwright screenshots. "
+              "To regenerate: python docs/generate_manual.py"),
     ]
 
 
@@ -577,6 +845,7 @@ CHAPTERS = [
     ch_exec,
     ch_registry,
     ch_admin,
+    ch_permissions,
     ch_documents,
     ch_inbox,
     ch_faq,
