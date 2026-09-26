@@ -52,9 +52,9 @@
             </a>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 gap-8">
             <!-- Documents -->
-            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 {% if can_view_staff_docs %}
                 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                     <div class="flex items-center gap-3">
@@ -100,53 +100,6 @@
                 {% endif %}
             </div>
 
-            <!-- Approval Chains -->
-            <div class="space-y-6">
-                <!-- Active Chain -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                            <i class="fas fa-link"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Active Chain</h3>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Current approval flow</p>
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        {% if active_chain %}
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Step {{ active_chain.current_step }}</p>
-                            <p class="text-sm font-bold text-slate-800">{{ active_chain.get_current_step.approver }}</p>
-                            <p class="text-[10px] text-slate-400 mt-1">Started {{ active_chain.created_at|date:"d M Y" }}</p>
-                        {% else %}
-                            <p class="text-sm text-slate-400 font-medium text-center py-4">No active chain.</p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- All Chains -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100">
-                        <h3 class="text-sm font-bold text-slate-800 uppercase tracking-tight">Chain History</h3>
-                    </div>
-                    <div class="divide-y divide-slate-50">
-                        {% for chain in all_chains %}
-                            <div class="px-6 py-3 flex items-center justify-between">
-                                <p class="text-xs font-semibold text-slate-700">{{ chain.created_at|date:"d M Y" }}</p>
-                                <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded
-                                    {% if chain.status == 'active' %}bg-blue-50 text-blue-700
-                                    {% elif chain.status == 'closed' %}bg-green-50 text-green-700
-                                    {% elif chain.status == 'rejected' %}bg-red-50 text-red-700
-                                    {% else %}bg-slate-100 text-slate-500{% endif %}">
-                                    {{ chain.status }}
-                                </span>
-                            </div>
-                        {% empty %}
-                            <div class="px-6 py-6 text-center text-sm text-slate-400 font-medium">No chains yet.</div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
         </div>
     {% endif %}
 </div>

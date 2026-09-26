@@ -65,7 +65,7 @@
                         </svg>
                         {{ doc.attachment.name|truncatechars:30 }}
                     </div>
-                    <button @click="$dispatch('open-preview', { url: '{{ doc.attachment.url }}', title: '{{ doc.attachment.name|escapejs }}' })"
+                    <button @click="$dispatch('open-preview', { url: '{% url 'document_management:document_download' doc.pk %}', title: '{{ doc.attachment.name|escapejs }}' })"
                             type="button"
                             class="text-[9px] font-bold text-nigeria-green uppercase tracking-wider hover:underline flex items-center">
                         <svg class="w-3 h-3 mr-1"

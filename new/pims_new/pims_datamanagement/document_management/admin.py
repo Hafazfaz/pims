@@ -1,7 +1,7 @@
 from django.contrib import admin
-from unfold.admin import ModelAdmin, TabularInline
+from unfold.admin import ModelAdmin
 
-from .models import ChainTemplate, ChainTemplateStep, Document, EmailLog, File, FileAccessRequest, FileMovement
+from .models import Document, EmailLog, File, FileAccessRequest, FileMovement
 
 
 @admin.register(File)
@@ -38,20 +38,6 @@ class FileAccessRequestAdmin(ModelAdmin):
     search_fields = ("file__file_number", "requested_by__username")
     readonly_fields = ("created_at", "approved_at", "expires_at")
     autocomplete_fields = ("file", "requested_by")
-
-
-class ChainTemplateStepInline(TabularInline):
-    model = ChainTemplateStep
-    extra = 1
-    fields = ("order", "role_type", "department_scope", "specific_department", "designation", "staff")
-
-
-@admin.register(ChainTemplate)
-class ChainTemplateAdmin(ModelAdmin):
-    list_display = ("name", "department", "is_active", "created_by", "created_at")
-    list_filter = ("is_active", "department")
-    search_fields = ("name",)
-    inlines = [ChainTemplateStepInline]
 
 
 @admin.register(EmailLog)

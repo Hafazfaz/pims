@@ -44,7 +44,7 @@
                     {% if has_approved_access %}
                         <h3 class="text-sm font-bold text-amber-800 uppercase tracking-wider">Administrative Access Only — Contents Hidden</h3>
                         <p class="text-xs text-amber-700">
-                            You have full administrative access (you can manage and add documents), but document contents are restricted by policy to HOD / Supervisor / Executive / MD roles.
+                            You have full administrative access (you can manage and add documents), but contents are visible only to the current custodian, the owner, or an explicit grant.
                         </p>
                     {% else %}
                         <h3 class="text-sm font-bold text-amber-800 uppercase tracking-wider">Limited Access View</h3>
@@ -282,7 +282,7 @@
                                                                 </svg>
                                                             </span>
 {% endif %}
-                                {% if is_custodian and file.status == 'active' and not file.is_in_active_chain %}
+                                {% if is_custodian and file.status == 'active' %}
                                     <button type="button" @click="$dispatch('open-send-note')"
                                             class="w-full py-4 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
                                         Send Note
@@ -293,7 +293,7 @@
                                                         <div class="flex-1">
                                                             {% if entry.type == 'document' %}
                                                                 <div class="text-sm text-slate-900">
-                                                                    {% if can_view_original %}
+                                                                    {% if can_view_original and entry.item.pk not in locked_doc_ids %}
                                                                     <a href="{% url 'document_management:document_detail' pk=entry.item.pk %}"
                                                                        class="font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
                                                                         {% if entry.item.title %}{{ entry.item.title }}{% else %}Minute / Signal{% endif %}
@@ -301,7 +301,11 @@
                                                                     {% else %}
                                                                     <span class="font-bold text-slate-400 italic">
                                                                         {% if entry.item.title %}{{ entry.item.title }}{% else %}Minute / Signal{% endif %}
+                                                                        {% if entry.item.pk in locked_doc_ids %}
+                                                                        <span class="ml-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">[Approved — locked]</span>
+                                                                        {% else %}
                                                                         <span class="ml-1 text-[9px] font-black text-amber-600 uppercase tracking-widest">[Request R&W access to view]</span>
+                                                                        {% endif %}
                                                                     </span>
                                                                     {% endif %}
                                                                     <span class="ml-2 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {% if entry.item.status == 'approved' %}bg-green-100 text-green-700 {% elif entry.item.status == 'cancelled' %}bg-red-100 text-red-700 line-through decoration-red-700 {% else %}bg-amber-100 text-amber-700{% endif %}">
@@ -315,7 +319,7 @@
                                                                     {% if entry.item.status_reason %}
                                                                         <p class="text-[10px] text-slate-500 mt-1 italic w-full">Reason: {{ entry.item.status_reason }}</p>
                                                                     {% endif %}
-                                                                    {% if entry.item.minute_content and can_view_original %}
+                                                                    {% if entry.item.minute_content and can_view_original and entry.item.pk not in locked_doc_ids %}
                                                                         <div class="mt-2 prose prose-sm max-w-none text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-100 relative">
                                                                             {{ entry.item.minute_content|safe }}
                                                                             {% if entry.item.signatures.exists %}
@@ -352,7 +356,7 @@
                                                                                     {% endfor %}
                                                                                 </div>
 {% endif %}
-                                {% if is_custodian and file.status == 'active' and not file.is_in_active_chain %}
+                                {% if is_custodian and file.status == 'active' %}
                                     <button type="button" @click="$dispatch('open-send-note')"
                                             class="w-full py-4 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
                                         Send Note
@@ -360,7 +364,7 @@
                                 {% endif %}
                             </div>
                                                                     {% endif %}
-                                                                    {% if entry.item.attachment %}
+                                                                    {% if entry.item.attachment and can_view_original and entry.item.pk not in locked_doc_ids %}
                                                                         <div class="mt-3 flex items-center gap-2">
                                                                             <svg class="w-4 h-4 text-slate-400"
                                                                                  fill="none"
@@ -370,10 +374,14 @@
                                                                                 </path>
                                                                             </svg>
                                                                             <button type="button"
-                                                                                    @click="$dispatch('open-preview', { url: '{{ entry.item.attachment.url }}#toolbar=0', title: '{{ entry.item.title|default:"Attachment"|escapejs }}' })"
+                                                                                    @click="$dispatch('open-preview', { url: '{% url 'document_management:document_download' entry.item.pk %}', title: '{{ entry.item.title|default:"Attachment"|escapejs }}' })"
                                                                                     class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 hover:underline">
                                                                                 View Document
                                                                             </button>
+                                                                            <a href="{% url 'document_management:document_download' entry.item.pk %}"
+                                                                               class="text-xs font-bold text-slate-500 hover:text-nigeria-green transition-colors hover:underline">
+                                                                                Download
+                                                                            </a>
                                                                         </div>
                                                                     {% endif %}
                                                                     <div class="mt-3 flex items-center gap-4">
@@ -455,8 +463,6 @@
                                                                 <div class="text-[9px] mt-0.5">
                                                                     {% if entry.type == 'document' %}
                                                                         {{ entry.item.uploaded_by.username }}
-                                                                    {% elif entry.type == 'chain_step' %}
-                                                                        {{ entry.item.approver.user.username }}
                                                                     {% else %}
                                                                         {{ entry.item.user.username }}
                                                                     {% endif %}
@@ -508,7 +514,7 @@
                                                 {% if m.note %}
                                                     <p class="text-[11px] text-slate-500 italic mt-2 border-t border-slate-100 pt-2">"{{ m.note }}"</p>
                                                 {% endif %}
-                                                {% if m.attachment %}
+                                                {% if m.attachment and can_view_original %}
                                                     <a href="{{ m.attachment.url }}" target="_blank"
                                                        class="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-nigeria-green hover:underline uppercase tracking-widest">
                                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
@@ -583,6 +589,14 @@
                                         </svg>
                                     </div>
                                     <div>
+                                        {% if is_own_restricted %}
+                                        <p class="text-[10px] font-bold text-green-800 uppercase tracking-widest">
+                                            Access Granted — Contents Hidden
+                                        </p>
+                                        <p class="text-[9px] text-green-600">
+                                            {% if has_rw_access %}You can add documents to your file. Existing contents are hidden by policy.{% else %}Your request was approved. Existing contents are hidden by policy.{% endif %}
+                                        </p>
+                                        {% else %}
                                         <p class="text-[10px] font-bold text-green-800 uppercase tracking-widest">
                                             {% if has_rw_access %}Full Admin Access Granted{% else %}Read-Only Access Granted{% endif %}
                                         </p>
@@ -591,6 +605,7 @@
                                                 {% if can_view_original %}You can view and add documents.{% else %}You can manage and add documents. Contents hidden by policy.{% endif %}
                                             {% else %}You can view original documents.{% endif %}
                                         </p>
+                                        {% endif %}
                                     </div>
                                 </div>
                             {% endif %}
@@ -609,7 +624,7 @@
                                 {% endif %}
                                 {% if file.status == 'active' %}
                                     {% if user.staff.is_registry or user.is_superuser %}
-                                        {% with open_chains=file.approval_chains.all %}
+                                        
                                         <div x-data="{ showCloseModal: false }">
                                             <button @click="showCloseModal = true"
                                                     class="w-full py-4 bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm">
@@ -621,8 +636,6 @@
                                                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8 space-y-5">
                                                     <h3 class="text-base font-black text-slate-900 uppercase tracking-widest">Close File?</h3>
                                                     <p class="text-sm text-slate-600">Please confirm you have reviewed the file and it is ready to be closed. This action cannot be undone.</p>
-
-                                                    {# Approval chain warnings commented out #}
 
                                                     <div class="flex gap-3 pt-2">
                                                         <button @click="showCloseModal = false"
@@ -640,7 +653,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {% endwith %}
+                                        
                                     {% endif %}
                                 {% endif %}
                                 {% if file.status == 'closed' and perms.document_management.archive_file %}

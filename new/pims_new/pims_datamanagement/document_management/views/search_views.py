@@ -8,7 +8,7 @@ from organization.models import Staff, Unit
 from .base import EXCLUDE_REGISTRY_Q
 
 
-def _chain_of_command_pks(sender_staff):
+def _reporting_hierarchy_pks(sender_staff):
     """Heads above the sender, skipping self (a unit manager's direct head
     is THEIR head, not themselves)."""
     for head in (
@@ -63,8 +63,8 @@ class RecipientSearchView(LoginRequiredMixin, View):
                 eligible_qs = base_qs.filter(pk__in=pks)
             else:
                 # Lower staff (and pure heads-of-unit): direct head only,
-                # walking up the chain and skipping self.
-                eligible_qs = base_qs.filter(pk__in=_chain_of_command_pks(sender_staff))
+                # walking up the hierarchy and skipping self.
+                eligible_qs = base_qs.filter(pk__in=_reporting_hierarchy_pks(sender_staff))
         else:
             eligible_qs = base_qs
 
@@ -220,8 +220,8 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
                 eligible_qs = base_qs.filter(pk__in=pks)
             else:
                 # Lower staff (and pure heads-of-unit): direct head only,
-                # walking up the chain and skipping self.
-                eligible_qs = base_qs.filter(pk__in=_chain_of_command_pks(sender_staff))
+                # walking up the hierarchy and skipping self.
+                eligible_qs = base_qs.filter(pk__in=_reporting_hierarchy_pks(sender_staff))
         else:
             eligible_qs = base_qs
 

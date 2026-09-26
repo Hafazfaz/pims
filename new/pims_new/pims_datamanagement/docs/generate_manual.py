@@ -636,21 +636,32 @@ def ch_permissions():
         note("Three old switches you may see in settings — <b>send_file</b>, <b>add_minute</b>, "
              "<b>add_attachment</b> — no longer decide anything. Dispatch follows custody and the "
              "reporting chain; filing follows custody, ownership, and access grants."),
-        h2("10.3 The switches on the user form"),
-        p("When an administrator creates or edits a user, these are the only access checkboxes on the form:"),
-        *screenshot_slot("user-create", "Add Single User — Supervisor flag and the two permission checkboxes on the right"),
-        bullets([
-            "<b>Supervisor</b> — makes the person a flagged supervisor with department oversight.",
-            "<b>Can Mark Documents as Urgent/High Priority</b> — unlocks urgent documents and the New Urgent menu.",
-            "<b>Can Share Documents with Other Users</b> — unlocks email sharing (for HODs with a verified signature).",
-        ]),
+        h2("10.3 The checkboxes on the user form"),
+        p("When an administrator creates or edits a user, the Permissions section of the form has "
+          "exactly three checkboxes. Each one grants something different:"),
+        *screenshot_slot("user-create", "Add Single User — the three Permissions checkboxes on the right"),
+        table(
+            ["Checkbox", "What it grants", "Good to know"],
+            [
+                ["Supervisor",
+                 "Makes the person a <b>flagged supervisor</b>: oversight of personnel documents in their own department, even without holding any headship.",
+                 "Works together with whatever position the person already holds."],
+                ["Can Mark Documents as Urgent/High Priority",
+                 "Unlocks the <b>New Urgent</b> sidebar entry and lets the person file standalone <b>urgent/high-priority</b> documents that notify heads directly.",
+                 "Useful for front-desk or records staff who raise time-sensitive matters."],
+                ["Can Share Documents with Other Users",
+                 "Unlocks the <b>Share</b> action on a document, emailing it outside the workflow with the sender's signature image attached.",
+                 "Only takes effect for HODs, and only with a verified signature on their profile."],
+            ],
+            widths=[4, 8, 5],
+        ),
 
         h2("10.4 Granting and revoking"),
         steps([
             "Open <b>Management → Users</b> and choose the person, then <b>Edit</b>.",
             "To change <b>role-based</b> power: change their Department/Unit/Designation, tick or untick <b>Supervisor</b>, "
             "or (for headship) assign them as Head under Management → Departments/Divisions/Sections/Units.",
-            "To change the <b>two switches</b>: tick or untick <b>Can Mark Documents as Urgent/High Priority</b> and "
+            "To change the <b>three checkboxes</b>: tick or untick <b>Supervisor</b>, <b>Can Mark Documents as Urgent/High Priority</b> and "
             "<b>Can Share Documents with Other Users</b>.",
             "Save. Changes take effect on the user's next page load — no restart needed.",
             "To remove all access immediately, use <b>Suspend</b> (deactivates the account) rather than deleting it, "

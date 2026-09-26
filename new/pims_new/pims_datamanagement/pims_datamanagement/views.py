@@ -2,7 +2,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.generic import TemplateView
-from document_management.models import ApprovalStep, Document, File
+from document_management.models import Document, File
 from organization.models import Staff
 
 
@@ -53,14 +53,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
             Document.objects.filter(file__owner=staff, uploaded_at__gte=start_of_month).count() if staff else 0
         )
 
-        # Pending approval steps for this user
-        context["pending_approvals"] = (
-            ApprovalStep.objects.filter(approver=staff, status="pending")
-            .select_related("chain__file")
-            .order_by("chain__file__file_number")
-            if staff
-            else []
-        )
+        # Pending approvals removed.
+        context["pending_approvals"] = []
 
         # Files currently in custody (incoming dispatches)
         context["custody_list"] = custody_files.select_related("owner__user", "department").order_by("-created_at")[:5]

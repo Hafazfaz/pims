@@ -78,8 +78,8 @@ class MyActivityReportView(LoginRequiredMixin, View):
     """Personal activity report — aggregates the user's own audit log into meaningful sections."""
 
     # Action groups
-    APPROVAL_ACTIONS = {"DOCUMENT_APPROVED", "CHAIN_STEP_APPROVED"}
-    REJECTION_ACTIONS = {"DOCUMENT_REJECTED", "CHAIN_STEP_REJECTED"}
+    APPROVAL_ACTIONS = {"DOCUMENT_APPROVED"}
+    REJECTION_ACTIONS = {"DOCUMENT_REJECTED"}
     ACCESS_GRANTED_ACTIONS = {"ACCESS_REQUEST_APPROVED"}
     ACCESS_DENIED_ACTIONS = {"ACCESS_REQUEST_REJECTED"}
     FILE_MOVEMENT_ACTIONS = {"FILE_SENT", "DOCUMENT_FORWARDED", "MOVEMENT_CLOSED"}
@@ -257,8 +257,8 @@ class FullActivityExportView(LoginRequiredMixin, View):
     """Export activity log entries with comprehensive details as CSV or Excel."""
 
     SECTION_MAP = {
-        "approvals": {"DOCUMENT_APPROVED", "CHAIN_STEP_APPROVED"},
-        "rejections": {"DOCUMENT_REJECTED", "CHAIN_STEP_REJECTED"},
+        "approvals": {"DOCUMENT_APPROVED"},
+        "rejections": {"DOCUMENT_REJECTED"},
         "access_granted": {"ACCESS_REQUEST_APPROVED"},
         "access_denied": {"ACCESS_REQUEST_REJECTED"},
         "file_movements": {"FILE_SENT", "DOCUMENT_FORWARDED", "MOVEMENT_CLOSED"},

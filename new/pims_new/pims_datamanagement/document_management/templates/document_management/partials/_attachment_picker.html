@@ -1,0 +1,30 @@
+{# Reusable attachment picker: preview + remove + add more. Expects `field` (bound file field). #}
+<div data-attachment-picker class="space-y-3">
+  <div data-picker-dropzone class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+    <div class="space-y-2 text-center w-full">
+      <svg class="mx-auto h-12 w-12 text-slate-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <div class="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-600">
+        <button type="button" data-picker-browse class="relative cursor-pointer bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl hover:bg-black transition-all">
+          Choose file(s)
+        </button>
+        <span class="text-xs text-slate-400 font-medium">or drag &amp; drop here — you can add more after</span>
+      </div>
+      <p class="text-xs text-slate-500">PDF, DOCX, or JPEG up to 10MB each</p>
+      {# Real input kept in DOM for form submission; visually hidden but functional #}
+      <input type="file" name="{{ field.name }}" id="{{ field.id_for_label }}" multiple class="sr-only" aria-label="{{ field.label }}" />
+      {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between">
+    <p data-picker-count class="text-[10px] font-black text-slate-500 uppercase tracking-widest"></p>
+    <button type="button" data-picker-clear class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors">Clear all</button>
+  </div>
+  <p data-picker-empty class="text-xs text-slate-400 italic border border-dashed border-slate-200 rounded-xl px-4 py-4 text-center bg-white">No files selected yet.</p>
+  <ul data-picker-list class="space-y-2"></ul>
+  {% for error in field.errors %}
+    <p class="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">{{ error }}</p>
+  {% endfor %}
+</div>

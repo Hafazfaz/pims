@@ -19,7 +19,7 @@
   </div>
 
   <!-- KPI Row -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
       <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">My Files</p>
       <p class="text-3xl font-black text-slate-900">{{ total_files }}</p>
@@ -35,41 +35,13 @@
       <p class="text-3xl font-black {% if files_in_custody > 0 %}text-blue-600{% else %}text-slate-900{% endif %}">{{ files_in_custody }}</p>
       <p class="text-[10px] text-slate-400 mt-1">dispatched to me</p>
     </div>
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-      <p class="text-[9px] font-black {% if pending_approvals %}text-red-500{% else %}text-slate-400{% endif %} uppercase tracking-widest mb-3">Pending Approvals</p>
-      <p class="text-3xl font-black {% if pending_approvals %}text-red-500{% else %}text-slate-900{% endif %}">{{ pending_approvals|length }}</p>
-      <p class="text-[10px] text-slate-400 mt-1">waiting for your action</p>
-    </div>
+
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
     <!-- Left: Pending Approvals + Custody -->
     <div class="lg:col-span-2 space-y-6">
-
-      <!-- Pending Approvals -->
-      {% if pending_approvals %}
-      <div class="bg-white rounded-xl border border-red-100 shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-red-50 flex items-center gap-3">
-          <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-          <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest">Action Required — Pending Approvals</h3>
-        </div>
-        <div class="divide-y divide-slate-50">
-          {% for step in pending_approvals %}
-          <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-            <div class="min-w-0">
-              <p class="text-sm font-bold text-slate-900 truncate">{{ step.chain.file.title }}</p>
-              <p class="text-[10px] text-slate-400 font-medium mt-0.5">{{ step.chain.file.file_number }} &middot; Step {{ step.order }}</p>
-            </div>
-            <a href="{{ step.chain.file.get_absolute_url }}"
-               class="shrink-0 px-4 py-2 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 transition-all active:scale-95">
-              Review
-            </a>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
 
       <!-- Files in Custody -->
       {% if custody_list %}
@@ -162,11 +134,7 @@
             <span class="text-xs font-bold text-slate-700">Inbox</span>
             {% if files_in_custody > 0 %}<span class="text-[9px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">{{ files_in_custody }}</span>{% else %}<svg class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>{% endif %}
           </a>
-          <a href="{% url 'document_management:my_chains' %}"
-             class="flex items-center justify-between w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 transition-all group">
-            <span class="text-xs font-bold text-slate-700">Approval Chains</span>
-            {% if pending_approvals %}<span class="text-[9px] font-black bg-red-500 text-white px-2 py-0.5 rounded-full">{{ pending_approvals|length }}</span>{% else %}<svg class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>{% endif %}
-          </a>
+
           {% if perms.document_management.create_file %}
           <a href="{% url 'document_management:file_create' %}"
              class="flex items-center justify-between w-full px-4 py-3 bg-nigeria-green/10 hover:bg-nigeria-green/20 rounded-xl border border-nigeria-green/20 transition-all group">

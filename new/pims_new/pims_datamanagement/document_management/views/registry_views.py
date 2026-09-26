@@ -10,7 +10,7 @@ from django.views.generic import DetailView, ListView, View
 from notifications.utils import create_notification
 from organization.models import Department, Staff, Unit
 
-from ..models import ApprovalChain, Document, DocumentType, File, FileAccessRequest, FileMovement
+from ..models import Document, DocumentType, File, FileAccessRequest, FileMovement
 from .base import EXCLUDE_REGISTRY_Q, RegistryRequiredMixin
 
 
@@ -304,7 +304,7 @@ class FileApproveActivationView(RegistryRequiredMixin, View):
 
 
 class StaffFolderHubView(RegistryRequiredMixin, DetailView):
-    """Registry-only view: full picture of a staff member's file, documents, and approval chains.
+    """Registry-only view: full picture of a staff member's file and documents.
     Registry staff can see document metadata but NOT contents (per MD directive)."""
 
     model = Staff
@@ -329,12 +329,8 @@ class StaffFolderHubView(RegistryRequiredMixin, DetailView):
         context["can_view_staff_docs"] = can_view_docs
         if personal_file and can_view_docs:
             context["documents"] = personal_file.documents.select_related("uploaded_by").order_by("-uploaded_at")
-            context["active_chain"] = ApprovalChain.objects.filter(file=personal_file, status="active").first()
-            context["all_chains"] = ApprovalChain.objects.filter(file=personal_file).order_by("-created_at")
         else:
             context["documents"] = personal_file.documents.none() if personal_file else []
-            context["active_chain"] = None
-            context["all_chains"] = ApprovalChain.objects.none()
         return context
 
 
@@ -408,10 +404,6 @@ class CloseMovementView(RegistryRequiredMixin, View):
             messages.error(request, "Cannot close movement: file has pending access requests.")
             return redirect(file_obj.get_absolute_url())
 
-        if file_obj.is_in_active_chain:
-            messages.error(request, "Cannot close movement: file is in an active approval chain.")
-            return redirect(file_obj.get_absolute_url())
-
         version_ref_id = request.POST.get("version_reference")
         file_ref_id = request.POST.get("file_reference")
 
@@ -436,14 +428,12 @@ class CloseMovementView(RegistryRequiredMixin, View):
 
 
 class RegistryFileView(RegistryRequiredMixin, View):
-    """Registry view of any file — shows documents, approval chains, and dispatch history.
+    """Registry view of any file — shows documents and dispatch history.
     Registry staff can see document metadata but NOT contents (per MD directive)."""
 
     def get(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
         documents = file_obj.documents.select_related("uploaded_by").order_by("-uploaded_at")
-        active_chain = ApprovalChain.objects.filter(file=file_obj, status="active").first()
-        all_chains = ApprovalChain.objects.filter(file=file_obj).order_by("-created_at")
         movements = file_obj.movements.select_related(
             "sent_by", "sent_to__user", "sent_to__designation", "document"
         ).order_by("-moved_at")
@@ -458,8 +448,6 @@ class RegistryFileView(RegistryRequiredMixin, View):
         can_view_docs = can_view_staff_documents(request.user)
         if not can_view_docs:
             documents = file_obj.documents.none()
-            active_chain = None
-            all_chains = ApprovalChain.objects.none()
 
         return render(
             request,
@@ -469,8 +457,6 @@ class RegistryFileView(RegistryRequiredMixin, View):
                 "documents": documents[:5],
                 "documents_total": documents.count(),
                 "documents_all": documents,
-                "active_chain": active_chain,
-                "all_chains": all_chains,
                 "movements": movements[:5],
                 "movements_total": movements.count(),
                 "movements_all": movements,

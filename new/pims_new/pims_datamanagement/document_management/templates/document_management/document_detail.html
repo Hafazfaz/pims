@@ -8,6 +8,7 @@
 {% block extra_js %}
 <script src="{% static 'admin/js/vendor/jquery/jquery.min.js' %}"></script>
 <script src="{% static 'summernote/summernote-lite.min.js' %}"></script>
+<script src="{% static 'js/attachment-picker.js' %}"></script>
 <script>
 $(document).ready(function() {
     $("#edit-minute-content").summernote({
@@ -38,7 +39,7 @@ $(document).ready(function() {
             <span class="text-slate-600 font-medium">Document View</span>
         </div>
 
-        <!-- Layout: document content | chains -->
+        <!-- Layout: document content -->
         <div class="flex flex-col gap-4" style="height: calc(100vh - 12rem);">
 
         <!-- Top row: document content -->
@@ -223,11 +224,23 @@ $(document).ready(function() {
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Replace Attachment(s) — multiple files allowed (optional)</label>
-                                            <label class="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
-                                                <i class="fas fa-paperclip text-slate-400 text-xs"></i>
-                                                <span class="text-sm text-slate-500" id="edit-attach-label">Choose file(s)...</span>
-                                                <input type="file" name="attachment" multiple class="hidden" onchange="document.getElementById('edit-attach-label').textContent = this.files.length ? (this.files.length + ' file(s): ' + this.files[0].name) : 'Choose file(s)...'">
-                                            </label>
+                                            <div data-attachment-picker class="space-y-3">
+                                                <div data-picker-dropzone class="flex justify-center px-4 pt-4 pb-4 border-2 border-slate-200 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                                    <div class="space-y-2 text-center w-full">
+                                                        <div class="flex flex-wrap items-center justify-center gap-2">
+                                                            <button type="button" data-picker-browse class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg hover:bg-black transition-all">Choose file(s)</button>
+                                                            <span class="text-[11px] text-slate-400">or drag &amp; drop — add more anytime</span>
+                                                        </div>
+                                                        <input type="file" name="attachment" id="edit-attachment-input" multiple class="sr-only" />
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center justify-between">
+                                                    <p data-picker-count class="text-[10px] font-black text-slate-500 uppercase tracking-widest"></p>
+                                                    <button type="button" data-picker-clear class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600">Clear all</button>
+                                                </div>
+                                                <p data-picker-empty class="text-[11px] text-slate-400 italic border border-dashed border-slate-200 rounded-lg px-3 py-3 text-center bg-white">No files selected yet.</p>
+                                                <ul data-picker-list class="space-y-2"></ul>
+                                            </div>
                                         </div>
                                         <button type="submit" class="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all">
                                             Save as Version {{ document.version|add:1 }}

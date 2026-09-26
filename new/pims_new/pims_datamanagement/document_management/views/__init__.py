@@ -3,20 +3,6 @@ from .access_views import (  # noqa: F401
     FileAccessRequestListView,
     FileAccessRequestRejectView,
 )
-from .approval_views import (  # noqa: F401
-    AllActiveChainsView,
-    ApplyChainTemplateView,
-    ApprovalChainBuilderView,
-    ApprovalChainCreateView,
-    ApprovalChainDeleteView,
-    ApprovalChainStartView,
-    ApprovalReviewView,
-    ApprovalStepActionView,
-    ChainTemplateBuilderView,
-    ChainTemplateDeleteView,
-    ChainTemplateListView,
-    MyApprovalChainsView,
-)
 from .base import HTMXLoginRequiredMixin  # noqa: F401
 from .document_views import (  # noqa: F401
     AttachmentDownloadView,

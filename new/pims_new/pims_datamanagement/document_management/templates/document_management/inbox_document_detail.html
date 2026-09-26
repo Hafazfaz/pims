@@ -3,11 +3,28 @@
 {% block title %}{{ document.title|default:"Document" }} | Inbox | PIMS{% endblock %}
 {% block extra_css %}
 <style>
+  /* PIMS Approvals design tokens (Minimalism & Swiss / trust navy + signature green) */
+  :root {
+    --pims-navy: #1E3A5F;
+    --pims-blue: #2563EB;
+    --pims-green: #16A34A;
+    --pims-bg: #F8FAFC;
+    --pims-border: #CBD5E1;
+    --pims-danger: #DC2626;
+  }
   .message-bubble { animation: slideIn 0.2s ease-out; }
   @keyframes slideIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-  .action-btn { transition: all 0.15s ease; }
+  .action-btn { transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease; }
   .action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-  .action-btn:active { transform: translateY(0); }
+  .action-btn:active { transform: translateY(0); box-shadow: none; }
+  /* Decision buttons meet 48px touch target without relying on rebuilt utilities */
+  .decision-btn { min-height: 48px; }
+  /* Visible keyboard focus everywhere on this page */
+  .inbox-approval :focus-visible {
+    outline: 3px solid var(--pims-blue);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
   .recipient-option { cursor: pointer; transition: background 0.1s; }
   .recipient-option:hover { background: #f1f5f9; }
   .recipient-option.selected { background: #dbeafe; border-color: #3b82f6; }
@@ -21,34 +38,59 @@
     .inbox-grid { grid-template-columns: minmax(0, 1fr) 320px; }
     .sidebar-sticky { position: sticky; top: 8.5rem; align-self: start; }
   }
+  /* Sticky mobile decision bar — desktop uses the sticky sidebar instead */
+  .mobile-decide-bar {
+    position: sticky; bottom: 0; z-index: 30;
+    background: rgba(255,255,255,0.97);
+    border-top: 1px solid var(--pims-border);
+    backdrop-filter: blur(8px);
+  }
+  @media (min-width: 1024px) { .mobile-decide-bar { display: none; } }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .message-bubble { animation: none; }
+    .action-btn, .action-btn:hover, .action-btn:active { transform: none; }
+  }
 </style>
 {% endblock %}
 {% block content %}
-<div class="min-h-screen bg-slate-50">
+<div class="min-h-screen bg-slate-50 inbox-approval">
   <!-- Header Bar: in normal document flow, sticky below the app top nav (h-16) -->
   <header class="bg-white border-b border-slate-200 sticky top-16 z-30">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center gap-3">
+      <div class="flex items-center justify-between gap-3 h-16">
+        <div class="flex items-center gap-3 min-w-0">
           <a href="{% url 'document_management:inbox' %}"
-             class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+             class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
              aria-label="Back to Inbox">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
           </a>
-          <div>
-            <h1 class="text-lg font-bold text-slate-900">{{ document.title|default:"Untitled Document" }}</h1>
-            <p class="text-xs text-slate-500 font-medium">{{ file.file_number }} · {{ file.get_file_type_display }}</p>
+          <div class="min-w-0">
+            <h1 class="text-lg font-bold text-slate-900 truncate">{{ document.title|default:"Untitled Document" }}</h1>
+            <p class="text-xs text-slate-500 font-medium truncate">
+              {{ file.file_number }} · {{ file.get_file_type_display }}
+              · from {{ movement.sent_by.get_full_name|default:movement.sent_by.username }} · waiting {{ movement.moved_at|timesince }}
+            </p>
           </div>
         </div>
-        <span class="status-badge px-3 py-1 rounded-full border font-bold uppercase tracking-wider
+        <div class="flex items-center gap-2 shrink-0">
+          {% if movement.status == 'pending' and can_approve %}
+          <a href="#approval-actions"
+             class="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">
+            Needs your decision
+          </a>
+          {% endif %}
+          <span class="status-badge px-3 py-1 rounded-full border font-bold uppercase tracking-wider
             {% if document.status == 'approved' %}bg-green-50 text-green-700 border-green-200
             {% elif document.status == 'rejected' %}bg-red-50 text-red-700 border-red-200
             {% elif document.status == 'in_transit' %}bg-blue-50 text-blue-700 border-blue-200
             {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
-          {{ document.get_status_display }}
-        </span>
+            {{ document.get_status_display }}
+          </span>
+        </div>
       </div>
     </div>
   </header>
@@ -56,15 +98,51 @@
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <div class="inbox-grid">
 
-      <!-- MAIN COLUMN: document card, other documents, conversation -->
-      <section class="space-y-5 min-w-0">
+      <!-- MAIN COLUMN: decision summary, document card, other documents, conversation -->
+      <section class="space-y-5 min-w-0" aria-label="Document review">
+
+        {% if movement.status == 'pending' and can_approve %}
+        <!-- Decision summary: what needs your action, from whom, how long waiting -->
+        <section class="bg-slate-900 text-white rounded-2xl shadow-sm overflow-hidden" aria-labelledby="decision-heading">
+          <div class="p-5 sm:p-6">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="w-2 h-2 bg-amber-400 rounded-full animate-pulse" aria-hidden="true"></span>
+              <h2 id="decision-heading" class="text-[11px] font-black uppercase tracking-widest text-slate-300">Decision required</h2>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div class="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center text-sm font-black shrink-0" aria-hidden="true">
+                {{ movement.sent_by.get_full_name|default:movement.sent_by.username|slice:":1" }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold leading-snug">
+                  {{ movement.sent_by.get_full_name|default:movement.sent_by.username }}
+                  <span class="font-medium text-slate-300">sent this for your review · waiting {{ movement.moved_at|timesince }}</span>
+                </p>
+                {% if movement.note %}
+                <p class="text-xs text-slate-300 mt-1 truncate">“{{ movement.note }}”</p>
+                {% endif %}
+              </div>
+              <div class="flex gap-2 shrink-0">
+                <a href="#approval-actions"
+                   class="decision-btn inline-flex items-center justify-center gap-2 px-5 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
+                  Review
+                </a>
+                <a href="{% url 'document_management:inbox_file_view' pk=movement.pk %}"
+                   class="decision-btn inline-flex items-center justify-center px-5 bg-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-colors">
+                  File
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+        {% endif %}
 
         <!-- Document Card -->
         <article class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div class="p-6">
             <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div>
-                <span class="inline-flex items-center px-2.5 py-1 rounded bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-widest border border-indigo-100 mb-2">Document</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest mb-2">Document</span>
                 <h2 class="text-xl font-bold text-slate-900">{{ document.title|default:"Untitled Document" }}</h2>
                 <p class="text-xs text-slate-500 mt-1 font-medium uppercase tracking-wider">
                   Uploaded by {{ document.uploaded_by.get_full_name|default:document.uploaded_by.username|default:"Unknown" }} · {{ document.uploaded_at|date:"M d, Y @ H:i" }}
@@ -79,17 +157,50 @@
             </div>
             {% endif %}
 
-            {% if document.attachment %}
-            <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-              </svg>
-              <a href="{% url 'document_management:document_download' document.pk %}"
-                 class="text-sm font-semibold text-indigo-600 hover:underline flex-1">
-                Download Attachment
-              </a>
-              <span class="text-xs text-slate-500 font-medium">PDF</span>
+            {% if document.has_files %}
+            {% if can_download_file %}
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Attachments ({{ document.attachment_count }})</h3>
+              <div class="space-y-2">
+                {% if document.attachment %}
+                <div class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                  </svg>
+                  <span class="text-sm font-bold text-slate-700 truncate flex-1" title="{{ document.attachment_filename }}">{{ document.attachment_filename }}</span>
+                  <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key='main' %}"
+                     class="text-sm font-semibold text-nigeria-green hover:underline shrink-0">
+                    View in browser
+                  </a>
+                  <a href="{% url 'document_management:document_download' document.pk %}"
+                     class="text-sm font-semibold text-slate-500 hover:text-nigeria-green hover:underline shrink-0">
+                    Download
+                  </a>
+                </div>
+                {% endif %}
+                {% for extra in document.extra_attachments.all %}
+                <div class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                  </svg>
+                  <span class="text-sm font-bold text-slate-700 truncate flex-1" title="{{ extra.filename }}">{{ extra.filename }}</span>
+                  <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key=extra.pk %}"
+                     class="text-sm font-semibold text-nigeria-green hover:underline shrink-0">
+                    View in browser
+                  </a>
+                  <a href="{% url 'document_management:attachment_download' att_pk=extra.pk %}"
+                     class="text-sm font-semibold text-slate-500 hover:text-nigeria-green hover:underline shrink-0">
+                    Download
+                  </a>
+                </div>
+                {% endfor %}
+              </div>
             </div>
+            {% else %}
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attachments locked — request access to view or download</p>
+            </div>
+            {% endif %}
             {% endif %}
 
             {% if not document.minute_content and not document.attachment %}
@@ -120,16 +231,18 @@
                 <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"Unknown" }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                {% if doc.has_files %}
+                {% if doc.has_files and doc.pk in downloadable_doc_ids %}
                 <a href="{% url 'document_management:document_download' doc.pk %}"
                    class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">
                   Download
                 </a>
                 {% endif %}
+                {% if doc.pk in viewable_doc_ids %}
                 <a href="{% url 'document_management:inbox_ref_doc' doc.pk %}"
                    class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-amber-100 transition-all">
                   View
                 </a>
+                {% endif %}
               </div>
             </div>
             {% endfor %}
@@ -150,8 +263,12 @@
             {% for doc in other_docs %}
             <div class="flex items-center justify-between gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
               <div class="flex-1 min-w-0">
+                {% if doc.pk in viewable_doc_ids %}
                 <a href="{% url 'document_management:document_detail' doc.pk %}"
                    class="text-sm font-semibold text-nigeria-green hover:underline truncate block">{{ doc.title|default:"Untitled" }}</a>
+                {% else %}
+                <span class="text-sm font-semibold text-slate-500 truncate block">{{ doc.title|default:"Untitled" }}</span>
+                {% endif %}
                 <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"Unknown" }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
               </div>
               <span class="status-badge px-2.5 py-1 rounded-full border font-bold uppercase tracking-tighter shrink-0
@@ -161,10 +278,12 @@
                   {% else %}bg-amber-50 text-amber-600 border-amber-100{% endif %}">
                 {{ doc.get_status_display }}
               </span>
+              {% if doc.pk in viewable_doc_ids %}
               <a href="{% url 'document_management:document_detail' doc.pk %}"
                  class="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all shrink-0">
                 View
               </a>
+              {% endif %}
             </div>
             {% endfor %}
           </div>
@@ -233,8 +352,13 @@
 
         <!-- Actions Panel -->
         {% if movement.status == 'pending' %}
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-          <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</h3>
+        <div id="approval-actions" tabindex="-1" style="scroll-margin-top:7rem"
+             class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3"
+             aria-labelledby="approval-actions-heading">
+          <div class="flex items-center justify-between gap-2">
+            <h3 id="approval-actions-heading" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Your decision</h3>
+            <span class="text-[10px] text-slate-400 font-medium">waiting {{ movement.moved_at|timesince }}</span>
+          </div>
 
           {% if can_approve %}
           {% if is_hou_forwarder %}
@@ -242,13 +366,13 @@
                Approve expands in place (pairing hidden while the form is open). -->
           <div x-data="{ view: 'default' }">
           <div x-show="view === 'default'" class="space-y-2">
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" @click="view = 'forward'; document.getElementById('hou-reject-form').classList.add('hidden')" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <div class="grid grid-cols-2 gap-2" role="group" aria-label="Approve or reject">
+              <button type="button" @click="view = 'forward'; document.getElementById('hou-reject-form').classList.add('hidden'); $nextTick(() => $refs.houFwdNote && $refs.houFwdNote.focus())" aria-controls="hou-forward-form-wrap" class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 Approve
               </button>
-              <button type="button" onclick="document.getElementById('hou-reject-form').classList.toggle('hidden')" class="action-btn w-full py-3 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <button type="button" id="hou-reject-toggle" aria-expanded="false" aria-controls="hou-reject-form" onclick="var f=document.getElementById('hou-reject-form');var open=f.classList.toggle('hidden')===false;this.setAttribute('aria-expanded',open);if(open){document.getElementById('hou-reject-note').focus();}" class="action-btn decision-btn w-full py-3 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 Reject
               </button>
             </div>
@@ -256,28 +380,30 @@
               <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-2">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="reject">
-                <input type="text" name="note" placeholder="Reason (required)"
-                       class="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-red-400 focus:border-red-400"
+                <label for="hou-reject-note" class="text-[10px] font-black text-red-700 uppercase tracking-widest">Reason for rejection (required)</label>
+                <input type="text" id="hou-reject-note" name="note" placeholder="Reason (required)" aria-describedby="hou-reject-hint"
+                       class="w-full border border-red-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
                        required>
-                <button type="submit" class="w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800">Confirm Reject</button>
+                <p id="hou-reject-hint" class="text-[10px] text-slate-400">The sender sees this reason. Rejection returns the document to them.</p>
+                <button type="submit" class="decision-btn w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Confirm Reject</button>
               </form>
             </div>
           </div>
           <div x-show="view === 'forward'" x-cloak class="space-y-3" id="hou-forward-form-wrap">
-            <button type="button" @click="view = 'default'; resetForwardForm('hou-forward-form-wrap')" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <button type="button" @click="view = 'default'; resetForwardForm('hou-forward-form-wrap')" class="decision-btn text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center gap-1 px-2 py-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
               Back
             </button>
           <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3">
             {% csrf_token %}
             <input type="hidden" name="action" value="approve">
             {% if prefilled_recipient %}
-            <p class="text-[10px] text-slate-500 font-medium">This will be sent to your HOD: <span class="font-bold">{{ prefilled_recipient.user.get_full_name }}</span></p>
+            <p class="text-xs text-slate-600 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">Approving sends this to your HOD: <span class="font-bold">{{ prefilled_recipient.user.get_full_name }}</span></p>
             {% endif %}
             <div>
-              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note (optional)</label>
-              <textarea name="note" rows="3" placeholder="Add a note..."
-                     class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 resize-none"></textarea>
+              <label for="hou-forward-note" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note for the HOD (optional)</label>
+              <textarea id="hou-forward-note" x-ref="houFwdNote" name="note" rows="3" placeholder="Add a note..."
+                     class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"></textarea>
             </div>
             {% if other_docs %}
             <div data-ref-wrap>
@@ -300,11 +426,11 @@
             </div>
             {% endif %}
             <div class="grid grid-cols-2 gap-2">
-              <button type="button" @click="view = 'default'; resetForwardForm('hou-forward-form-wrap')" class="action-btn w-full py-3 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 flex items-center justify-center gap-2">
+              <button type="button" @click="view = 'default'; resetForwardForm('hou-forward-form-wrap')" class="action-btn decision-btn w-full py-3 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center justify-center gap-2">
                 Cancel
               </button>
-              <button type="submit" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <button type="submit" class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 Approve
               </button>
             </div>
@@ -316,40 +442,42 @@
                Forward replaces this pairing in place (never inserted between). -->
           <div x-data="{ view: 'default' }">
           <div x-show="view === 'default'" class="space-y-2">
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 gap-2" role="group" aria-label="Approve or reject">
             <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}">
               {% csrf_token %}
               <input type="hidden" name="action" value="approve">
-              <button type="submit" class="action-btn w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <button type="submit" class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 Approve
               </button>
             </form>
             <div x-data="{ open: false }" class="space-y-2">
-              <button @click="open = !open" class="action-btn w-full py-3 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <button @click="open = !open; $el.setAttribute('aria-expanded', open); if (open) $nextTick(() => $refs.hodRejectNote.focus())" aria-expanded="false" aria-controls="hod-reject-form" class="action-btn decision-btn w-full py-3 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 Reject
               </button>
-              <div x-show="open" x-cloak x-transition class="space-y-2 animate-slideIn col-span-2">
+              <div x-show="open" x-cloak x-transition class="space-y-2 animate-slideIn col-span-2" id="hod-reject-form">
                 <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-2">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="reject">
-                  <input type="text" name="note" placeholder="Reason (required)"
-                         class="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-red-400 focus:border-red-400"
+                  <label for="hod-reject-note" class="text-[10px] font-black text-red-700 uppercase tracking-widest">Reason for rejection (required)</label>
+                  <input type="text" id="hod-reject-note" x-ref="hodRejectNote" name="note" placeholder="Reason (required)" aria-describedby="hod-reject-hint"
+                         class="w-full border border-red-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
                          required>
-                  <button type="submit" class="w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800">Confirm Reject</button>
+                  <p id="hod-reject-hint" class="text-[10px] text-slate-400">The sender sees this reason. Rejection returns the document to them.</p>
+                  <button type="submit" class="decision-btn w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Confirm Reject</button>
                 </form>
               </div>
             </div>
           </div>
           <!-- Secondary action: forward (outline, not filled) -->
-          <button @click="view = 'forward'" class="action-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 flex items-center justify-center gap-2">
+          <button @click="view = 'forward'; $nextTick(() => document.getElementById('detail-forward-search') && document.getElementById('detail-forward-search').focus())" class="action-btn decision-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center justify-center gap-2">
             Forward to supervisor / HOD
           </button>
           </div>
           <div x-show="view === 'forward'" x-cloak class="space-y-3" id="forward-form-wrap">
-            <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="decision-btn text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center gap-1 px-2 py-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
               Back
             </button>
             <div class="space-y-3 border border-slate-100 rounded-xl p-3">
@@ -357,12 +485,12 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="forward">
                 <div>
-                  <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipient</label>
+                  <label for="detail-forward-search" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipient</label>
                   <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="">
-                  <input type="text" id="detail-forward-search" placeholder="Search supervisors / HODs..." autocomplete="off"
+                  <input type="text" id="detail-forward-search" placeholder="Search supervisors / HODs..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="detail-forward-results"
                          data-default-id="" data-default-name=""
-                         class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-slate-500 focus:border-slate-500">
-                  <div id="detail-forward-results"></div>
+                         class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500">
+                  <div id="detail-forward-results" role="listbox"></div>
                 </div>
                 <div>
                   <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note (optional)</label>
@@ -390,8 +518,8 @@
                 </div>
                 {% endif %}
                 <div class="grid grid-cols-2 gap-2">
-                  <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50">Cancel</button>
-                  <button type="submit" id="detail-forward-submit" class="w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50">Confirm Forward</button>
+                  <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="decision-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">Cancel</button>
+                  <button type="submit" id="detail-forward-submit" class="decision-btn w-full py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">Confirm Forward</button>
                 </div>
               </form>
             </div>
@@ -401,8 +529,74 @@
           {% endif %}
         </div>
         {% else %}
-        <div class="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-center">
-          <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Already actioned — {{ movement.get_status_display }}</span>
+        <!-- Decision record: what was decided, by whom, and where it went next -->
+        <div class="rounded-2xl border overflow-hidden
+            {% if movement.status == 'approved' %}bg-green-50/60 border-green-200
+            {% elif movement.status == 'rejected' %}bg-red-50/60 border-red-200
+            {% else %}bg-blue-50/60 border-blue-200{% endif %}">
+          <div class="p-5">
+            <div class="flex items-start gap-3">
+              <span class="w-10 h-10 rounded-full flex items-center justify-center shrink-0
+                  {% if movement.status == 'approved' %}bg-green-600 text-white
+                  {% elif movement.status == 'rejected' %}bg-red-600 text-white
+                  {% else %}bg-blue-600 text-white{% endif %}" aria-hidden="true">
+                {% if movement.status == 'approved' %}
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                {% elif movement.status == 'rejected' %}
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                {% else %}
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                {% endif %}
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-[10px] font-black uppercase tracking-widest
+                    {% if movement.status == 'approved' %}text-green-700
+                    {% elif movement.status == 'rejected' %}text-red-700
+                    {% else %}text-blue-700{% endif %}">
+                  {{ movement.get_status_display }}
+                </p>
+                <p class="text-sm font-bold text-slate-900 mt-0.5">
+                  {% if movement.status == 'approved' %}
+                    Approved by {{ movement.sent_to.user.get_full_name|default:movement.sent_to }}
+                  {% elif movement.status == 'rejected' %}
+                    Rejected by {{ movement.sent_to.user.get_full_name|default:movement.sent_to }}
+                  {% elif next_movement %}
+                    {{ movement.sent_to.user.get_full_name|default:movement.sent_to }} forwarded to {{ next_movement.sent_to.user.get_full_name|default:next_movement.sent_to }}
+                  {% else %}
+                    Forwarded by {{ movement.sent_to.user.get_full_name|default:movement.sent_to }}
+                  {% endif %}
+                </p>
+                {% if movement.status == 'rejected' and decision_entry and decision_entry.details.note %}
+                <div class="mt-2 px-3 py-2 bg-white/70 border border-red-100 rounded-lg">
+                  <p class="text-[10px] font-black text-red-600 uppercase tracking-widest">Reason</p>
+                  <p class="text-sm text-slate-700 mt-0.5">“{{ decision_entry.details.note }}”</p>
+                </div>
+                {% endif %}
+                {% if movement.status == 'forwarded' and next_movement and next_movement.note %}
+                <div class="mt-2 px-3 py-2 bg-white/70 border border-blue-100 rounded-lg">
+                  <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Forwarding note</p>
+                  <p class="text-sm text-slate-700 mt-0.5">“{{ next_movement.note }}”</p>
+                </div>
+                {% endif %}
+                <p class="text-[10px] text-slate-400 font-medium mt-2">
+                  {% if movement.status == 'forwarded' and next_movement %}
+                    {{ next_movement.moved_at|date:"M d, Y @ H:i" }} · {{ next_movement.moved_at|timesince }} ago
+                  {% elif decision_entry %}
+                    {{ decision_entry.timestamp|date:"M d, Y @ H:i" }} · {{ decision_entry.timestamp|timesince }} ago
+                  {% endif %}
+                  {% if movement.status == 'approved' %} · file returned to Registry{% endif %}
+                  {% if movement.status == 'rejected' %} · file returned to sender{% endif %}
+                </p>
+                {% if can_follow_trail %}
+                <a href="{% url 'document_management:inbox_document_detail' pk=next_movement.pk %}"
+                   class="decision-btn mt-3 inline-flex items-center justify-center gap-2 px-5 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors">
+                  Follow the trail
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
         </div>
         {% endif %}
 
@@ -471,6 +665,25 @@
       </aside>
     </div>
   </main>
+
+  {% if movement.status == 'pending' and can_approve %}
+  <!-- Mobile decision bar: actions live in the sidebar (below on small screens),
+       so keep a sticky shortcut to jump straight to them. -->
+  <div class="mobile-decide-bar px-4 py-3">
+    <div class="flex items-center gap-3">
+      <span class="status-badge px-2.5 py-1 rounded-full border font-bold uppercase tracking-wider shrink-0
+          {% if document.status == 'in_transit' %}bg-blue-50 text-blue-700 border-blue-200
+          {% else %}bg-amber-50 text-amber-700 border-amber-200{% endif %}">
+        {{ document.get_status_display }}
+      </span>
+      <p class="text-xs text-slate-500 font-medium truncate flex-1">Waiting {{ movement.moved_at|timesince }}</p>
+      <a href="#approval-actions"
+         class="decision-btn inline-flex items-center justify-center px-6 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors shrink-0">
+        Decide
+      </a>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <script>
@@ -529,10 +742,10 @@ document.addEventListener('input', function(e) {
     const q = e.target.value.trim();
     const resultsDiv = document.getElementById('detail-forward-results');
     if (!resultsDiv) return;
-    if (q.length < 2) { resultsDiv.innerHTML = ''; return; }
+    if (q.length < 2) { resultsDiv.innerHTML = ''; e.target.setAttribute('aria-expanded', 'false'); return; }
     fetch("{% url 'document_management:inbox_recipient_search' %}?q=" + encodeURIComponent(q))
       .then(r => r.text())
-      .then(html => { resultsDiv.innerHTML = html; })
+      .then(html => { resultsDiv.innerHTML = html; e.target.setAttribute('aria-expanded', 'true'); })
       .catch(() => {});
   }
 });
@@ -563,7 +776,7 @@ document.addEventListener('click', function(e) {
   const searchInput = document.getElementById('detail-forward-search');
   const submitBtn = document.getElementById('detail-forward-submit');
   if (idInput) idInput.value = option.dataset.id;
-  if (searchInput) searchInput.value = option.dataset.name;
+  if (searchInput) { searchInput.value = option.dataset.name; searchInput.setAttribute('aria-expanded', 'false'); }
   if (submitBtn) submitBtn.disabled = false;
   resultsDiv.innerHTML = '';
 });
