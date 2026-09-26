@@ -14,14 +14,37 @@
                         </svg>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-[10px] font-black bg-slate-900 text-white px-2 py-0.5 rounded tracking-widest">{{ folder.file_number }}</span>
                             <h4 class="text-base font-bold text-slate-900 leading-tight">{{ folder.title }}</h4>
+                            {% if folder.status == 'in_transit' %}
+                                <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest bg-blue-100 text-blue-700 animate-pulse">In Transit</span>
+                            {% elif folder.status == 'active' %}
+                                <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest bg-green-50 text-green-700">Active</span>
+                            {% else %}
+                                <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest bg-slate-100 text-slate-500">{{ folder.get_status_display }}</span>
+                            {% endif %}
                         </div>
                         <p class="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">
                             {{ folder.get_file_type_display }} Record • {{ folder.created_at|date:"M d, Y" }}
+                            {% if folder.current_location %} • With {{ folder.current_location_display }}{% endif %}
                         </p>
-                    </div>
+                        {% if folder.status == 'in_transit' and folder.documents.all %}
+                            {% with latest_doc=folder.documents.all.0 %}
+                            <p class="text-[11px] text-slate-500 font-medium mt-1.5">
+                                Latest: <span class="font-bold text-slate-700">{% if latest_doc.title %}{{ latest_doc.title }}{% else %}Official Document{% endif %}</span>
+                                <span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest
+                                    {% if latest_doc.status == 'approved' %}bg-green-100 text-green-700
+                                    {% elif latest_doc.status == 'rejected' %}bg-red-100 text-red-700
+                                    {% elif latest_doc.status == 'in_transit' %}bg-blue-100 text-blue-700
+                                    {% elif latest_doc.status == 'cancelled' %}bg-slate-200 text-slate-500
+                                    {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                    {{ latest_doc.get_status_display }}
+                                </span>
+                            </p>
+                            {% endwith %}
+                        {% endif %}
+                        </div>
                 </div>
                 <a href="{% url 'document_management:file_detail' pk=folder.pk %}?tab=chronicle"
                    class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
@@ -38,16 +61,13 @@
                     <div class="px-8 py-6 text-center">
                         <span class="text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">Document contents restricted — Registry may not view document details per policy.</span>
                     </div>
-                {% elif folder.owner_id == user.staff.id and folder.file_type == "personal" and not can_view_own_docs %}
-                    <div class="px-8 py-6 text-center">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Personnel file contents are restricted — contact your Unit Head / HOD for access.</span>
-                    </div>
                 {% else %}
                     <table class="w-full text-left text-sm">
                         <thead>
                             <tr class="bg-white text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
                                 <th class="px-8 py-4">Document Title / Label</th>
                                 <th class="px-8 py-4">Type</th>
+                                <th class="px-8 py-4">Status</th>
                                 <th class="px-8 py-4">Date Uploaded</th>
                                 <th class="px-8 py-4 text-right">Access</th>
                             </tr>
@@ -60,7 +80,7 @@
                                             <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                             </svg>
-                                            {% if user.staff.is_hod or user.staff.is_privileged_head or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
+                                            {% if user.is_superuser or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor or folder.owner_id == user.staff.id or folder.current_location_id == user.staff.id or doc.uploaded_by_id == user.id or can_browse_subordinates %}
                                             <a href="{% url 'document_management:document_detail' pk=doc.pk %}" class="font-bold text-slate-700 text-sm hover:text-nigeria-green hover:underline transition-colors">
                                                 {% if doc.title %}{{ doc.title }}{% else %}Official Document{% endif %}
                                             </a>
@@ -73,10 +93,20 @@
                                         <span class="text-[10px] font-bold text-slate-500 uppercase">{% if doc.minute_content %}Internal Minute{% else %}Attachment{% endif %}</span>
                                     </td>
                                     <td class="px-8 py-5">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest
+                                            {% if doc.status == 'approved' %}bg-green-100 text-green-700
+                                            {% elif doc.status == 'rejected' %}bg-red-100 text-red-700
+                                            {% elif doc.status == 'in_transit' %}bg-blue-100 text-blue-700
+                                            {% elif doc.status == 'cancelled' %}bg-slate-200 text-slate-500
+                                            {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                            {{ doc.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="px-8 py-5">
                                         <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
                                     </td>
                                     <td class="px-8 py-5 text-right">
-                                        {% if user.staff.is_hod or user.staff.is_privileged_head or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor %}
+                                        {% if user.is_superuser or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor or folder.owner_id == user.staff.id or folder.current_location_id == user.staff.id or doc.uploaded_by_id == user.id or can_browse_subordinates %}
                                             {% if doc.has_files %}
                                                 <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}" class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest mr-3">View</a>
                                                 <a href="{% url 'document_management:document_download' doc.pk %}" class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download{% if doc.attachment_count > 1 %} ({{ doc.attachment_count }}){% endif %}</a>
@@ -90,12 +120,12 @@
                                 </tr>
                             {% empty %}
                                 <tr>
-                                    <td colspan="4" class="px-8 py-10 text-center text-slate-300 italic text-xs font-medium">No official documents indexed in this folder.</td>
+                                    <td colspan="5" class="px-8 py-10 text-center text-slate-300 italic text-xs font-medium">No official documents indexed in this folder.</td>
                                 </tr>
                             {% endfor %}
                             {% if folder.documents.count > 5 %}
                                 <tr id="load-more-row-{{ folder.pk }}">
-                                    <td colspan="4" class="px-8 py-4 text-center">
+                                    <td colspan="5" class="px-8 py-4 text-center">
                                         <button class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-nigeria-green transition-colors"
                                                 hx-get="{% url 'document_management:file_documents_paginate' pk=folder.pk %}?page=2&q={{ selected_search_query }}"
                                                 hx-target="#load-more-row-{{ folder.pk }}"

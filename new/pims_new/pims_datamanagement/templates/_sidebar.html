@@ -165,6 +165,20 @@
             </div>
             {% endif %}
 
+            <!-- UNIT MANAGER -->
+            {% if user.staff.is_head_of_unit and not user.staff.is_hod and not user.staff.is_registry and not user.staff.is_md %}
+            <div>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Unit</p>
+                <div class="space-y-0.5">
+                    <a href="{% url 'document_management:record_explorer' %}"
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                        <i class="fas fa-folder-open w-4 text-center"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider">Unit Files</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- MD -->
             {% if user.staff.is_md %}
             <div>

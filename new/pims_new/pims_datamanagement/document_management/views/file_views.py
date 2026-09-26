@@ -208,7 +208,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 '<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
                 '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>'
                 "</svg>"
-                '<p class="text-sm text-amber-700 font-medium">No recipient found in chain of command. File will be saved as draft.</p>'
+                '<p class="text-sm text-amber-700 font-medium">No recipient found in reporting hierarchy. File will be saved as draft.</p>'
                 "</div>"
             )
 
@@ -288,7 +288,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         if not eligible.exists():
             messages.warning(
                 self.request,
-                "File created but could not be dispatched — no recipient found in your chain of command. "
+                "File created but could not be dispatched — no recipient found in your reporting hierarchy. "
                 "The file remains with you. You can send it manually from the file detail page.",
             )
             return redirect(self.get_success_url())
@@ -393,19 +393,46 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             if staff_user.is_supervisor and staff_user.department:
                 base_q |= Q(owner__department=staff_user.department, file_type="personal")
             queryset = File.objects.filter(base_q).distinct()
+        elif staff_user.is_head_of_unit:
+            # Unit managers see personal files of staff in their OWN unit
+            # (HOD-like oversight, unit-scoped) alongside their own files.
+            try:
+                headed_unit = staff_user.headed_unit
+            except Exception:
+                headed_unit = None
+            if headed_unit:
+                base_q |= Q(owner__unit=headed_unit, file_type="personal")
+            queryset = File.objects.filter(base_q).distinct()
         else:
             queryset = File.objects.filter(base_q).distinct()
             if not staff_user.is_registry:
-                # Lower staff: My Files shows ONLY pending files still in
-                # transit (their own at-rest files are restricted anyway).
-                # Once a file is acknowledged/approved and back to active,
-                # it leaves this list. Registry keeps the wider custody list.
-                queryset = queryset.filter(status="in_transit")
+                # Lower staff: My Files shows ONLY pending work still awaiting
+                # approval — files in transit OR files with pending/in-transit
+                # documents. Once everything is approved (file back to active
+                # with no pending docs), it leaves this list. Registry keeps
+                # the wider custody list.
+                queryset = queryset.filter(
+                    Q(status="in_transit")
+                    | Q(documents__status__in=["pending", "in_transit"])
+                ).distinct()
 
         if not staff_user.is_registry:
             queryset = queryset.exclude(status__in=["inactive", "closed"])
 
         search_query = self.request.GET.get("q")
+        # Lower staff see pending documents only — approved items drop off.
+        # Unit managers browsing their unit see full document lists.
+        is_lower_staff = not (
+            user.is_superuser
+            or staff_user.is_registry
+            or staff_user.is_hod
+            or staff_user.is_privileged_head
+            or staff_user.is_head_of_unit
+            or staff_user.is_executive
+            or staff_user.is_md
+            or getattr(staff_user, "is_mayor", False)
+        )
+        pending_statuses = ["pending", "in_transit"]
         if search_query:
             queryset = queryset.filter(
                 Q(title__icontains=search_query)
@@ -413,16 +440,26 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
                 | Q(documents__title__icontains=search_query)
             ).distinct()
 
+            doc_qs = Document.objects.filter(title__icontains=search_query)
+            if is_lower_staff:
+                doc_qs = doc_qs.filter(status__in=pending_statuses)
             queryset = queryset.prefetch_related(
                 Prefetch(
                     "documents",
-                    queryset=Document.objects.filter(title__icontains=search_query),
+                    queryset=doc_qs.order_by("-uploaded_at"),
                 )
             )
         else:
-            queryset = queryset.prefetch_related("documents")
+            doc_qs = Document.objects.all()
+            if is_lower_staff:
+                doc_qs = doc_qs.filter(status__in=pending_statuses)
+            queryset = queryset.prefetch_related(
+                Prefetch("documents", queryset=doc_qs.order_by("-uploaded_at"))
+            )
 
-        return queryset.order_by("-created_at")
+        return queryset.select_related(
+            "owner__user", "current_location__user", "department"
+        ).order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         staff_user = self.get_staff_user()
@@ -447,6 +484,13 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             or staff_user.is_executive
             or staff_user.is_md
             or getattr(staff_user, "is_mayor", False)
+        )
+        # Jurisdiction browsing: oversight heads plus unit managers (own unit
+        # only) get clickable View/Download links on rows in their lists.
+        context["can_browse_subordinates"] = bool(
+            staff_user.is_hod
+            or staff_user.is_privileged_head
+            or staff_user.is_head_of_unit
         )
         # Staff-document metadata gate (titles/lists). Registry lacks the
         # view_staff_documents permission, so registry sees file custody info
@@ -505,13 +549,6 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
         staff_user = self.get_staff_user()
-
-        if file_obj.is_in_active_chain:
-            messages.error(
-                request,
-                "This file is locked in an approval chain and cannot be recalled.",
-            )
-            return redirect(file_obj.get_absolute_url())
 
         if file_obj.owner != staff_user and not staff_user.is_registry:
             messages.error(request, "Only the file owner or registry staff can recall a file.")
@@ -619,27 +656,39 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         # Section / division heads + supervisors see personal files of staff
         # in their jurisdiction (same section / division, falling back to
-        # same department). Pure heads-of-unit are treated like regular staff.
-        if file_obj.file_type == "personal" and staff_user.is_privileged_head and file_obj.owner:
+        # same department).
+        # Section / division heads + supervisors see personal files of staff
+        # in their jurisdiction (same section / division, falling back to
+        # same department).
+        # Heads of unit see personal files of staff in their OWN unit only.
+        if file_obj.file_type == "personal" and file_obj.owner:
             owner = file_obj.owner
-            try:
-                headed_section = staff_user.headed_section
-            except Exception:
-                headed_section = None
-            if headed_section and owner.section_id and owner.section_id == headed_section.pk:
-                return True
-            try:
-                headed_division = staff_user.headed_division
-            except Exception:
-                headed_division = None
-            if headed_division and owner.division_id and owner.division_id == headed_division.pk:
-                return True
-            if (
-                owner.department_id
-                and staff_user.department_id
-                and owner.department_id == staff_user.department_id
-            ):
-                return True
+            if staff_user.is_privileged_head:
+                try:
+                    headed_section = staff_user.headed_section
+                except Exception:
+                    headed_section = None
+                if headed_section and owner.section_id and owner.section_id == headed_section.pk:
+                    return True
+                try:
+                    headed_division = staff_user.headed_division
+                except Exception:
+                    headed_division = None
+                if headed_division and owner.division_id and owner.division_id == headed_division.pk:
+                    return True
+                if (
+                    owner.department_id
+                    and staff_user.department_id
+                    and owner.department_id == staff_user.department_id
+                ):
+                    return True
+            if owner.pk != staff_user.pk and staff_user.is_head_of_unit:
+                try:
+                    headed_unit = staff_user.headed_unit
+                except Exception:
+                    headed_unit = None
+                if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
+                    return True
 
         if file_obj.owner == staff_user:
             # Owner can see the file page but needs an access request to view content
@@ -648,7 +697,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if file_obj.current_location == staff_user:
             return True
 
-        # Dispatch-chain members: anyone sent this file via a FileMovement retains
+        # Dispatch members: anyone sent this file via a FileMovement retains
         # the ability to view the (limited) file page. This lets a dispatched
         # recipient request (re-)access once their movement has expired, instead
         # of being hard-redirected away. Actual contents access is still gated in
@@ -697,9 +746,10 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
     def can_view_original(self, file, user):
         """
         Who can view actual document contents (minute_content, attachments).
-        Only HODs, Supervisors, Executives, and MD.
-        Registry staff and general staff cannot view document contents.
-        Sensitive files enforce the same restriction regardless.
+        Standing access: owner, uploader, Executive/MD/Mayor. HODs, unit
+        heads, and supervisors need custody or an explicit grant (approved
+        request, active movement, share). Registry staff can never view
+        contents (separation-of-duties).
         """
         from document_management.permissions import can_view_document_content
 
@@ -716,11 +766,11 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         is_custodian = hasattr(user, "staff") and file_obj.current_location == user.staff
         is_owner = hasattr(user, "staff") and file_obj.owner == user.staff
 
-        # Lower staff can NEVER auto-view contents of their OWN personal file —
-        # even while holding custody. Only heads / supervisors / executives /
-        # MD / Mayor keep automatic access. (Enforced centrally in
-        # can_view_document_content; mirror it here so the file page does not
-        # grant Full Access via custody.)
+        # Owners can view contents of their own file (role scope in
+        # can_view_document_content) — restriction below only applies when
+        # the viewer genuinely cannot view. Functional access
+        # (adding/managing documents) still follows custody and grants below,
+        # so an owner can file new records regardless.
         staff = getattr(user, "staff", None)
         is_privileged_viewer = bool(
             user.is_superuser
@@ -730,12 +780,13 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         is_own_personal_file = bool(
             staff and file_obj.file_type == "personal" and file_obj.owner_id and file_obj.owner_id == staff.pk
         )
-        # Custodian always carries access — EXCEPT a non-privileged owner
-        # holding their own personal file. Owner carries automatic access
+        is_own_restricted = bool(is_own_personal_file and not self.can_view_original(file_obj, user))
+        context["is_own_restricted"] = is_own_restricted
+        # Custodian always carries access. Owner carries automatic access
         # ONLY while holding custody — when file is at rest with Registry
         # (or in transit with someone else) the owner must request access
         # like anyone else instead of silently keeping Full Access.
-        if (is_custodian or (is_owner and is_custodian)) and not (is_own_personal_file and not is_privileged_viewer):
+        if is_custodian or (is_owner and is_custodian):
             has_approved_access = True
             has_rw_access = True
         else:
@@ -747,7 +798,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 latest_movement = (
                     file_obj.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
                 )
-            if latest_movement and latest_movement.is_active_access and not (is_own_personal_file and not is_privileged_viewer):
+            if latest_movement and latest_movement.is_active_access:
                 has_approved_access = True
                 has_rw_access = True
             else:
@@ -756,10 +807,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
                     .exists()
                 )
-                # Own personal file: an approved request must NOT re-grant
-                # contents to a non-privileged owner.
-                if is_own_personal_file and not is_privileged_viewer:
-                    has_approved_access = False
 
                 has_rw_access = (
                     FileAccessRequest.objects.filter(
@@ -771,8 +818,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
                     .exists()
                 )
-                if is_own_personal_file and not is_privileged_viewer:
-                    has_rw_access = False
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
         is_mayor = bool(hasattr(user, "staff") and getattr(user.staff, "is_mayor", False))
@@ -784,15 +829,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             has_approved_access = True
             has_rw_access = True
 
-        context["can_add_minute"] = (
-            is_registry or is_mayor or ((is_custodian or is_owner) and has_rw_access)
-        ) and not file_obj.is_in_active_chain
+        context["can_add_minute"] = is_registry or is_mayor or ((is_custodian or is_owner) and has_rw_access)
         context["can_add_minutes"] = context["can_add_minute"]
-        context["can_send_file"] = (
-            (is_custodian or is_registry or is_mayor)
-            and not file_obj.is_in_active_chain
-            and file_obj.status == "active"
-        )
+        context["can_send_file"] = (is_custodian or is_registry or is_mayor) and file_obj.status == "active"
         # Custody-derived gating: at rest with Registry vs in transit with third party.
         # At rest (active + holder is Registry)  -> request access FROM Registry.
         # In transit (status in_transit, or holder is neither owner nor Registry)
@@ -857,45 +896,40 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         context["status_choices"] = STATUS_CHOICES
 
-        # Available chain templates for this file's department
-        from django.db.models import Q as DQ
-
-        from document_management.models import ApprovalChain, ChainTemplate
-
-        staff_dept = getattr(getattr(user, "staff", None), "department", None)
-        context["available_chain_templates"] = ChainTemplate.objects.filter(is_active=True).filter(
-            DQ(department=staff_dept) | DQ(department__isnull=True)
-        )
-
-        # Active document chain (if any)
-        context["is_in_active_chain"] = file_obj.is_in_active_chain
-        context["active_document_chain"] = (
-            ApprovalChain.objects.filter(file=file_obj, status__in=["draft", "active"])
-            .select_related("document")
-            .prefetch_related("steps__approver__user")
-            .first()
-        )
-
         # Build unified chronicle
         documents = list(file_obj.documents.select_related("uploaded_by").all())
         context["documents"] = documents
+        # Approved documents are locked per-document: titles/status stay
+        # visible, but contents + buttons hide unless the viewer is top
+        # leadership, holds custody, holds a file-level approved grant, or
+        # is shared directly on that document.
+        _can_open_approved = bool(
+            user.is_superuser
+            or is_custodian
+            or has_approved_access
+            or (
+                staff
+                and (
+                    staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False)
+                )
+            )
+        )
+        _shared_ids = set()
+        if not _can_open_approved and staff:
+            _shared_ids = set(
+                file_obj.documents.filter(shared_with=user, status="approved").values_list(
+                    "pk", flat=True
+                )
+            )
+        context["locked_doc_ids"] = {
+            doc.pk
+            for doc in documents
+            if doc.status == "approved" and not _can_open_approved and doc.pk not in _shared_ids
+        }
         audit_entries = list(
             AuditLogEntry.objects.filter(object_id=file_obj.pk, content_type__model="file")
             .select_related("user")
             .order_by("timestamp")
-        )
-
-        # Chain step activity
-        from document_management.models import ApprovalStep
-
-        chain_steps = list(
-            ApprovalStep.objects.filter(
-                chain__file=file_obj,
-                status__in=["approved", "rejected"],
-                actioned_at__isnull=False,
-            )
-            .select_related("approver__user", "chain__document")
-            .order_by("actioned_at")
         )
 
         chronicle = []
@@ -903,9 +937,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             chronicle.append({"type": "document", "item": doc, "timestamp": doc.uploaded_at})
         for entry in audit_entries:
             chronicle.append({"type": "audit", "item": entry, "timestamp": entry.timestamp})
-        for step in chain_steps:
-            chronicle.append({"type": "chain_step", "item": step, "timestamp": step.actioned_at})
-
         chronicle.sort(key=lambda x: x["timestamp"])
         context["chronicle"] = chronicle
 
@@ -947,14 +978,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if action == "send_file":
             staff_user = getattr(request.user, "staff", None)
             is_registry = staff_user and staff_user.is_registry
-
-            # Block if file is in an active approval chain
-            if file_obj.is_in_active_chain:
-                messages.error(
-                    request,
-                    "This file is locked in an approval chain and cannot be moved.",
-                )
-                return redirect(file_obj.get_absolute_url())
 
             # Block if there are pending access requests on the file
             if file_obj.access_requests.filter(status="pending").exists():
@@ -1357,16 +1380,6 @@ class FileCloseView(LoginRequiredMixin, UserPassesTestMixin, View):
     def post(self, request, pk):
         file_obj = get_object_or_404(File, pk=pk)
 
-        open_chains = file_obj.approval_chains.filter(status="active")
-        if open_chains.exists():
-            chain_list = ", ".join(str(c.pk) for c in open_chains)
-            messages.error(
-                request,
-                f"Cannot close file: {open_chains.count()} active chain(s) must be "
-                f"resolved first (chain IDs: {chain_list}).",
-            )
-            return redirect(file_obj.get_absolute_url())
-
         file_obj.status = "closed"
         file_obj.save()
         log_action(request.user, "FILE_CLOSED", request=request, obj=file_obj)
@@ -1489,6 +1502,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         queryset = File.objects.filter(status="active").order_by("file_number")
 
         # HODs see only their department's files (policy + personal), excluding their own
+        # Unit managers see only their unit's personal files, excluding their own
         # MD sees everything
         if staff and staff.is_hod and not staff.is_md and not staff.is_registry and not self.request.user.is_superuser:
             dept = staff.department
@@ -1497,6 +1511,26 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
                 .exclude(file_type="personal", owner=staff)
                 .distinct()
             )
+        elif (
+            staff
+            and staff.is_head_of_unit
+            and not staff.is_hod
+            and not staff.is_md
+            and not staff.is_registry
+            and not self.request.user.is_superuser
+        ):
+            try:
+                headed_unit = staff.headed_unit
+            except Exception:
+                headed_unit = None
+            if headed_unit:
+                queryset = (
+                    queryset.filter(Q(file_type="personal", owner__unit=headed_unit))
+                    .exclude(file_type="personal", owner=staff)
+                    .distinct()
+                )
+            else:
+                queryset = queryset.none()
 
         q = self.request.GET.get("q")
         if q:
@@ -1901,6 +1935,25 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
 
         can_view_content = can_view_document_content(request.user, file=file_obj)
 
+        from document_management.views.document_views import can_download_document_file
+
+        can_download_file = bool(
+            document is not None and can_download_document_file(request.user, document)
+        )
+
+        # Per-document buttons: only show View/Download where the gate passes,
+        # so unauthorized viewers never even see the buttons.
+        viewable_doc_ids = set()
+        downloadable_doc_ids = set()
+        for _d in list(other_docs) + list(reference_docs):
+            try:
+                if can_view_document_content(request.user, file=file_obj, document=_d):
+                    viewable_doc_ids.add(_d.pk)
+                if can_download_document_file(request.user, _d):
+                    downloadable_doc_ids.add(_d.pk)
+            except Exception:
+                continue
+
         is_top_approver = bool(
             staff
             and (
@@ -1916,6 +1969,44 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
             if dept and dept.head and dept.head.pk != staff.pk:
                 prefilled_recipient = dept.head
 
+        # Next hop after this movement — forwards create a follow-up
+        # movement that carries the decision note + timestamp.
+        next_movement = None
+        if movement.status == "forwarded" and document is not None:
+            next_movement = (
+                FileMovement.objects.filter(document=document, moved_at__gt=movement.moved_at)
+                .select_related("sent_by", "sent_to__user")
+                .order_by("moved_at")
+                .first()
+            )
+
+        # Decision audit record — reject reasons and decision timestamps
+        # live only in the audit trail (the movement row itself is not
+        # stamped when actioned).
+        decision_entry = None
+        if movement.status in ("approved", "rejected"):
+            from django.contrib.contenttypes.models import ContentType
+
+            action = "DOCUMENT_APPROVED" if movement.status == "approved" else "DOCUMENT_REJECTED"
+            actor_user = movement.sent_to.user if movement.sent_to and movement.sent_to.user_id else None
+            entry_qs = AuditLogEntry.objects.filter(
+                action=action,
+                content_type=ContentType.objects.get_for_model(file_obj),
+                object_id=file_obj.pk,
+            ).order_by("-timestamp")
+            if actor_user is not None:
+                entry_qs = entry_qs.filter(user=actor_user)
+            decision_entry = entry_qs.first()
+
+        # Whether the viewer may open the next hop in the trail.
+        can_follow_trail = bool(
+            next_movement
+            and (
+                next_movement.sent_by_id == request.user.pk
+                or (staff is not None and next_movement.sent_to_id == staff.pk)
+            )
+        )
+
         return render(
             request,
             "document_management/inbox_document_detail.html",
@@ -1929,12 +2020,41 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
                 "movement_history": movement_history,
                 "file_movement_history": file_movement_history,
                 "can_view_content": can_view_content,
+                "can_download_file": can_download_file,
+                "viewable_doc_ids": viewable_doc_ids,
+                "downloadable_doc_ids": downloadable_doc_ids,
                 "can_approve": bool(staff and (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager)),
                 "is_hod_or_supervisor": bool(staff and (staff.is_hod or staff.is_effective_supervisor)),
                 "is_hou_forwarder": is_hou_forwarder,
                 "prefilled_recipient": prefilled_recipient,
+                "next_movement": next_movement,
+                "decision_entry": decision_entry,
+                "can_follow_trail": can_follow_trail,
             },
         )
+
+
+def _expire_actioned_movement_access(movement, actor):
+    """Revoke dispatch-time access once a movement is approved/forwarded/rejected.
+
+    - The actioned movement itself is expired, so it no longer grants viewing
+      or downloading (its ``is_active_access`` goes False).
+    - Dispatch-time auto-grants (``Auto-granted: ...`` FileAccessRequests
+      minted for sender/recipient at send time) are revoked: all of them on
+      terminal actions (approve/reject), only the actor's on forward since
+      the next recipient rides on their fresh movement + custody.
+    - Real, human-approved access requests are NEVER touched — requesting
+      access stays the legitimate way back in for staff, HOUs, HODs, and
+      supervisors alike.
+    """
+    movement.expires_at = timezone.now()
+    movement.save(update_fields=["expires_at"])
+    auto_grants = FileAccessRequest.objects.filter(
+        file=movement.file, status="approved", reason__startswith="Auto-granted"
+    )
+    if movement.status == "forwarded":
+        auto_grants = auto_grants.filter(requested_by=actor)
+    auto_grants.update(status="expired")
 
 
 class DocumentActionView(HTMXLoginRequiredMixin, View):
@@ -1947,6 +2067,11 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
       documents from the same file as references.
       Reject = return to sender (note required).
     - Reject always requires a note.
+    - Acting closes the loop: the actioned movement stops granting access
+      and dispatch-time auto-grants are revoked (see
+      _expire_actioned_movement_access), so nobody can go back to the
+      inbox/sent item to keep viewing or downloading. Requesting access
+      remains the way back in.
     """
 
     def post(self, request, pk):
@@ -2240,6 +2365,12 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
 
         else:
             messages.error(request, "Invalid action.")
+
+        # The movement was actioned (status left "pending" above) — close the
+        # access loop so the inbox/sent item can't be revisited for viewing
+        # or downloading.
+        if movement.status in ("approved", "forwarded", "rejected"):
+            _expire_actioned_movement_access(movement, actor=request.user)
 
         return redirect("document_management:inbox")
 

@@ -119,6 +119,16 @@ def can_view_file(user, file):
             (owner and owner_dept == staff.department) or file_dept == staff.department
         ):
             return True
+        # Head of unit sees personal files of staff in their OWN unit
+        # (HOD-like oversight, unit-scoped). Never their own file via this
+        # branch — owners are handled above.
+        if owner and owner.pk != staff.pk and staff.is_head_of_unit:
+            try:
+                headed_unit = staff.headed_unit
+            except Exception:
+                headed_unit = None
+            if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
+                return True
         # Section / division heads + supervisors see staff files in their own
         # jurisdiction (section / division / department). Pure heads-of-unit
         # are treated like regular staff and get nothing here.
@@ -181,8 +191,6 @@ def can_add_document(user, file):
     """Registry, Mayor, or current custodian with RW access can add documents."""
     if file.status != "active":
         return False
-    if file.is_in_active_chain:
-        return False
     if is_registry(user):
         return True
     staff = get_staff(user)
@@ -210,12 +218,10 @@ def can_dispatch_document(user, file):
     """
     Who can dispatch (send) a document from a file.
     Registry can dispatch to anyone.
-    Other custodians follow the chain-of-command rules.
+    Other custodians follow the reporting-hierarchy rules.
     File must be active.
     """
     if file.status != "active":
-        return False
-    if file.is_in_active_chain:
         return False
     if is_registry(user):
         return True
@@ -239,44 +245,121 @@ def can_share_document(user):
     return staff.is_hod and user.has_perm("user_management.can_share_documents")
 
 
-def can_view_document_content(user, file=None):
+def has_content_scope(user, file, document=None):
+    """Role/jurisdiction scope for viewing AND downloading document contents.
+
+    Grants (registry NEVER passes — checked by callers first):
+    - file owner — always, including their own personal file;
+    - head of the owner's unit — personal files of members of that unit;
+    - HOD or effective supervisor of the relevant department — personal
+      files of staff in that department, or policy files of that department;
+    - uploader of the specific document (when ``document`` is given).
+
+    This is the jurisdiction scope used by the download gate
+    (``can_download_document_file``) alongside the content gate, so View
+    and Download stay in sync. On its own it grants nothing — the content
+    gate additionally requires custody or an explicit grant for
+    non-leadership roles. Approved documents are out of scope entirely:
+    once a document is approved, standing scope ends and only top
+    leadership or a fresh approved request opens it.
+    """
+    staff = get_staff(user)
+    if not staff or staff.is_registry:
+        return False
+
+    # Approved documents: standing scope is over (owner, unit head,
+    # department, uploader). Only leadership (handled by callers) or an
+    # explicit approved request re-opens them.
+    if document is not None and document.status == "approved":
+        return False
+
+    owner = file.owner if file else None
+
+    # Owner always carries scope for their own file.
+    if owner is not None and owner.pk == staff.pk:
+        return True
+
+    # Head of the owner's unit — members' personal files.
+    if owner is not None and file is not None and file.file_type == "personal":
+        try:
+            headed_unit = staff.headed_unit
+        except Exception:
+            headed_unit = None
+        if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
+            return True
+
+    # HOD / effective supervisor of the relevant department.
+    dept_id = None
+    if file is not None:
+        if file.file_type == "personal" and owner is not None:
+            dept_id = owner.department_id
+        elif file.file_type == "policy":
+            dept_id = file.department_id
+    if dept_id and staff.department_id and dept_id == staff.department_id:
+        if staff.is_hod or staff.is_effective_supervisor:
+            return True
+
+    # Uploader of this specific document.
+    if document is not None and document.uploaded_by_id == user.pk:
+        return True
+
+    return False
+
+
+def can_view_document_content(user, file=None, document=None):
     """
     Who can view the actual contents of documents (minute_content, attachments).
 
-    Role base: HODs, Supervisors, Executives, MD can always view.
+    Custody rule: HODs, unit/section/division heads, and supervisors see
+    contents ONLY while they hold custody (current_location) or hold an
+    explicit grant — an approved (unexpired) FileAccessRequest, an active
+    FileMovement, or a direct document share. Browsing a file from the
+    inbox/sent lists without custody shows metadata only.
+    Standing access (no custody needed): superusers, Executives, MD, Mayor,
+    the file owner, and the uploader of the specific document — except on
+    approved documents, where owner/uploader standing access ends and only
+    top leadership or a fresh approved request opens them.
     Registry can NEVER view contents (separation-of-duties), even as custodian.
-    Contextual grants (non-registry only): file owner, current custodian,
-    holder of an approved (unexpired) FileAccessRequest, or recipient of an
-    active FileMovement can view — otherwise an owner with "Full Access"
-    would still see a "Limited Access View" banner (the reported bug).
-    Sensitive files still require HOD+ / supervisor / executive / MD unless
-    one of the contextual grants above applies.
+    Sensitive files follow the same rule — no role bypasses it.
     """
     if user.is_superuser:
         return True
     staff = get_staff(user)
     if not staff:
         return False
-    # Role base — always allowed (registry excluded below).
-    # Mayor carries full read access like MD/Executive. Pure heads-of-unit
-    # are NOT included — they are treated like regular staff.
-    if is_privileged_viewer(user):
-        return True
     if staff.is_registry:
         return False
     if file is None:
         return False
-    # Lower staff can NEVER view contents of their OWN personal file —
-    # not via custody, movement, share, or access request. Only heads/
-    # supervisors / executives / MD / Mayor may view a staff member's file.
-    if file.file_type == "personal" and file.owner_id and file.owner_id == staff.pk:
-        return False
-    # Contextual grants for regular staff.
-    # Owner alone is NOT enough when file is at rest with Registry —
-    # owner must hold custody or hold an approved request/movement/share.
-    # This enforces "request from Registry" instead of silent auto-view.
-    if file.owner == staff and file.current_location == staff:
+    # Top leadership retains oversight access without custody.
+    if staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False):
         return True
+    # Owner scope (own file, no custody needed) and uploader scope —
+    # both end once the document is approved.
+    _is_approved_doc = document is not None and document.status == "approved"
+    owner = file.owner
+    if owner is not None and owner.pk == staff.pk and not _is_approved_doc:
+        return True
+    if document is not None and document.uploaded_by_id == user.pk and not _is_approved_doc:
+        return True
+    # Head of the owner's unit — standing oversight of members' personal
+    # files in that unit (mirrors has_content_scope so View and Download
+    # stay in sync). Excludes approved documents and the viewer's own file.
+    if (
+        file.file_type == "personal"
+        and owner is not None
+        and owner.pk != staff.pk
+        and not _is_approved_doc
+        and staff.is_head_of_unit
+    ):
+        try:
+            headed_unit = staff.headed_unit
+        except Exception:
+            headed_unit = None
+        if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
+            return True
+    # Everyone else — HODs, all heads, supervisors, regular staff — needs
+    # custody or an explicit grant. No silent role-based viewing.
     if file.current_location == staff:
         return True
     from document_management.models import FileAccessRequest
@@ -300,12 +383,13 @@ def can_view_document_content(user, file=None):
 def can_view_document(user, document):
     """
     Who can view a document's detail page.
-    Only HODs, Supervisors, and Executives can view document contents.
-    Registry and general staff cannot view document contents.
+    Requires file-page access plus content access (custody or explicit
+    grant; standing access for owner, uploader, Executive/MD/Mayor).
+    Registry can never view contents.
     """
     if not can_view_file(user, document.file):
         return False
-    return can_view_document_content(user, file=document.file)
+    return can_view_document_content(user, file=document.file, document=document)
 
 
 # ---------------------------------------------------------------------------
@@ -345,7 +429,7 @@ def get_dispatch_recipients(user, file):
         # - Other HODs
         # - Heads of units, sections, divisions
         # - Supervisors
-        # Pure heads-of-unit fall through to the regular chain below.
+        # Pure heads-of-unit fall through to the regular hierarchy below.
         allowed_pks = set()
         
         # Other HODs
@@ -390,7 +474,7 @@ def get_dispatch_recipients(user, file):
             head_pks.append(staff.department.head.pk)
         return base_qs.filter(pk__in=set(supervisor_pks + head_pks))
 
-    # Regular staff (and pure heads-of-unit): up the chain of command,
+    # Regular staff (and pure heads-of-unit): up the reporting hierarchy,
     # skipping self so a unit manager routes to THEIR head, not themselves.
     for head in (
         staff.unit.head if staff.unit else None,

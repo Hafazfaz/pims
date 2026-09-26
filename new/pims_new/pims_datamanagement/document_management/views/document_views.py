@@ -161,12 +161,13 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         except Staff.DoesNotExist:
             return False
 
-        # Content ACL (role + owner/custodian/approved-request/movement/share).
-        # Must pass file_obj so contextual grants apply — otherwise owners
-        # with full admin access are wrongly denied here.
+        # Content ACL (role + owner/custodian/approved-request/movement/share),
+        # evaluated against this specific document so approved documents stay
+        # locked for standing access. Must pass file_obj AND document — file
+        # level alone would wrongly admit owners to approved contents.
         from ..permissions import can_view_document_content, can_view_document
 
-        if not can_view_document_content(user, file=file_obj):
+        if not can_view_document_content(user, file=file_obj, document=document):
             return False
 
         if can_view_document(user, document):
@@ -207,9 +208,7 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if latest and latest.is_active_access:
             return True
 
-        # Allow current approver on the chain to view the document
-        active_chain = document.approval_chains.filter(status="active").first()
-        return bool(active_chain and active_chain.steps.filter(approver=staff_user).exists())
+        return False
 
     def dispatch(self, request, *args, **kwargs):
         if not self.has_permission():
@@ -249,17 +248,15 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         ) and file_obj.status == "active"
 
         can_send_file = False
-        # Can only dispatch if: active file, no active chain, AND not already approved
+        # Can only dispatch if: active file AND not already approved
         if (
             file_obj.status == "active"
-            and not file_obj.is_in_active_chain
             and document.status != "approved"
             and (is_owner or is_custodian or is_registry)
         ):
             can_send_file = True
 
         context["can_send_file"] = can_send_file
-        context["has_active_chain"] = file_obj.is_in_active_chain
         context["document_is_approved"] = document.status == "approved"
 
         # Document chronicle
@@ -340,8 +337,7 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             action="sent",
         )
 
-        # Attach reference documents to the movement's version_reference (first one) or store via M2M on chain
-        # Since we're not using chains, store them on the document's shared_with or just log them
+        # Attach reference documents: tag them as shared with the recipient
         ref_docs = form.cleaned_data.get("reference_documents")
         if ref_docs:
             # Tag the document as shared with the recipient so they can see the refs
@@ -449,7 +445,7 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
     def get_queryset(self):
         from django.http import Http404
 
-        from ..permissions import can_view_staff_documents
+        from ..permissions import can_view_staff_documents, has_content_scope
 
         # Registry (and anyone lacking view_staff_documents) must not page
         # through staff document titles either.
@@ -457,25 +453,18 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
             return Document.objects.none()
 
         file_pk = self.kwargs.get("pk")
-        # Enforce the same own-file restriction as My Files: a non-privileged
-        # owner paging through their own personal file gets no rows (titles
-        # alone would leak). Heads / registry / exec keep access.
+        # Enforce the same content-scope rule as My Files: viewers without
+        # scope (owner, unit head, HOD/supervisor, custodian, grant, share)
+        # get no rows. Owners paging their own personal file are allowed —
+        # titles alone no longer leak beyond what they may view.
         try:
             file_obj = File.objects.select_related("owner").get(pk=file_pk)
         except File.DoesNotExist:
             raise Http404
+        self._file_obj = file_obj
         staff = getattr(self.request.user, "staff", None)
         if staff and file_obj.file_type == "personal" and file_obj.owner_id == staff.pk:
-            is_privileged = bool(
-                self.request.user.is_superuser
-                or staff.is_registry
-                or staff.is_hod
-                or staff.is_privileged_head
-                or staff.is_executive
-                or staff.is_md
-                or getattr(staff, "is_mayor", False)
-            )
-            if not is_privileged:
+            if not has_content_scope(self.request.user, file_obj):
                 return Document.objects.none()
         queryset = Document.objects.filter(file_id=file_pk)
 
@@ -488,7 +477,12 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["file_id"] = self.kwargs.get("pk")
+        context["file_obj"] = getattr(self, "_file_obj", None)
         context["selected_search_query"] = self.request.GET.get("q", "")
+        staff = getattr(self.request.user, "staff", None)
+        context["can_browse_subordinates"] = bool(
+            staff and (staff.is_hod or staff.is_privileged_head or staff.is_head_of_unit)
+        )
         return context
 
 
@@ -610,7 +604,7 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
         minute_content = request.POST.get("minute_content", "").strip()
         uploads = request.FILES.getlist("attachment")
 
-        # New version chains off the original via parent.
+        # New version links to the original via parent.
         # Registry versions are official records: auto-approved. Other
         # versions start pending until approved.
         staff = getattr(request.user, "staff", None)
@@ -640,22 +634,29 @@ class DocumentNewVersionView(LoginRequiredMixin, View):
 def can_download_document_file(user, document):
     """Full protection gate for viewing/downloading a document's files.
 
-    Layer 1 (content ACL): HODs, supervisors, executives, MD/Mayor always pass;
-    registry NEVER passes; lower staff pass only via custody, approved request,
-    active movement, or direct share — and never for their OWN personal file.
-    Layer 2 (scope): privileged viewer must also be owner/custodian, hold an
-    approved request/share, or sit in the file's jurisdiction.
+    Layer 1 (content ACL): standing access for superusers, Executives,
+    MD/Mayor, owners, and uploaders; everyone else — including HODs, unit
+    heads, and supervisors — passes only with custody, an approved request,
+    an active movement, or a direct share. Registry NEVER passes.
+    Layer 2 (scope): must also be owner/custodian, hold an approved
+    request/share, sit in the file's jurisdiction, or carry the role scope
+    (so View and Download stay in sync).
     """
-    from ..permissions import can_view_document_content
+    from ..permissions import can_view_document_content, has_content_scope
 
     file_obj = document.file
     if file_obj is None:
         return user.is_superuser or document.uploaded_by == user
-    if not can_view_document_content(user, file=file_obj):
+    if not can_view_document_content(user, file=file_obj, document=document):
         return False
 
     allowed = False
     staff = getattr(user, "staff", None)
+
+    # Role scope (owner / unit head / dept HOD-supervisor / uploader) —
+    # no custody required, mirrors the content gate.
+    if has_content_scope(user, file_obj, document=document):
+        allowed = True
 
     # Oversight-head scoped download: same department as the file owner.
     # Pure heads-of-unit are treated like regular staff (no scope grant).
@@ -789,8 +790,10 @@ def _serve_field_file(field_file, inline):
 
 class DocumentDownloadView(LoginRequiredMixin, View):
     """
-    Serves a document attachment only if the user is HOD, Supervisor, Executive, or MD.
-    Registry staff and general staff cannot download document contents.
+    Serves a document attachment if the user passes the content + scope gate
+    (standing access for owner/uploader/Executive/MD/Mayor; custody or
+    explicit grant for everyone else). Registry staff can never download
+    contents.
     """
 
     def get(self, request, pk):
@@ -1071,7 +1074,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             and not is_privileged_viewer(self.request.user)
         ):
             # Auto-route lower staff (including pure heads-of-unit) up the
-            # chain — skipping self so a unit manager routes to THEIR head.
+            # reporting hierarchy — skipping self so a unit manager routes to THEIR head.
             for head in (
                 staff_user.unit.head if staff_user.unit else None,
                 staff_user.section.head if staff_user.section else None,

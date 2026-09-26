@@ -261,7 +261,7 @@ def ch_concepts():
             ["Role", "Own file contents", "Subordinate files", "Org-wide"],
             [
                 ["Regular staff", "Tracking only (titles + statuses while in transit, no content links)", "—", "—"],
-                ["Unit manager (head of unit)", "Same as regular staff", "Unit: no document browsing", "—"],
+                ["Unit manager (head of unit)", "Tracking only while in transit (titles + statuses, never contents); can add", "Own unit: full view + download", "—"],
                 ["Section / division head, supervisor", "Visible", "Own section/division/dept", "—"],
                 ["HOD", "Visible", "Entire department", "—"],
                 ["Executive / MD / Mayor", "Visible", "Visible", "Yes"],
@@ -334,16 +334,29 @@ def ch_staff():
 def ch_unit_managers():
     return [
         h1("4. Unit managers (heads of unit)"),
-        p("For viewing personnel documents, unit managers have the same restrictions as regular staff "
-          "(all of Chapter 3 applies). Your additional capability is a structured forwarding path:"),
+        p("As a unit manager you get HOD-style oversight, but limited to <b>your own unit</b>: "
+          "you can open, read, and download the personal files of every staff member in your unit. "
+          "Chapter 3 still applies to your own file and everything outside your unit."),
+        h2("4.1 Unit Files in the sidebar"),
+        *screenshot_slot("unit-files", "Unit Files — record explorer scoped to the manager's own unit"),
+        p("Your sidebar has a <b>Unit</b> section with a <b>Unit Files</b> link. It opens the record "
+          "explorer pre-scoped to your unit: every active personal file of your unit members, "
+          "searchable by file number, title, or keyword. Your own file is excluded from this list — "
+          "use View My History for that."),
+        bullets([
+            "Open any unit file to read its Chronicle, view attachments in the protected viewer, and download files.",
+            "Your <b>My Files</b> also lists your unit's files alongside your own pending work, with the same View/Download links.",
+            "Approved documents need a fresh grant or leadership — same rule as everyone else.",
+        ]),
+        h2("4.2 Forwarding and routing"),
         bullets([
             "The <b>Approve</b> button in your inbox <b>auto-forwards to your HOD</b> — you confirm and "
             "a movement is created to the department head. You do not pick the recipient manually.",
             "Adding a document to a file auto-routes it up your reporting chain, skipping yourself as recipient.",
-            "If you also carry a flagged supervisor role your HOD-level visibility applies instead.",
+            "If you also carry a flagged supervisor role, the wider oversight permissions apply to you instead.",
         ]),
         *screenshot_slot("hou-inbox", "Unit manager inbox — Untreated items with Approve and Reject actions"),
-        h2("4.1 Treated tab"),
+        h2("4.3 Treated tab"),
         *screenshot_slot("treated-tab", "Treated tab — forwarded items with outcome badges"),
         p("After you forward or reject an item it immediately moves from Untreated to Treated. "
           "The Treated tab gives you a full audit trail of every item you have acted on, "
@@ -558,7 +571,7 @@ def ch_permissions():
                 ["Registry officer", "Designation contains 'registry', or membership of the <b>Registry</b> group.",
                  "Create/activate/close/archive files; full custody tracking; approve access requests; file auto-approved documents. <b>Never</b> sees document contents or titles."],
                 ["Head of Unit (unit manager)", "Set as <b>Head</b> of a Unit.",
-                 "Inbox items auto-forward to their HOD. Treated like regular staff for viewing personnel documents."],
+                 "Open, read, and download the personal files of staff in their <b>own unit only</b> (via My Files and the Unit Files sidebar entry); inbox items auto-forward to their HOD."],
                 ["Head of Section / Division", "Set as <b>Head</b> of a Section or Division.",
                  "View and download personnel documents of staff in that section/division; dispatch to peers and heads."],
                 ["HOD", "Set as <b>Head</b> of a Department, or designation contains 'head of department', 'hod', or 'director'.",
@@ -572,97 +585,67 @@ def ch_permissions():
             ],
             widths=[3, 5, 8],
         ),
-        warning("The single most important role rule: <b>a staff member can never read the contents of "
-                "their own personnel file</b> — not as owner, not as custodian, not with an approved "
-                "access grant. Only oversight heads (section/division head, HOD, supervisor, executive, "
-                "MD, Mayor) can. Pure unit managers are excluded."),
+        warning("Two hard rules to remember. <b>1)</b> You can read your <b>own</b> personnel file while "
+                "its documents are still pending, in transit, or rejected — but once a document is "
+                "<b>approved</b> it closes to everyone except top leadership or a fresh approved request. "
+                "<b>2)</b> <b>Registry can never read document contents or titles</b> — not as custodian, "
+                "not with any grant. Oversight of other people's files belongs to unit heads (own unit), "
+                "section/division heads, HODs, supervisors, executives, MD, and Mayor."),
 
-        h2("10.2 Group permissions"),
-        p("Groups bundle permissions. These are the groups shipped with PIMS and what they actually hold:"),
+        h2("10.2 What each permission lets you do (plain English)"),
+        p("If a button or page is missing for someone, find the row below — that is the permission they lack."),
         table(
-            ["Group", "Permissions held", "Effect"],
+            ["Permission", "In plain English", "Who normally has it"],
             [
-                ["Registry", "create_file, activate_file, close_file, archive_file, send_file, view_file, view_document, view_auditlogentry",
-                 "Full file lifecycle and custody management. Deliberately <b>excludes</b> view_staff_documents."],
-                ["Staff", "view_file, view_document, view_staff_documents",
-                 "Normal staff access: see own hub, inbox, and file pages they are entitled to."],
-                ["HOD/HOU", "view_file, view_document, view_staff_documents",
-                 "Same permission bundle as Staff — their extra power comes from the <b>role</b> layer (being a head)."],
-                ["Executive", "view_staff_documents",
-                 "Combined with the Executive role for organisation-wide reach."],
-                ["Mayor", "view_staff_documents", "Combined with the Mayor role."],
-                ["Administrator", "view_staff_documents (plus superuser status in practice)",
-                 "Administrator accounts are normally superusers, which bypasses permission checks entirely."],
+                ["Create files",
+                 "See the <b>Create File</b> button and open new personal or policy folders.",
+                 "Registry, administrators"],
+                ["Activate files",
+                 "Turn a pending/inactive file <b>Active</b> so work can start.",
+                 "Registry, administrators"],
+                ["Close files",
+                 "Close an active file so nothing more can be filed in it.",
+                 "Registry, administrators"],
+                ["Archive files",
+                 "See the <b>Archive</b> action on a closed file and move it to archives.",
+                 "Registry, administrators"],
+                ["View files &amp; documents",
+                 "Open file pages, document pages, and dashboards. Without this, pages refuse to load.",
+                 "Registry, Staff, HOD/HOU groups"],
+                ["See staff document lists",
+                 "See <b>that</b> documents exist — titles, counts, lists. Without it, lists show a policy notice instead.",
+                 "Everyone <b>except Registry</b>"],
+                ["Mark urgent",
+                 "Create urgent/high-priority documents and see the <b>New Urgent</b> menu. Tick-box per person.",
+                 "Granted per user by an administrator"],
+                ["Share documents",
+                 "Email a document to someone outside the workflow, with your signature attached. Needs a verified signature; works for HODs.",
+                 "Granted per user by an administrator"],
+                ["Manage users",
+                 "Open Management → Users: create, edit, unlock, suspend, and delete accounts.",
+                 "Administrators (superusers)"],
+                ["Read audit trail",
+                 "Open Audit Logs and see who did what, when.",
+                 "Registry, executives, administrators"],
+                ["Supervisor flag",
+                 "Not a checkbox permission but a role: oversight of personnel documents in your department.",
+                 "Ticked per user by an administrator"],
             ],
-            widths=[3, 6, 7],
+            widths=[4, 9, 4],
         ),
+        note("Three old switches you may see in settings — <b>send_file</b>, <b>add_minute</b>, "
+             "<b>add_attachment</b> — no longer decide anything. Dispatch follows custody and the "
+             "reporting chain; filing follows custody, ownership, and access grants."),
+        h2("10.3 The switches on the user form"),
+        p("When an administrator creates or edits a user, these are the only access checkboxes on the form:"),
+        *screenshot_slot("user-create", "Add Single User — Supervisor flag and the two permission checkboxes on the right"),
+        bullets([
+            "<b>Supervisor</b> — makes the person a flagged supervisor with department oversight.",
+            "<b>Can Mark Documents as Urgent/High Priority</b> — unlocks urgent documents and the New Urgent menu.",
+            "<b>Can Share Documents with Other Users</b> — unlocks email sharing (for HODs with a verified signature).",
+        ]),
 
-        h2("10.3 Individual permission switches"),
-        p("Two switches appear as checkboxes on the <b>Add / Edit user</b> form. They are granted "
-          "per person and are independent of any group."),
-        *screenshot_slot("user-create", "Add Single User — the Permissions checkboxes on the right"),
-        table(
-            ["Checkbox", "Permission code", "What the user can then do"],
-            [
-                ["Supervisor", "(role flag, not a permission)",
-                 "Marks the user as a flagged supervisor — oversight of personnel documents in their department."],
-                ["Can Mark Documents as Urgent/High Priority", "user_management.can_set_urgent_priority",
-                 "Shows the <b>New Urgent</b> item in the sidebar and allows creating standalone urgent/high-priority documents that alert heads directly."],
-                ["Can Share Documents with Other Users", "user_management.can_share_documents",
-                 "Enables the <b>Share</b> action on a document, emailing it out with an optional signature image. Only effective for HODs, and requires a verified signature."],
-            ],
-            widths=[4, 6, 8],
-        ),
-
-        h2("10.4 Full permission catalogue"),
-        p("Every named permission in PIMS, what it governs, and who holds it out of the box:"),
-        table(
-            ["Permission", "Meaning / where you feel it", "Default holders"],
-            [
-                ["document_management.<b>create_file</b>",
-                 "Shows the <b>Create File</b> button and allows opening new folders (personal or policy).",
-                 "Registry, superusers"],
-                ["document_management.<b>activate_file</b>",
-                 "Move a pending/inactive file to Active.",
-                 "Registry, superusers"],
-                ["document_management.<b>close_file</b>",
-                 "Close an active file so no further entries can be filed.",
-                 "Registry, superusers"],
-                ["document_management.<b>archive_file</b>",
-                 "Shows the <b>Archive</b> action on a closed file and permits archiving.",
-                 "Registry, superusers"],
-                ["document_management.<b>send_file</b>",
-                 "Legacy dispatch permission. Dispatch is now governed by custody and the routing rules, not this flag.",
-                 "Registry, superusers"],
-                ["document_management.<b>view_file</b>",
-                 "Required to open file pages and the Executive Dashboard.",
-                 "Registry, Staff, HOD/HOU"],
-                ["document_management.<b>view_document</b>",
-                 "Required to open document pages.",
-                 "Registry, Staff, HOD/HOU"],
-                ["document_management.<b>view_staff_documents</b>",
-                 "Governs whether a user may see that a staff member <b>has</b> documents at all — titles, counts, and lists. Without it, document lists are replaced by a policy notice.",
-                 "Every group <b>except Registry</b>"],
-                ["document_management.<b>add_minute</b> / <b>add_attachment</b>",
-                 "Legacy filing permissions. Filing is governed in practice by custody, ownership, and access grants.",
-                 "Registry, Staff, HOD/HOU"],
-                ["user_management.<b>can_set_urgent_priority</b>",
-                 "Create urgent / high-priority documents; adds the New Urgent sidebar entry.",
-                 "Granted per user"],
-                ["user_management.<b>can_share_documents</b>",
-                 "Share a document by email (HODs with a verified signature).",
-                 "Granted per user"],
-                ["user_management.<b>view_customuser</b> / <b>change_customuser</b> / <b>delete_customuser</b>",
-                 "Standard Django permissions over user accounts.",
-                 "Superusers"],
-                ["audit_log.<b>view_auditlogentry</b>",
-                 "Read the audit trail.",
-                 "Registry, superusers, executives"],
-            ],
-            widths=[6, 9, 3.5],
-        ),
-
-        h2("10.5 Granting and revoking"),
+        h2("10.4 Granting and revoking"),
         steps([
             "Open <b>Management → Users</b> and choose the person, then <b>Edit</b>.",
             "To change <b>role-based</b> power: change their Department/Unit/Designation, tick or untick <b>Supervisor</b>, "

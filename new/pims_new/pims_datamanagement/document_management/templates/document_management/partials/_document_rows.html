@@ -28,10 +28,20 @@
             </span>
         </td>
         <td class="px-8 py-5">
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest
+                {% if doc.status == 'approved' %}bg-green-100 text-green-700
+                {% elif doc.status == 'rejected' %}bg-red-100 text-red-700
+                {% elif doc.status == 'in_transit' %}bg-blue-100 text-blue-700
+                {% elif doc.status == 'cancelled' %}bg-slate-200 text-slate-500
+                {% else %}bg-amber-100 text-amber-700{% endif %}">
+                {{ doc.get_status_display }}
+            </span>
+        </td>
+        <td class="px-8 py-5">
             <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
         </td>
         <td class="px-8 py-5 text-right">
-            {% if user.staff.is_hod or user.staff.is_privileged_head or user.staff.is_executive or user.staff.is_md %}
+            {% if user.is_superuser or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor or file_obj.owner_id == user.staff.id or file_obj.current_location_id == user.staff.id or doc.uploaded_by_id == user.id or can_browse_subordinates %}
                 {% if doc.has_files %}
                     <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}"
                        class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest mr-3">View</a>
@@ -47,7 +57,7 @@
     </tr>
     {% if forloop.last and page_obj.has_next %}
         <tr id="load-more-row-{{ file_id }}">
-            <td colspan="4" class="px-8 py-4 text-center">
+            <td colspan="5" class="px-8 py-4 text-center">
                 <button class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-nigeria-green transition-colors"
                         hx-get="{% url 'document_management:file_documents_paginate' pk=file_id %}?page={{ page_obj.next_page_number }}&q={{ selected_search_query }}"
                         hx-target="#load-more-row-{{ file_id }}"
