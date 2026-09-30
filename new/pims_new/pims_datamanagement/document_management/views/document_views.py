@@ -1015,6 +1015,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         from document_management.permissions import get_dispatch_recipients
 
         query = request.GET.get("q", "").strip()
+        selected = (request.GET.get("send_to") or request.GET.get("selected") or "").strip()
         eligible = get_dispatch_recipients(request.user, self.file_obj).select_related(
             "user", "designation", "department"
         )
@@ -1040,13 +1041,24 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             dept = staff.department.name if staff.department else ""
             meta = " — ".join(p for p in [desig, dept] if p)
             safe_meta = meta.replace("'", "\\'")
+            is_selected = bool(selected) and str(staff.pk) == str(selected)
+            row_cls = (
+                "flex items-center justify-between px-4 py-3 cursor-pointer "
+                + ("bg-nigeria-green/10 border-l-4 border-nigeria-green" if is_selected else "hover:bg-slate-50")
+            )
+            btn = (
+                '<span class="ml-3 inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-200 '
+                'text-green-800 text-[10px] font-black uppercase rounded-lg">✓ Selected</span>'
+                if is_selected
+                else '<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
+                'text-[10px] font-black uppercase rounded-lg" '
+                f"onclick=\"selectDocDispatchStaff('{staff.pk}', '{safe}', '{safe_meta}')\">Select</button>"
+            )
             html += (
-                '<div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer">'
+                f'<div class="{row_cls}">'
                 f'<div class="min-w-0"><p class="text-sm font-bold text-slate-900">{name}</p>'
                 f'<p class="text-[10px] text-slate-500 font-medium">{meta}</p></div>'
-                '<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
-                'text-[10px] font-black uppercase rounded-lg" '
-                f"onclick=\"selectDocDispatchStaff('{staff.pk}', '{safe}', '{safe_meta}')\">Select</button></div>"
+                f"{btn}</div>"
             )
         html += "</div>"
         return HttpResponse(html)
