@@ -246,8 +246,8 @@ class FileCreationApprovalModelTest(TestCase):
         owner_user = make_user("owner_mod", "Staff")
         self.owner = make_staff(owner_user, "Officer", self.dept)
 
-    def test_default_file_status_pending_approval(self):
-        """New files default to pending_approval status."""
+    def test_default_file_status_active(self):
+        """New files default to active status."""
         f = File.objects.create(
             title="DEFAULT STATUS",
             file_type="personal",
@@ -256,18 +256,10 @@ class FileCreationApprovalModelTest(TestCase):
             current_location=self.reg_staff,
             created_by=reg_user,
         )
-        self.assertEqual(f.status, "pending_approval")
+        self.assertEqual(f.status, "active")
 
-    def test_rejected_status_available(self):
-        """File can have rejected status."""
-        f = File.objects.create(
-            title="REJECTED FILE",
-            file_type="personal",
-            owner=self.owner,
-            department=self.dept,
-            current_location=self.reg_staff,
-            created_by=reg_user,
-            status="rejected",
-        )
-        self.assertEqual(f.status, "rejected")
-        self.assertIn(("rejected", "Rejected"), File._meta.get_field("status").choices)
+    def test_pipeline_statuses_removed(self):
+        """Approval/activation pipeline statuses no longer apply to files."""
+        choices = [value for value, _label in File._meta.get_field("status").choices]
+        for removed in ("pending_approval", "pending_activation", "rejected"):
+            self.assertNotIn(removed, choices)
