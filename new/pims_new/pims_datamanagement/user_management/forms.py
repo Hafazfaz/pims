@@ -23,7 +23,7 @@ class UserCreateForm(forms.ModelForm):
     unit = forms.ModelChoiceField(queryset=Unit.objects.none(), required=False)
     designation = forms.ModelChoiceField(queryset=Designation.objects.all(), required=True)
     staff_type = forms.ChoiceField(choices=[("permanent", "Permanent"), ("contract", "Contract")], required=True)
-    is_supervisor = forms.BooleanField(required=False)
+    is_supervisor = forms.BooleanField(required=False, label="Supervisor")
     can_set_urgent_priority = forms.BooleanField(required=False, label="Can mark documents as Urgent/High Priority")
     can_share_documents = forms.BooleanField(required=False, label="Can share documents with other users")
     password = forms.CharField(widget=forms.PasswordInput, required=True)
@@ -61,7 +61,7 @@ class UserUpdateForm(forms.ModelForm):
     unit = forms.ModelChoiceField(queryset=Unit.objects.none(), required=False)
     designation = forms.ModelChoiceField(queryset=Designation.objects.all(), required=True)
     staff_type = forms.ChoiceField(choices=[("permanent", "Permanent"), ("contract", "Contract")], required=True)
-    is_supervisor = forms.BooleanField(required=False)
+    is_supervisor = forms.BooleanField(required=False, label="Supervisor")
     can_set_urgent_priority = forms.BooleanField(required=False, label="Can mark documents as Urgent/High Priority")
     can_share_documents = forms.BooleanField(required=False, label="Can share documents with other users")
 
