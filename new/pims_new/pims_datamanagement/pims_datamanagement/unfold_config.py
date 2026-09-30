@@ -14,8 +14,8 @@ def dashboard_callback(request, context):
                 {"title": "Total Files", "value": File.objects.count(), "icon": "folder"},
                 {"title": "Active Files", "value": File.objects.filter(status="active").count(), "icon": "folder_open"},
                 {
-                    "title": "Pending Activation",
-                    "value": File.objects.filter(status="pending_activation").count(),
+                    "title": "Inactive Files",
+                    "value": File.objects.filter(status="inactive").count(),
                     "icon": "pending",
                 },
                 {"title": "Total Staff", "value": Staff.objects.count(), "icon": "badge"},
