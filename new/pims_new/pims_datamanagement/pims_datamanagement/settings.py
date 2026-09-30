@@ -279,7 +279,8 @@ AUTHENTICATION_BACKENDS = [
 SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Explicitly set session engine
-SESSION_FLUSH_AT_LOGIN = True
+SESSION_FLUSH_AT_LOGIN = False  # Must stay False: single-session flush conflicts with MAX_CONCURRENT_SESSIONS
+MAX_CONCURRENT_SESSIONS = 2  # Max active sessions per user; oldest is evicted on new login
 
 # Axes settings
 # AXES_FAILURE_LIMIT = 3
