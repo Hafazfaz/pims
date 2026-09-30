@@ -23,8 +23,31 @@ body, #container, .login {
     font-family: "Inter", sans-serif !important;
 }
 
-a:link, a:visited {
+/* Content links only — never recolor link-styled buttons (Unfold renders
+   danger/primary actions as <a>, and those carry their own text color). */
+a:link:not(.button):not([class*="bg-"]):not([class*="btn"]),
+a:visited:not(.button):not([class*="bg-"]):not([class*="btn"]) {
     color: #008751 !important;
+}
+
+/* Danger buttons: solid red must always carry white text for readability,
+   including hover/focus states. Placed after the green button rules so red
+   wins over the generic green submit override. */
+a.bg-red-500, a.bg-red-600, a.bg-red-700,
+button.bg-red-500, button.bg-red-600, button.bg-red-700,
+input[type="submit"].bg-red-500, input[type="submit"].bg-red-600, input[type="submit"].bg-red-700,
+.bg-red-500.button, .bg-red-600.button, .bg-red-700.button {
+    background-color: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #fff !important;
+}
+
+a.bg-red-500:hover, a.bg-red-600:hover, a.bg-red-700:hover,
+button.bg-red-500:hover, button.bg-red-600:hover, button.bg-red-700:hover,
+input[type="submit"].bg-red-500:hover, input[type="submit"].bg-red-600:hover, input[type="submit"].bg-red-700:hover {
+    background-color: #b91c1c !important;
+    border-color: #b91c1c !important;
+    color: #fff !important;
 }
 
 .button, input[type="submit"], input[type="button"], .submit-row input, .submit-row .button {
