@@ -24,6 +24,13 @@ def _reporting_hierarchy_pks(sender_staff):
 
 class RecipientSearchView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        from document_management.permissions import can_manual_dispatch
+
+        if not can_manual_dispatch(request.user):
+            return HttpResponse(
+                '<div class="px-4 py-3 text-xs text-slate-500 italic text-center">Dispatch is restricted to Registry, HODs, supervisors, and executives.</div>'
+            )
+
         query = request.GET.get("q", "").strip()
         if not query or len(query) < 2:
             return HttpResponse("")
@@ -181,6 +188,13 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
     """Recipient search for inbox forward — applies same routing rules as send file."""
 
     def get(self, request, *args, **kwargs):
+        from document_management.permissions import can_manual_dispatch
+
+        if not can_manual_dispatch(request.user):
+            return HttpResponse(
+                '<div class="px-4 py-3 text-xs text-slate-500 italic text-center">Dispatch is restricted to Registry, HODs, supervisors, and executives.</div>'
+            )
+
         query = request.GET.get("q", "").strip()
         if not query or len(query) < 2:
             return HttpResponse("")
