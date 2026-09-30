@@ -390,9 +390,7 @@ def create_fixtures():
             continue
 
         # status distribution for personal folders
-        status = random.choices(["inactive", "pending_activation", "active", "closed"], weights=[15, 10, 65, 10], k=1)[
-            0
-        ]
+        status = random.choices(["inactive", "active", "closed"], weights=[15, 75, 10], k=1)[0]
 
         title = f"PERSONNEL RECORD - {staff.user.get_full_name().upper()}"
 
@@ -409,7 +407,7 @@ def create_fixtures():
         # logic for location
         if status == "active":
             file_obj.current_location = staff  # Owner has their own folder when active
-        elif status in ["inactive", "pending_activation"]:
+        elif status == "inactive":
             file_obj.current_location = reg_staff  # Registry holds inactive
         else:  # closed
             file_obj.current_location = reg_staff
@@ -433,9 +431,7 @@ def create_fixtures():
         dept = departments[dept_code]
 
         # status distribution
-        status = random.choices(
-            ["inactive", "pending_activation", "active", "closed", "archived"], weights=[10, 5, 60, 15, 10], k=1
-        )[0]
+        status = random.choices(["inactive", "active", "closed", "archived"], weights=[10, 65, 15, 10], k=1)[0]
 
         title = f"{random.choice(FILE_TITLES)} - {dept.code}"
 
@@ -452,7 +448,7 @@ def create_fixtures():
         # logic for location
         if status == "active":
             file_obj.current_location = random.choice(all_heads)
-        elif status in ["inactive", "pending_activation"]:
+        elif status == "inactive":
             file_obj.current_location = reg_staff
 
         file_obj.save()
