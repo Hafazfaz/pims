@@ -328,12 +328,14 @@
                                hx-get="{% url 'document_management:file_create' %}?dispatch_search=1"
                                hx-trigger="keyup changed delay:300ms, search"
                                hx-target="#dispatch-search-results"
+                               hx-include="#id_dispatch_to"
                                autofocus>
                     </div>
                     <div id="dispatch-search-results"
                          class="max-h-60 overflow-y-auto border border-slate-100 rounded-lg"
                          hx-get="{% url 'document_management:file_create' %}?dispatch_search=1"
                          hx-trigger="load delay:200ms"
+                         hx-include="#id_dispatch_to"
                          hx-headers='{"HX-Request": "true"}'>
                         <div class="p-4 text-center text-sm text-slate-500">Loading eligible recipients...</div>
                     </div>
@@ -345,8 +347,9 @@
         document.getElementById('dispatchSearchModal').classList.remove('hidden');
         const inp = document.getElementById('dispatch-search-input');
         if (inp) inp.focus();
-        // Trigger initial load if empty
-        if (window.htmx) htmx.trigger('#dispatch-search-results', 'load');
+        // Refresh so a previously-picked user renders as Selected.
+        const search = document.getElementById('dispatch-search-input');
+        if (search && window.htmx) htmx.trigger(search, 'search');
     }
     function closeDispatchSearch() {
         document.getElementById('dispatchSearchModal').classList.add('hidden');
