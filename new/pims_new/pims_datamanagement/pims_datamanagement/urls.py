@@ -22,6 +22,10 @@ from django.urls import include, path
 
 from . import views as main_views  # Import project-level views
 
+admin.site.site_header = "PIMS Administration"
+admin.site.site_title = "PIMS Administration"
+admin.site.index_title = "PIMS Administration"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("user_management.urls")),
