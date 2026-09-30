@@ -166,7 +166,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         try:
             staff = self.request.user.staff
             if "registry" in staff.designation.name.lower() if staff.designation else False:
-                return reverse_lazy("document_management:registry_hub")
+                return reverse_lazy("document_management:staff_folder_list")
         except Staff.DoesNotExist:
             pass
         return reverse_lazy("document_management:my_files")
@@ -1495,11 +1495,11 @@ class FileArchiveView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
         if request.headers.get("HX-Request"):
             return HttpResponse(status=204, headers={"HX-Trigger": "fileArchived"})
 
-        return redirect("document_management:registry_hub")
+        return redirect("document_management:staff_folder_list")
 
     def handle_no_permission(self):
         messages.error(self.request, "You do not have permission to archive files.")
-        return redirect("document_management:registry_hub")
+        return redirect("document_management:staff_folder_list")
 
 
 class DirectorAdminDashboardView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
@@ -1565,7 +1565,7 @@ class FileDeleteView(HTMXLoginRequiredMixin, UserPassesTestMixin, View):
 
         file_obj.delete()
         messages.success(request, f"File {file_number} deleted successfully.")
-        return redirect("document_management:registry_hub")
+        return redirect("document_management:staff_folder_list")
 
 
 class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
@@ -2478,7 +2478,7 @@ class FileBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "Only registry staff can perform batch uploads.")
-        return redirect("document_management:registry_hub")
+        return redirect("document_management:staff_folder_list")
 
     def get(self, request, *args, **kwargs):
         return render(request, self.template_name)
@@ -2596,7 +2596,7 @@ class DownloadSampleFileCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
         messages.error(self.request, "Only registry staff can download sample CSV.")
-        return redirect("document_management:registry_hub")
+        return redirect("document_management:staff_folder_list")
 
     def get(self, request, *args, **kwargs):
         import csv
