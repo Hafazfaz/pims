@@ -478,7 +478,6 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         # File Statistics
         total_files = File.objects.count()
         inactive_files = File.objects.filter(status="inactive").count()
-        pending_activation_files = File.objects.filter(status="pending_activation").count()
         active_files = File.objects.filter(status="active").count()
         in_transit_files = File.objects.filter(status="in_transit").count()
         closed_files = File.objects.filter(status="closed").count()
@@ -501,11 +500,6 @@ class AdminDashboardHealthView(LoginRequiredMixin, UserPassesTestMixin, ListView
         # Asset Breakdown for UI
         file_status_breakdown = [
             {"label": "Inactive", "count": inactive_files, "color": "slate"},
-            {
-                "label": "Pending Activation",
-                "count": pending_activation_files,
-                "color": "amber",
-            },
             {"label": "Active", "count": active_files, "color": "green"},
             {"label": "In Transit", "count": in_transit_files, "color": "blue"},
             {"label": "Closed", "count": closed_files, "color": "orange"},
