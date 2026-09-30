@@ -23,7 +23,6 @@ class FileType(Enum):
 
 class FileStatus(Enum):
     INACTIVE = "inactive"
-    PENDING_ACTIVATION = "pending_activation"
     ACTIVE = "active"
     IN_TRANSIT = "in_transit"
     CLOSED = "closed"
