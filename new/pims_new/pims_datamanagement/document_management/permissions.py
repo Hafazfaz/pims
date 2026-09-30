@@ -162,8 +162,8 @@ def can_view_file(user, file):
 
 
 def can_activate_file(user, file):
-    """Registry can activate any pending/inactive file."""
-    return is_registry(user) and file.status in ("inactive", "pending_activation")
+    """Registry can activate any inactive file."""
+    return is_registry(user) and file.status == "inactive"
 
 
 def can_close_file(user, file):
