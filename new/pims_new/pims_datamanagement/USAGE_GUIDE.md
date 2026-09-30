@@ -23,9 +23,9 @@ Before you can sign official minutes or signals, you must upload your digital si
 *   **Registry Hub**: Registry users can go to the **Hub** and click **Create File**.
 *   **Staff Profiles**: Alternatively, go to **Staff Without Files**, find a staff member, and click **Create File**. This auto-fills their details.
 
-### Activating Files
-1.  **Request Activation**: If a file is "Inactive", the owner can click **Request Activation**.
-2.  **Approve/Activate**: Registry users will see these requests in their **Dashboard**. Approving the request moves the file to **Active** status.
+### File Status
+*   Files are created **Active** — there is no activation queue.
+*   Registry can switch a file between **Active** and **Inactive** from the file's **Settings** tab.
 
 ---
 
