@@ -45,7 +45,6 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
         context["total_files"] = owned_files.count()
         context["active_files"] = owned_files.filter(status="active").count()
-        context["pending_files"] = owned_files.filter(status="pending_activation").count()
         context["files_in_custody"] = custody_files.count()
 
         # Documents this month
