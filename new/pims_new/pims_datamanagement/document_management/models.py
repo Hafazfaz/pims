@@ -58,10 +58,6 @@ class File(models.Model):
         help_text="Name of external organization (for Corporate/External Policy files)",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_approval")
-    is_sensitive = models.BooleanField(
-        default=False,
-        help_text="Mark as sensitive. Only HODs, Supervisors, Executives, and MD can view document contents.",
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(
         Staff,
@@ -209,8 +205,7 @@ class File(models.Model):
     def can_user_view_contents(self, user):
         """
         Check if a user can view document contents of this file.
-        If the file is sensitive, only HODs, Supervisors, Executives, MD, and superusers can view.
-        Non-sensitive files follow standard role-based rules.
+        Follows standard role-based rules.
         """
         if user.is_superuser:
             return True
@@ -219,11 +214,8 @@ class File(models.Model):
             return False
         if staff.is_registry:
             return False
-        # Mayor has full content access, including sensitive files.
         if getattr(staff, "is_mayor", False):
             return True
-        if self.is_sensitive:
-            return bool(staff.is_privileged_head)
         return True
 
 
