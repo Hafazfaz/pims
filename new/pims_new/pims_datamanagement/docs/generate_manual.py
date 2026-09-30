@@ -237,8 +237,7 @@ def ch_concepts():
             [
                 ["Active", "At rest with its custodian — the normal working state."],
                 ["In Transit", "Sent to another officer; awaiting acknowledgement or approval."],
-                ["Pending Activation", "Registry created the file but owner or HOD must formally accept it before it goes active."],
-                ["Inactive", "Created but not yet activated."],
+                ["Inactive", "Dormant; Registry can switch it back to Active from File Settings."],
                 ["Closed", "Formally closed by Registry; no further entries."],
                 ["Archived", "Long-term storage; read-only."],
             ],
@@ -444,7 +443,7 @@ def ch_registry():
         h2("8.1 Registry hub (All Files)"),
         *screenshot_slot("registry-hub", "Registry hub — status tiles, quick links, file list with custodians"),
         bullets([
-            "Status tiles: <b>Active Files</b>, <b>Pending Activation</b>, <b>Archived</b>, <b>Files Out</b>, <b>Overdue</b>.",
+            "Status tiles: <b>Active Files</b>, <b>Archived</b>, <b>Files Out</b>, <b>Overdue</b>.",
             "Quick-link cards: <b>Doc Types</b> (manage document type categories), <b>Divisions</b>, "
             "<b>Sections</b>, <b>Staff Without Files</b> (staff who have no folder yet).",
             "<b>All Files</b> table — every active file, current custodian, and status. "
@@ -463,13 +462,13 @@ def ch_registry():
             "Click <b>Initialize Record</b>. The file is created and dispatched in one step. Registry uploads attached to it are auto-approved.",
         ]),
         *screenshot_slot("staff-without-files", "Staff Without Files — list of staff with no folder yet, Create File button per row"),
-        h2("8.3 Activation lifecycle"),
+        h2("8.3 File status"),
         bullets([
-            "<b>Pending Activation</b> sidebar tile shows files awaiting formal acceptance.",
-            "Click a file → use <b>Activate</b> once the owner has confirmed receipt.",
+            "Files are created <b>Active</b> — there is no activation queue.",
+            "Registry can switch a file between <b>Active</b> and <b>Inactive</b> from the file's <b>Settings</b> tab.",
             "<b>Close File</b> — moves an active file to Closed (available from the file's Administrative Controls sidebar).",
             "<b>Return to Owner</b> — sends the file back to the owner from Registry.",
-            "Only Registry can activate, close, and archive.",
+            "Only Registry can change status, close, and archive.",
         ]),
         h2("8.4 Filing documents"),
         *screenshot_slot("add-document", "New Document form — same form Registry uses, uploads auto-approved"),
@@ -601,8 +600,8 @@ def ch_permissions():
                 ["Create files",
                  "See the <b>Create File</b> button and open new personal or policy folders.",
                  "Registry, administrators"],
-                ["Activate files",
-                 "Turn a pending/inactive file <b>Active</b> so work can start.",
+                ["Change file status",
+                 "Switch a file between <b>Active</b> and <b>Inactive</b> from File Settings.",
                  "Registry, administrators"],
                 ["Close files",
                  "Close an active file so nothing more can be filed in it.",
@@ -803,7 +802,6 @@ def ch_appendix():
             [
                 ["File", "Active", "At rest with custodian; normal state."],
                 ["File", "In Transit", "Sent to another officer; awaiting action."],
-                ["File", "Pending Activation", "Created; Registry must activate."],
                 ["File", "Inactive / Closed / Archived", "Registry end-states; read-only."],
                 ["Document", "Pending", "Filed; awaiting review."],
                 ["Document", "In Transit", "Dispatched for review/approval."],
