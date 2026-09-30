@@ -52,7 +52,6 @@ from .registry_views import (  # noqa: F401
     OutgoingDispatchesView,
     RegistryDashboardView,
     RegistryFileView,
-    RegistryHubView,
     StaffFolderHubView,
     StaffFolderListView,
     StaffWithoutFilesView,
