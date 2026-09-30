@@ -48,21 +48,6 @@
                     <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">In Circulation</p>
                 </div>
             </div>
-            <!-- Pending Activation -->
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110">
-                </div>
-                <div class="relative">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
-                            <i class="fas fa-clock text-xl"></i>
-                        </div>
-                        <span class="text-xs font-black text-amber-500 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider">Pending</span>
-                    </div>
-                    <h3 class="text-5xl font-black text-slate-900 tracking-tight mb-1">{{ pending_activation }}</h3>
-                    <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Awaiting Activation</p>
-                </div>
-            </div>
             <!-- Overdue Files -->
             <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110">
@@ -204,7 +189,7 @@
                                     <p class="text-sm font-bold text-slate-900">{{ file.file_number }}</p>
                                     <p class="text-xs text-slate-600 mt-1">{{ file.title|truncatewords:8 }}</p>
                                 </div>
-                                <span class="px-3 py-1 bg-{{ file.status }}-50 text-{{ file.status }}-600 rounded-full text-[10px] font-black uppercase tracking-wider {% if file.status == 'active' %}bg-green-50 text-green-600 {% elif file.status == 'closed' %}bg-slate-100 text-slate-600 {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-600 {% else %}bg-slate-50 text-slate-500{% endif %}">
+                                <span class="px-3 py-1 bg-{{ file.status }}-50 text-{{ file.status }}-600 rounded-full text-[10px] font-black uppercase tracking-wider {% if file.status == 'active' %}bg-green-50 text-green-600 {% elif file.status == 'closed' %}bg-slate-100 text-slate-600 {% else %}bg-slate-50 text-slate-500{% endif %}">
                                     {{ file.get_status_display }}
                                 </span>
                             </div>
