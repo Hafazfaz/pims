@@ -6,10 +6,30 @@ from user_management.models import CustomUser
 from .models import Document, DocumentType, File, FileAccessRequest
 
 
+def staff_rich_label(staff):
+    """Full name — Designation, Department for dispatch/forward selects."""
+    try:
+        name = staff.user.get_full_name() or staff.user.username
+    except Exception:
+        name = str(staff)
+    desig = getattr(getattr(staff, "designation", None), "name", "") or ""
+    dept = getattr(getattr(staff, "department", None), "name", "") or ""
+    meta = " · ".join(p for p in [desig, dept] if p)
+    return f"{name} — {meta}" if meta else name
+
+
 class FileForm(forms.ModelForm):
+    dispatch_to = forms.ModelChoiceField(
+        queryset=Staff.objects.none(),
+        required=False,
+        label="Dispatch To (optional)",
+        help_text="Pick who receives the file. Leave empty to keep it with Registry.",
+        widget=forms.HiddenInput(),
+    )
+
     class Meta:
         model = File
-        fields = ["title", "file_type", "owner", "department", "division", "section", "unit", "external_party", "is_sensitive"]
+        fields = ["title", "file_type", "owner", "department", "division", "section", "unit", "external_party"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -29,7 +49,6 @@ class FileForm(forms.ModelForm):
                     "placeholder": "e.g., Ministry of Health, WHO, etc.",
                 }
             ),
-            "is_sensitive": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "title": "Folder Title",
@@ -40,7 +59,6 @@ class FileForm(forms.ModelForm):
             "section": "Associated Section",
             "unit": "Associated Unit",
             "external_party": "External Organization/Party",
-            "is_sensitive": "Mark as Sensitive",
         }
 
     covering_note = forms.CharField(
@@ -124,6 +142,27 @@ class FileForm(forms.ModelForm):
         else:
             self.fields["owner"].queryset = Staff.objects.none()
 
+        # Optional dispatch target: all non-registry staff (registry view
+        # validates against get_dispatch_recipients on submit).
+        try:
+            from document_management.views.base import EXCLUDE_REGISTRY_Q
+
+            if self.user and self.user.is_authenticated:
+                self.fields["dispatch_to"].queryset = (
+                    Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
+                    .exclude(user=self.user)
+                    .select_related("user", "designation", "department")
+                    .order_by("user__first_name", "user__last_name")
+                )
+            else:
+                self.fields["dispatch_to"].queryset = Staff.objects.none()
+        except Exception:
+            self.fields["dispatch_to"].queryset = Staff.objects.none()
+        self.fields["dispatch_to"].required = False
+        self.fields["dispatch_to"].label_from_instance = staff_rich_label
+        # Covering note only needed when actually dispatching.
+        self.fields["covering_note"].required = False
+
     def clean_title(self):
         title = self.cleaned_data["title"]
         return title.upper()  # Enforce uppercase for title
@@ -138,8 +177,10 @@ class FileForm(forms.ModelForm):
         policy_range = cleaned_data.get("policy_type")
         save_as_draft = cleaned_data.get("save_as_draft", False)
         covering_note = cleaned_data.get("covering_note", "")
+        dispatch_to = cleaned_data.get("dispatch_to")
 
-        if not save_as_draft and not covering_note:
+        # Covering note required only when actually dispatching to someone.
+        if dispatch_to and not save_as_draft and not covering_note:
             raise forms.ValidationError(
                 {"covering_note": "Covering note is required when dispatching the file."}
             )
@@ -271,6 +312,8 @@ class DocumentForm(forms.ModelForm):
         # Only supervisors+ see send_to; normal users get auto-routed
         if not is_supervisor_plus:
             self.fields.pop("send_to", None)
+        elif "send_to" in self.fields:
+            self.fields["send_to"].label_from_instance = staff_rich_label
 
     def clean(self):
         cleaned_data = super().clean()
@@ -330,6 +373,12 @@ class SendFileForm(forms.Form):
             self.fields["recipient"].queryset = CustomUser.objects.filter(staff__in=eligible).order_by(
                 "last_name", "first_name"
             )
+            def _recipient_label(user):
+                try:
+                    return staff_rich_label(user.staff)
+                except Exception:
+                    return user.get_full_name() or user.username
+            self.fields["recipient"].label_from_instance = _recipient_label
         else:
             self.fields["recipient"].queryset = CustomUser.objects.none()
 
@@ -342,7 +391,7 @@ class SendFileForm(forms.Form):
 class FileUpdateForm(forms.ModelForm):
     class Meta:
         model = File
-        fields = ["title", "is_sensitive"]
+        fields = ["title"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -350,11 +399,9 @@ class FileUpdateForm(forms.ModelForm):
                     "placeholder": "Enter file title (e.g., PERSONNEL FILE OF JOHN DOE)",
                 }
             ),
-            "is_sensitive": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
             "title": "File Title",
-            "is_sensitive": "Mark as Sensitive",
         }
 
     def clean_title(self):
