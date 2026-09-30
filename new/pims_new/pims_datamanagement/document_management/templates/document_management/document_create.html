@@ -129,13 +129,38 @@
                                             </div>
                                         </div>
                                     </div>
+                                {% elif field.name == 'send_to' %}
+                                    <label class="block text-xs font-black text-slate-900 uppercase tracking-widest">
+                                        {{ field.label }} <span class="text-slate-400 font-bold normal-case tracking-normal">(optional)</span>
+                                    </label>
+                                    <div class="hidden">{{ field }}</div>
+                                    {% for error in field.errors %}
+                                        <p class="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">{{ error }}</p>
+                                    {% endfor %}
+                                    <div class="flex gap-2">
+                                        <input type="text"
+                                               id="doc_dispatch_display"
+                                               class="block w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed"
+                                               readonly
+                                               placeholder="Keep file where it is — no dispatch">
+                                        <button type="button"
+                                                class="px-4 py-2 bg-nigeria-green text-white rounded-xl text-xs font-bold hover:bg-nigeria-dark whitespace-nowrap"
+                                                onclick="openDocDispatchSearch()">Choose</button>
+                                        <button type="button"
+                                                id="doc_dispatch_clear"
+                                                class="hidden px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 whitespace-nowrap"
+                                                onclick="clearDocDispatch()">Clear</button>
+                                    </div>
+                                    {% if field.help_text %}
+                                        <p class="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-relaxed italic">
+                                            {{ field.help_text }}
+                                        </p>
+                                    {% endif %}
                                 {% else %}
-                                    {% if field.name != 'send_to' %}
                                     <label for="{{ field.id_for_label }}"
                                            class="block text-xs font-black text-slate-900 uppercase tracking-widest">
                                         {{ field.label }}
                                     </label>
-                                    {% endif %}
                                     <div class="relative group">
                                         {% if field.name == 'minute_content' %}
                                             {{ field|add_class:"form-control summernote" }}
@@ -265,5 +290,79 @@
       },
     });
   });
+</script>
+<!-- Dispatch Recipient Search Modal -->
+<div id="docDispatchSearchModal"
+     class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 class="text-lg font-bold text-slate-800">Choose Dispatch Recipient</h3>
+            <button type="button"
+                    onclick="closeDocDispatchSearch()"
+                    class="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="p-6">
+            <div class="mb-4 relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <input type="search"
+                       id="doc-dispatch-search-input"
+                       class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green sm:text-sm"
+                       placeholder="Search staff by name or department..."
+                       name="q"
+                       hx-get="?dispatch_search=1"
+                       hx-trigger="keyup changed delay:300ms, search"
+                       hx-target="#doc-dispatch-search-results">
+            </div>
+            <div id="doc-dispatch-search-results"
+                 class="max-h-60 overflow-y-auto border border-slate-100 rounded-lg"
+                 hx-get="?dispatch_search=1"
+                 hx-trigger="load delay:200ms"
+                 hx-headers='{"HX-Request": "true"}'>
+                <div class="p-4 text-center text-sm text-slate-500">Loading eligible recipients...</div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function openDocDispatchSearch() {
+    document.getElementById('docDispatchSearchModal').classList.remove('hidden');
+    const inp = document.getElementById('doc-dispatch-search-input');
+    if (inp) inp.focus();
+}
+function closeDocDispatchSearch() {
+    document.getElementById('docDispatchSearchModal').classList.add('hidden');
+}
+function selectDocDispatchStaff(id, name, meta) {
+    const label = meta ? `${name} — ${meta}` : name;
+    const hidden = document.querySelector('input[name="send_to"]');
+    if (hidden) {
+        hidden.value = id;
+        hidden.dispatchEvent(new Event('change'));
+    }
+    const display = document.getElementById('doc_dispatch_display');
+    if (display) display.value = label;
+    document.getElementById('doc_dispatch_clear').classList.remove('hidden');
+    closeDocDispatchSearch();
+}
+function clearDocDispatch() {
+    const hidden = document.querySelector('input[name="send_to"]');
+    if (hidden) hidden.value = '';
+    document.getElementById('doc_dispatch_display').value = '';
+    document.getElementById('doc_dispatch_clear').classList.add('hidden');
+}
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") { closeDocDispatchSearch(); }
+});
+document.getElementById('docDispatchSearchModal').addEventListener('click', function(event) {
+    if (event.target === this) { closeDocDispatchSearch(); }
+});
 </script>
 {% endblock %}
