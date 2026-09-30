@@ -16,6 +16,8 @@ from pathlib import Path
 from django.contrib.messages import constants as messages
 from dotenv import load_dotenv
 
+from .unfold_config import UNFOLD
+
 load_dotenv(".env")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
