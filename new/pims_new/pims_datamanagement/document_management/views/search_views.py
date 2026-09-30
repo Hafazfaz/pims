@@ -113,17 +113,19 @@ class RecipientSearchView(LoginRequiredMixin, View):
                 location = " · ".join(location_parts)
 
                 safe_name = name.replace("'", "\\'")
+                meta = " — ".join(p for p in [designation, dept] if p)
+                safe_meta = meta.replace("'", "\\'")
                 html += f"""
                 <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer
                             border-b border-slate-100 last:border-0 transition-colors"
-                     @click="recipientId = '{staff.user.id}'; recipientLabel = '{safe_name}'; showResults = false">
+                     @click="recipientId = '{staff.user.id}'; recipientLabel = '{safe_name} — {safe_meta}'; showResults = false">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <p class="text-xs font-bold text-slate-900">{name}</p>
                                 {role_badge}
                             </div>
-                            <p class="text-[10px] text-slate-500 font-medium truncate">{designation}</p>
+                            <p class="text-[10px] text-slate-500 font-medium truncate">{designation} — {dept}</p>
                             <p class="text-[10px] text-slate-400 truncate">{email}</p>
                         </div>
                         <div class="text-right shrink-0">
@@ -262,18 +264,19 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
                         'px-1.5 py-0.5 rounded font-bold uppercase">Supervisor</span>'
                     )
 
+                meta = " — ".join(p for p in [designation, dept] if p)
                 html += f"""
                 <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer
                             border-b border-slate-100 last:border-0
                             transition-colors inbox-recipient-option"
-                     data-id="{staff.pk}" data-name="{name}">
+                     data-id="{staff.pk}" data-name="{name} — {meta}" data-meta="{meta}">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <p class="text-xs font-bold text-slate-900">{name}</p>
                                 {role_badge}
                             </div>
-                            <p class="text-[10px] text-slate-500 font-medium truncate">{designation}</p>
+                            <p class="text-[10px] text-slate-500 font-medium truncate">{designation} — {dept}</p>
                             <p class="text-[10px] text-slate-400 truncate">{email}</p>
                         </div>
                         <div class="text-right shrink-0">
