@@ -36,6 +36,17 @@ DEBUG = os.environ.get("DEBUG", "false").lower() in ["true", "1", "yes"]
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "pims.fmcabuja.gov.ng,localhost,127.0.0.1").split(",")
 
+# Trust every allowed host for CSRF (both schemes) so login/logout POSTs
+# are not rejected with 403 when served over HTTPS, a tunnel, or a LAN
+# address. Without this, Django only trusts the POST's Origin on same-origin
+# http and rejects cross-scheme posts ("CSRF token from POST incorrect").
+CSRF_TRUSTED_ORIGINS = [
+    f"{scheme}://{host.strip()}"
+    for host in ALLOWED_HOSTS
+    for scheme in ("http", "https")
+    if host.strip()
+]
+
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "https://trike-mobility.vercel.app",
