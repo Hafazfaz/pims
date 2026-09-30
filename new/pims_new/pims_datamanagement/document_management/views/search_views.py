@@ -328,10 +328,14 @@ class StaffSearchView(LoginRequiredMixin, View):
             "user__first_name"
         )[:10]
 
+        # Currently-picked user (Send Note keeps it in the hidden recipient
+        # input) so reopening the modal shows their row as Selected.
+        selected = (request.GET.get("recipient") or request.GET.get("selected") or "").strip()
+
         return render(
             request,
             "document_management/partials/staff_search_results.html",
-            {"staff_members": staff_members, "query": query},
+            {"staff_members": staff_members, "query": query, "selected": selected},
         )
 
 
