@@ -46,13 +46,6 @@
                 </div>
             </div>
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-2">Pending Activation</p>
-                <div class="flex items-end justify-between">
-                    <p class="text-3xl font-bold {% if pending_activation_files.count > 0 %}text-amber-500{% else %}text-slate-900{% endif %}">{{ pending_activation_files.count|default:0 }}</p>
-                    <i class="fas fa-hourglass-half text-amber-200 text-2xl"></i>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                 <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Archived</p>
                 <div class="flex items-end justify-between">
                     <p class="text-3xl font-bold text-slate-900">{{ archived_files.count|default:0 }}</p>
@@ -208,7 +201,6 @@
                                     <option value="">All Statuses</option>
                                     <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
                                     <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
-                                    <option value="pending_activation" {% if selected_status == 'pending_activation' %}selected{% endif %}>Pending Activation</option>
                                     <option value="in_transit" {% if selected_status == 'in_transit' %}selected{% endif %}>In Transit</option>
                                     <option value="in_review" {% if selected_status == 'in_review' %}selected{% endif %}>In Review</option>
                                     <option value="closed" {% if selected_status == 'closed' %}selected{% endif %}>Closed</option>
