@@ -180,7 +180,7 @@ class StaffSignature(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Signature for {self.staff} ({'Verified' if self.is_verified else 'Pending'})"
+        return f"Signature for {self.staff} ({'Active' if self.is_active else 'Inactive'})"
 
     def save(self, *args, **kwargs):
         if self.is_active:
