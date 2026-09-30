@@ -10,10 +10,10 @@ def unread_notifications(request):
 
 def pending_activation_count(request):
     if request.user.is_authenticated and hasattr(request.user, "staff") and request.user.staff.is_registry:
-        from document_management.models import File, FileAccessRequest
+        from document_management.models import FileAccessRequest
 
         return {
-            "pending_activation_count": File.objects.filter(status="pending_activation").count(),
+            "pending_activation_count": 0,
             "pending_access_count": FileAccessRequest.objects.filter(status="pending").count(),
         }
     return {"pending_activation_count": 0, "pending_access_count": 0}
