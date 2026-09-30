@@ -31,12 +31,27 @@ def dashboard_callback(request, context):
     return context
 
 
+def _site_favicon(request):
+    from django.templatetags.static import static
+
+    return static("favicon.ico")
+
+
 UNFOLD = {
     "SITE_TITLE": "PIMS Administration",
     "SITE_HEADER": "PIMS Administration",
     "SITE_URL": "/",
     "SITE_ICON": None,
     "SITE_SYMBOL": "folder_open",
+    # Same favicon as the main website (static/favicon.ico).
+    "SITE_FAVICONS": [
+        {
+            "rel": "icon",
+            "sizes": "32x32",
+            "type": "image/x-icon",
+            "href": lambda request: _site_favicon(request),
+        },
+    ],
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
     "THEME": "light",
