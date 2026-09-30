@@ -33,7 +33,7 @@ def dashboard_callback(request, context):
 
 UNFOLD = {
     "SITE_TITLE": "PIMS Administration",
-    "SITE_HEADER": "PIMS Records Matrix",
+    "SITE_HEADER": "PIMS Administration",
     "SITE_URL": "/",
     "SITE_ICON": None,
     "SITE_SYMBOL": "folder_open",
