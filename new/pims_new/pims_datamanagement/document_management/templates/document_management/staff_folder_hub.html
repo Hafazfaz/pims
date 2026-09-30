@@ -12,7 +12,7 @@
                 {{ staff_member.designation.name|default:"—" }} &bull; {{ staff_member.department.name|default:"No Department" }}
             </p>
         </div>
-        <a href="{% url 'document_management:registry_hub' %}"
+        <a href="{% url 'document_management:staff_folder_list' %}"
            class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors">
             <i class="fas fa-arrow-left mr-2"></i> Back to Files
         </a>
