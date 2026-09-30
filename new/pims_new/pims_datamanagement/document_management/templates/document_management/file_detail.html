@@ -486,6 +486,27 @@
                                     File Settings
                                 </h3>
                                 {% if user.staff.is_registry or user.is_superuser %}
+                                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Current Status</p>
+                                    <p class="text-sm font-bold text-slate-900 mb-4">{{ file.get_status_display }}</p>
+                                    {% if file.status == 'active' or file.status == 'inactive' %}
+                                    <form method="post" action="{{ file.get_absolute_url }}" class="flex flex-col sm:flex-row gap-2">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="change_status">
+                                        <select name="new_status"
+                                                class="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green outline-none">
+                                            <option value="active" {% if file.status == 'active' %}selected{% endif %}>Active</option>
+                                            <option value="inactive" {% if file.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                                        </select>
+                                        <button type="submit"
+                                                class="px-6 py-2.5 bg-nigeria-green text-white text-xs font-bold rounded-lg hover:bg-nigeria-dark transition-all uppercase tracking-widest">
+                                            Update
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <p class="text-[11px] text-slate-500 italic">Status cannot be changed while the file is '{{ file.get_status_display }}'.</p>
+                                    {% endif %}
+                                </div>
                                 {% endif %}
                             </div>
                         {% endif %}
