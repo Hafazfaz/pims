@@ -37,7 +37,12 @@ UNITS_DATA = {
 }
 
 DESIGNATIONS_DATA = [
+    {"name": "Medical Director", "level": 1},
     {"name": "Director", "level": 1},
+    {"name": "Director of Admin", "level": 1},
+    {"name": "Director of Nursing", "level": 1},
+    {"name": "Head of Clinical Service", "level": 2},
+    {"name": "Head of Accounts", "level": 2},
     {"name": "Deputy Director", "level": 2},
     {"name": "Assistant Director", "level": 3},
     {"name": "Chief Officer", "level": 4},
@@ -45,6 +50,16 @@ DESIGNATIONS_DATA = [
     {"name": "Senior Officer", "level": 6},
     {"name": "Officer I", "level": 7},
     {"name": "Officer II", "level": 8},
+]
+
+# Default leadership accounts created by the fixture script.
+# Each tuple: (username, first_name, last_name, designation_name, department_code, group_name)
+DEFAULT_LEADERSHIP_USERS = [
+    ("medical_director", "Medical", "Director", "Medical Director", "OPS", "Executives"),
+    ("director_admin", "Director", "Admin", "Director of Admin", "OPS", "Executives"),
+    ("director_nursing", "Director", "Nursing", "Director of Nursing", "HR", "Executives"),
+    ("head_clinical", "Head", "Clinical Service", "Head of Clinical Service", "OPS", "Staff"),
+    ("head_accounts", "Head", "Accounts", "Head of Accounts", "FIN", "Staff"),
 ]
 
 FIRST_NAMES = [
@@ -263,6 +278,48 @@ def create_fixtures():
         is_verified=True,
     )
 
+    # --- Default Leadership Users ---
+    print("Creating Default Leadership Users...")
+    designation_map = {d.name: d for d in designations}
+    group_map = {
+        "Registry": registry_group,
+        "Staff": staff_group,
+        "Executives": executives_group,
+    }
+
+    for username, first, last, des_name, dept_code, group_name in DEFAULT_LEADERSHIP_USERS:
+        designation = designation_map.get(des_name)
+        if not designation:
+            print(f"  Warning: designation '{des_name}' not found, skipping {username}")
+            continue
+
+        dept = departments.get(dept_code)
+        if not dept:
+            print(f"  Warning: department '{dept_code}' not found, skipping {username}")
+            continue
+
+        group = group_map.get(group_name)
+        unit = Unit.objects.filter(department=dept).first()
+
+        user, staff = create_user_staff(
+            username, first, last, group, dept, unit, designation
+        )
+        staff.is_supervisor = True
+        staff.save()
+
+        # Auto-verify signature for leadership users
+        if not staff.get_active_signature():
+            StaffSignature.objects.create(
+                staff=staff,
+                image=f"signatures/verified/{username}_sig.png",
+                is_active=True,
+                is_verified=True,
+            )
+
+        users.append(user)
+        staff_members.append(staff)
+        print(f"  Created {username} ({des_name})")
+
     # Random Staff
     for i in range(25):
         first = random.choice(FIRST_NAMES)
@@ -321,6 +378,10 @@ def create_fixtures():
     # === PERSONAL FOLDERS (1:1 with Staff) ===
     print("Creating Personal Folders...")
     for staff in staff_members:
+        # Registry officers cannot be personal file owners
+        if staff.is_registry:
+            print(f"  Skipping {staff.user.username} - registry staff cannot own personal folders")
+            continue
         # Check if personal folder already exists for this staff
         existing_personal = File.objects.filter(file_type="personal", owner=staff).first()
         if existing_personal:
