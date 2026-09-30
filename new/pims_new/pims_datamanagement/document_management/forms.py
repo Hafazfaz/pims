@@ -247,7 +247,7 @@ class DocumentForm(forms.ModelForm):
         required=False,
         label="Send To (Route File)",
         help_text="Optionally route this file to another staff member for review or approval.",
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.HiddenInput(),
     )
     document_type = forms.ModelChoiceField(
         queryset=DocumentType.objects.all(),
@@ -303,16 +303,32 @@ class DocumentForm(forms.ModelForm):
             staff = self.user.staff
             if staff.is_hod or staff.is_privileged_head or staff.is_registry:
                 can_sign = True
-            if staff.is_privileged_head or staff.is_hod or staff.is_md or staff.is_executive:
+            if (
+                staff.is_privileged_head
+                or staff.is_hod
+                or staff.is_md
+                or staff.is_executive
+                or staff.is_registry
+            ):
                 is_supervisor_plus = True
 
         if not can_sign:
             self.fields.pop("include_signature", None)
 
-        # Only supervisors+ see send_to; normal users get auto-routed
+        # Supervisors+ and Registry see send_to; normal users get auto-routed.
+        # Registry may dispatch the new document to anyone (non-registry).
         if not is_supervisor_plus:
             self.fields.pop("send_to", None)
         elif "send_to" in self.fields:
+            from document_management.views.base import EXCLUDE_REGISTRY_Q
+
+            if staff.is_registry:
+                self.fields["send_to"].queryset = (
+                    Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
+                    .exclude(user=self.user)
+                    .select_related("user", "designation", "department")
+                    .order_by("user__first_name", "user__last_name")
+                )
             self.fields["send_to"].label_from_instance = staff_rich_label
 
     def clean(self):
