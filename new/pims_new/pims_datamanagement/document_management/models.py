@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from core.constants import FILE_TYPE_CHOICES, STATUS_CHOICES
+from core.constants import FILE_STATUS_CHOICES, FILE_TYPE_CHOICES, STATUS_CHOICES
 from core.utils.pdf import watermark_pdf_file
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -57,7 +57,7 @@ class File(models.Model):
         blank=True,
         help_text="Name of external organization (for Corporate/External Policy files)",
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending_approval")
+    status = models.CharField(max_length=20, choices=FILE_STATUS_CHOICES, default="active")
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(
         Staff,
