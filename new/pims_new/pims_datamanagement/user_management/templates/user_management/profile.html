@@ -88,11 +88,7 @@
                     <div class="p-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
                         <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Digital Signature</h3>
                         {% if active_signature %}
-                            {% if active_signature.is_verified %}
-                                <span class="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Verified</span>
-                            {% else %}
-                                <span class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Pending Verification</span>
-                            {% endif %}
+                            <span class="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Verified</span>
                         {% else %}
                             <span class="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest">Not Uploaded</span>
                         {% endif %}
