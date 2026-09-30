@@ -16,7 +16,7 @@
                 </div>
                 <button type="button"
                         class="ml-3 shrink-0 px-3 py-1.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors"
-                        onclick="(window.selectStaffForNote || window.selectStaff)('{{ staff.user.pk }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}')">
+                        onclick="(window.selectStaffForNote || window.selectStaff)('{{ staff.user.pk }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}', '{{ staff.designation.name|default:''|escapejs }}', '{{ staff.department.name|default:''|escapejs }}')">
                     Select
                 </button>
             </div>
