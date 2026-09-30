@@ -190,6 +190,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         from django.db.models import Q
 
         query = request.GET.get("q", "").strip()
+        selected = (request.GET.get("dispatch_to") or request.GET.get("selected") or "").strip()
         eligible = get_dispatch_recipients(request.user, File(file_type="personal", title="TEMP"))
         if query and len(query) >= 1:
             eligible = eligible.filter(
@@ -216,13 +217,24 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             dept = staff.department.name if staff.department else ""
             meta = " — ".join(p for p in [desig, dept] if p)
             safe_meta = meta.replace("'", "\\'")
+            is_selected = bool(selected) and str(staff.pk) == str(selected)
+            row_cls = (
+                "flex items-center justify-between px-4 py-3 cursor-pointer "
+                + ("bg-nigeria-green/10 border-l-4 border-nigeria-green" if is_selected else "hover:bg-slate-50")
+            )
+            btn = (
+                '<span class="ml-3 inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-200 '
+                'text-green-800 text-[10px] font-black uppercase rounded-lg">✓ Selected</span>'
+                if is_selected
+                else f'<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
+                f'text-[10px] font-black uppercase rounded-lg" '
+                f'onclick="selectDispatchStaff(\'{staff.pk}\', \'{safe}\', \'{safe_meta}\')">Select</button>'
+            )
             html += (
-                f'<div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer">'
+                f'<div class="{row_cls}">'
                 f'<div class="min-w-0"><p class="text-sm font-bold text-slate-900">{name}</p>'
                 f'<p class="text-[10px] text-slate-500 font-medium">{meta}</p></div>'
-                f'<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
-                f'text-[10px] font-black uppercase rounded-lg" '
-                f'onclick="selectDispatchStaff(\'{staff.pk}\', \'{safe}\', \'{safe_meta}\')">Select</button></div>'
+                f"{btn}</div>"
             )
         html += "</div>"
         return HttpResponse(html)
