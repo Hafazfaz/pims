@@ -1,7 +1,7 @@
 {% if staff_members %}
     <div class="divide-y divide-slate-100">
         {% for staff in staff_members %}
-            <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer">
+            <div class="flex items-center justify-between px-4 py-3 transition-colors cursor-pointer {% if selected and selected == staff.user.pk|stringformat:"s" %}bg-nigeria-green/10 border-l-4 border-nigeria-green{% else %}hover:bg-slate-50{% endif %}">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold text-slate-900 text-sm">{{ staff.user.get_full_name|default:staff.user.username }}</span>
@@ -14,11 +14,15 @@
                         {% if staff.unit %}<span class="text-[10px] text-slate-500">· {{ staff.unit.name }}</span>{% endif %}
                     </div>
                 </div>
-                <button type="button"
-                        class="ml-3 shrink-0 px-3 py-1.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors"
-                        onclick="(window.selectStaffForNote || window.selectStaff)('{{ staff.user.pk }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}', '{{ staff.designation.name|default:''|escapejs }}', '{{ staff.department.name|default:''|escapejs }}')">
-                    Select
-                </button>
+                {% if selected and selected == staff.user.pk|stringformat:"s" %}
+                    <span class="ml-3 shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-200 text-green-800 text-[10px] font-black uppercase tracking-widest rounded-lg">✓ Selected</span>
+                {% else %}
+                    <button type="button"
+                            class="ml-3 shrink-0 px-3 py-1.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-colors"
+                            onclick="(window.selectStaffForNote || window.selectStaff)('{{ staff.user.pk }}', '{{ staff.user.get_full_name|default:staff.user.username|escapejs }}', '{{ staff.designation.name|default:''|escapejs }}', '{{ staff.department.name|default:''|escapejs }}')">
+                        Select
+                    </button>
+                {% endif %}
             </div>
         {% endfor %}
     </div>
