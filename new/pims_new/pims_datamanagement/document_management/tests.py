@@ -86,16 +86,25 @@ class FileLifecycleTest(TestCase):
         with self.assertRaises(ValidationError):
             f.full_clean()
 
-    def test_file_activation(self):
+    def test_file_status_toggle(self):
         f = File.objects.create(
-            title="ACTIVATION TEST",
+            title="STATUS TEST",
             file_type="personal",
             owner=self.staff,
             current_location=self.registry_staff,
             created_by=self.registry_user,
-            status="pending_activation",
+            status="active",
         )
-        self.client.post(reverse("document_management:file_approve_activation", kwargs={"pk": f.pk}))
+        self.client.post(
+            reverse("document_management:file_detail", kwargs={"pk": f.pk}),
+            {"action": "change_status", "new_status": "inactive"},
+        )
+        f.refresh_from_db()
+        self.assertEqual(f.status, "inactive")
+        self.client.post(
+            reverse("document_management:file_detail", kwargs={"pk": f.pk}),
+            {"action": "change_status", "new_status": "active"},
+        )
         f.refresh_from_db()
         self.assertEqual(f.status, "active")
 
