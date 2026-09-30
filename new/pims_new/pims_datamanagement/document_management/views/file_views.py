@@ -173,9 +173,59 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return reverse_lazy("document_management:my_files")
 
     def get(self, request, *args, **kwargs):
-        if request.headers.get("HX-Request"):
-            return self._get_recipient_preview(request)
+        # HTMX dispatch-recipient search for the create modal:
+        # /documents/create/?dispatch_search=1&q=... returns option rows
+        # calling selectDispatchStaff(staff_pk, name).
+        if request.headers.get("HX-Request") and request.GET.get("dispatch_search"):
+            return self._dispatch_recipient_options(request)
+        if request.headers.get("HX-Request") and (
+            request.GET.get("file_type") or request.GET.get("owner") or request.GET.get("department")
+        ) and not request.GET.get("q"):
+            # Legacy auto-preview hook — no longer used (dispatch is now
+            # optional via modal). Return empty so old HTMX triggers no-op.
+            return HttpResponse("")
         return super().get(request, *args, **kwargs)
+
+    def _dispatch_recipient_options(self, request):
+        from django.db.models import Q
+
+        query = request.GET.get("q", "").strip()
+        eligible = get_dispatch_recipients(request.user, File(file_type="personal", title="TEMP"))
+        if query and len(query) >= 1:
+            eligible = eligible.filter(
+                Q(user__username__icontains=query)
+                | Q(user__first_name__icontains=query)
+                | Q(user__last_name__icontains=query)
+                | Q(department__name__icontains=query)
+                | Q(designation__name__icontains=query)
+            ).distinct()[:10]
+        else:
+            eligible = eligible[:10]
+        if not eligible:
+            return HttpResponse(
+                '<div class="p-4 text-center text-sm text-slate-400">No eligible recipients found.</div>'
+            )
+        html = '<div class="divide-y divide-slate-100">'
+        for staff in eligible:
+            first = (staff.user.first_name or "").strip()
+            last = (staff.user.last_name or "").strip()
+            full = f"{first} {last}".strip() or staff.user.username
+            name = staff.user.get_full_name() or full
+            safe = name.replace("'", "\\'")
+            desig = staff.designation.name if staff.designation else ""
+            dept = staff.department.name if staff.department else ""
+            meta = " — ".join(p for p in [desig, dept] if p)
+            safe_meta = meta.replace("'", "\\'")
+            html += (
+                f'<div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer">'
+                f'<div class="min-w-0"><p class="text-sm font-bold text-slate-900">{name}</p>'
+                f'<p class="text-[10px] text-slate-500 font-medium">{meta}</p></div>'
+                f'<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
+                f'text-[10px] font-black uppercase rounded-lg" '
+                f'onclick="selectDispatchStaff(\'{staff.pk}\', \'{safe}\', \'{safe_meta}\')">Select</button></div>'
+            )
+        html += "</div>"
+        return HttpResponse(html)
 
     def _get_recipient_preview(self, request):
         staff_user = self.get_staff_user()
@@ -278,22 +328,27 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
         save_as_draft = form.cleaned_data.get("save_as_draft", False)
+        dispatch_to = form.cleaned_data.get("dispatch_to")
 
-        if save_as_draft:
-            messages.success(self.request, "File saved as draft.")
+        # Optional dispatch: no selection (or draft ticked) = stay with Registry.
+        if save_as_draft or not dispatch_to:
+            if save_as_draft:
+                messages.success(self.request, "File saved as draft.")
+            else:
+                messages.success(self.request, "File created and kept with Registry (no dispatch selected).")
             return redirect(self.get_success_url())
 
         eligible = get_dispatch_recipients(self.request.user, self.object)
 
-        if not eligible.exists():
+        if not eligible.filter(pk=dispatch_to.pk).exists():
             messages.warning(
                 self.request,
-                "File created but could not be dispatched — no recipient found in your reporting hierarchy. "
+                "Selected recipient is not eligible. "
                 "The file remains with you. You can send it manually from the file detail page.",
             )
             return redirect(self.get_success_url())
 
-        recipient = eligible.first()
+        recipient = dispatch_to
         old_location = self.object.current_location
         covering_note = form.cleaned_data.get("covering_note", "")
 
@@ -1180,7 +1235,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
             active_signature = staff.get_active_signature()
             if not active_signature or not active_signature.is_verified:
-                messages.error(request, "You need an active, verified digital signature to share documents.")
+                messages.error(request, "You need an active digital signature to share documents.")
                 return redirect(file_obj.get_absolute_url())
 
             if not recipient_email:
@@ -2582,7 +2637,7 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
         # Check if user has active verified signature
         active_signature = staff.get_active_signature()
         if not active_signature or not active_signature.is_verified:
-            messages.error(request, "You need an active, verified digital signature to approve this file.")
+            messages.error(request, "You need an active digital signature to approve this file.")
             return redirect(file_obj.get_absolute_url())
         
         action = request.POST.get("action")
@@ -2754,7 +2809,7 @@ class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, Deta
 
         active_signature = staff.get_active_signature()
         if not active_signature or not active_signature.is_verified:
-            messages.error(request, "You need an active, verified digital signature to approve this document.")
+            messages.error(request, "You need an active digital signature to approve this document.")
             return redirect(file_obj.get_absolute_url())
 
         action = request.POST.get("action")
