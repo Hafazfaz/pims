@@ -214,14 +214,30 @@ def can_add_document(user, file):
     return bool(latest and latest.is_active_access)
 
 
+def can_manual_dispatch(user):
+    """Who may manually dispatch/forward a file at all.
+
+    Registry, oversight heads (HOD / section / division), flagged
+    supervisors, executives, MD, Mayor (and superusers). Regular staff
+    and pure heads-of-unit cannot dispatch — their documents auto-route
+    up the reporting chain instead.
+    """
+    if user.is_superuser:
+        return True
+    return bool(is_registry(user) or is_privileged_viewer(user))
+
+
 def can_dispatch_document(user, file):
     """
     Who can dispatch (send) a document from a file.
     Registry can dispatch to anyone.
     Other custodians follow the reporting-hierarchy rules.
+    Regular staff cannot dispatch at all.
     File must be active.
     """
     if file.status != "active":
+        return False
+    if not can_manual_dispatch(user):
         return False
     if is_registry(user):
         return True
@@ -405,7 +421,7 @@ def get_dispatch_recipients(user, file):
     HOD → other HODs, heads of units/sections/divisions, supervisors.
     Unit Manager → HOD, other HODs, heads of units/sections/divisions, supervisors.
     Supervisor sending someone else's file → other supervisors + direct heads.
-    Regular staff → unit manager if exists, else section head, else division head, else HOD.
+    Regular staff (and pure heads-of-unit) → none; they cannot dispatch.
     """
     from organization.models import Department as Dept
     from organization.models import Staff, Unit
@@ -419,6 +435,10 @@ def get_dispatch_recipients(user, file):
     )
     staff = get_staff(user)
     if not staff:
+        return base_qs.none()
+
+    # Regular staff and pure heads-of-unit cannot dispatch at all.
+    if not can_manual_dispatch(user):
         return base_qs.none()
 
     if is_registry(user) or is_executive(user) or is_md(user) or is_mayor(user):
