@@ -247,12 +247,16 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             is_registry or (is_custodian and access_type == "read_write")
         ) and file_obj.status == "active"
 
+        from document_management.permissions import can_manual_dispatch
+
         can_send_file = False
-        # Can only dispatch if: active file AND not already approved
+        # Can only dispatch if: active file AND not already approved AND
+        # sender holds a dispatch privilege (regular staff cannot dispatch).
         if (
             file_obj.status == "active"
             and document.status != "approved"
             and (is_owner or is_custodian or is_registry)
+            and can_manual_dispatch(self.request.user)
         ):
             can_send_file = True
 
@@ -293,6 +297,16 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
         if not (is_owner or is_custodian or is_registry):
             messages.error(request, "You do not have permission to send this file.")
+            return redirect(request.path)
+
+        from document_management.permissions import can_manual_dispatch as _can_dispatch
+
+        if not _can_dispatch(request.user):
+            messages.error(
+                request,
+                "Only Registry, HODs, supervisors, and executives can dispatch files. "
+                "Your documents route automatically to your head.",
+            )
             return redirect(request.path)
 
         if file_obj.status != "active":
