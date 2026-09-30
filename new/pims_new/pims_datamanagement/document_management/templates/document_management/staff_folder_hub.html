@@ -38,7 +38,7 @@
                 <div class="flex items-center gap-3 mt-2">
                     <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded
                         {% if personal_file.status == 'active' %}bg-green-50 text-green-700
-                        {% elif personal_file.status == 'pending_activation' %}bg-amber-50 text-amber-700
+                        {% elif personal_file.status == 'inactive' %}bg-slate-50 text-slate-700
                         {% elif personal_file.status == 'closed' %}bg-red-50 text-red-700
                         {% else %}bg-slate-100 text-slate-500{% endif %}">
                         {{ personal_file.get_status_display }}
