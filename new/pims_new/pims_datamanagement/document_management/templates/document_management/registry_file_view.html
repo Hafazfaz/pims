@@ -13,7 +13,7 @@
         <div class="flex items-center gap-3">
             <span class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
                 {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
-                {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border-amber-200
+                {% elif file.status == 'inactive' %}bg-slate-50 text-slate-700 border-slate-200
                 {% elif file.status == 'closed' %}bg-red-50 text-red-700 border-red-200
                 {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
                 {{ file.get_status_display }}
@@ -110,14 +110,6 @@
                 </div>
                 {% endif %}
                 <div class="pt-2 border-t border-slate-100">
-                    {% if file.status == 'inactive' or file.status == 'pending_activation' %}
-                    <form method="post" action="{% url 'document_management:file_approve_activation' pk=file.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="w-full py-3 bg-nigeria-green text-white text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all mb-2">
-                            Activate File
-                        </button>
-                    </form>
-                    {% endif %}
                     <a href="{% url 'document_management:file_detail' pk=file.pk %}" class="text-xs font-bold text-nigeria-green hover:underline">Open full file →</a>
                 </div>
             </div>
