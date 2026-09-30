@@ -22,12 +22,6 @@ urlpatterns = [
     path("urgent/create/", views.StandaloneUrgentDocumentCreateView.as_view(), name="urgent_document_create"),
     path("urgent/create/", views.StandaloneUrgentDocumentCreateView.as_view(), name="urgent_document_create"),
     path("outbox/", views.OutboxView.as_view(), name="outbox"),
-    path(
-        "file/<int:pk>/request-activation/", views.FileRequestActivationView.as_view(), name="file_request_activation"
-    ),
-    path(
-        "file/<int:pk>/approve-activation/", views.FileApproveActivationView.as_view(), name="file_approve_activation"
-    ),
     path("file/<int:pk>/recall/", views.FileRecallView.as_view(), name="file_recall"),
     path("file/<int:pk>/approve-creation/", views.FileCreationApprovalView.as_view(), name="file_approve_creation"),
     path("document/<int:pk>/approve-dispatch/", views.DocumentDispatchApprovalView.as_view(), name="document_approve_dispatch"),
