@@ -526,7 +526,7 @@ class DocumentShareEmailView(LoginRequiredMixin, View):
 
         active_signature = staff.get_active_signature()
         if not active_signature or not active_signature.is_verified:
-            messages.error(request, "You need an active, verified digital signature to share documents.")
+            messages.error(request, "You need an active digital signature to share documents.")
             return redirect(document.file.get_absolute_url())
 
         # Get email parameters
