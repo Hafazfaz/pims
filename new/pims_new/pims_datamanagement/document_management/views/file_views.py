@@ -76,7 +76,6 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
 
         context["total_files"] = File.objects.filter(scope_filter).count()
         context["active_files"] = File.objects.filter(scope_filter, status="active").count()
-        context["pending_activation"] = File.objects.filter(scope_filter, status="pending_activation").count()
         context["closed_files"] = File.objects.filter(scope_filter, status="closed").count()
         context["archived_files"] = File.objects.filter(scope_filter, status="archived").count()
 
@@ -580,34 +579,6 @@ class MessagesView(HTMXLoginRequiredMixin, View):
 
     def get(self, request, *args, **kwargs):
         return redirect("document_management:inbox")
-
-
-class FileRequestActivationView(LoginRequiredMixin, View):
-    def get_staff_user(self):
-        user = self.request.user
-        try:
-            return Staff.objects.get(user=user)
-        except Staff.DoesNotExist:
-            return None
-
-    def post(self, request, pk):
-        file_obj = get_object_or_404(File, pk=pk)
-        staff_user = self.get_staff_user()
-
-        if file_obj.owner != staff_user and file_obj.created_by != request.user:
-            messages.error(request, "Only the owner or creator can request activation.")
-            return redirect("document_management:my_files")
-
-        if file_obj.status != "inactive":
-            messages.error(request, "Only inactive files can be submitted for activation.")
-            return redirect("document_management:my_files")
-
-        file_obj.status = "pending_activation"
-        file_obj.save()
-
-        log_action(request.user, "FILE_ACTIVATION_REQUESTED", request=request, obj=file_obj)
-        messages.success(request, f"File {file_obj.file_number} has been submitted for activation.")
-        return redirect("document_management:my_files")
 
 
 class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
@@ -1552,7 +1523,7 @@ class DirectorAdminDashboardView(HTMXLoginRequiredMixin, UserPassesTestMixin, Li
         context = super().get_context_data(**kwargs)
         context["total_files_count"] = File.objects.count()
         context["active_files_count"] = File.objects.filter(status="active").count()
-        context["pending_activation_count"] = File.objects.filter(status="pending_activation").count()
+        context["pending_access_count"] = FileAccessRequest.objects.filter(status="pending").count()
         context["archived_files_count"] = File.objects.filter(status="archived").count()
 
         context["total_staff_count"] = Staff.objects.count()
@@ -2707,8 +2678,8 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
         action = request.POST.get("action")
         
         if action == "approve":
-            # Approve the file - change status to pending_activation for registry
-            file_obj.status = "pending_activation"
+            # Approve the file - files go straight to active.
+            file_obj.status = "active"
             file_obj.current_location = staff
             file_obj.save(update_fields=["status", "current_location"])
             
@@ -2732,7 +2703,7 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                 if reg_staff.user:
                     create_notification(
                         user=reg_staff.user,
-                        message=f"File {file_obj.file_number} — {file_obj.title} has been approved by {staff.user.get_full_name()}. Ready for activation.",
+                        message=f"File {file_obj.file_number} — {file_obj.title} has been approved by {staff.user.get_full_name()} and is now active.",
                         obj=file_obj,
                         link=file_obj.get_absolute_url(),
                         send_email=True,
@@ -2749,7 +2720,7 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
             if file_obj.created_by:
                 create_notification(
                     user=file_obj.created_by,
-                    message=f"File {file_obj.file_number} — {file_obj.title} has been approved. Status: Pending Activation.",
+                    message=f"File {file_obj.file_number} — {file_obj.title} has been approved and is now active.",
                     obj=file_obj,
                     link=file_obj.get_absolute_url(),
                     send_email=True,
@@ -2762,7 +2733,7 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                     email_subject=f"File Creation Approved: {file_obj.file_number}",
                 )
             
-            messages.success(request, "File creation approved successfully. File is now pending activation by registry.")
+            messages.success(request, "File creation approved successfully. File is now active.")
             
         elif action == "reject":
             rejection_reason = request.POST.get("rejection_reason", "").strip()
