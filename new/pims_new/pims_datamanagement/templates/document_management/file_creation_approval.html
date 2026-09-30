@@ -88,11 +88,9 @@
                         <h3 class="text-sm font-medium text-yellow-800">Digital Signature Required</h3>
                         <p class="text-sm text-yellow-700 mt-1">
                             {% if not active_signature %}
-                            You don't have an active digital signature uploaded. 
-                            {% else %}
-                            Your digital signature is not verified yet.
+                            You don't have an active digital signature uploaded.
                             {% endif %}
-                            Please <a href="{% url 'user_management:profile' %}#signature" class="font-medium underline hover:text-yellow-900">upload and verify your signature</a> in your profile before approving this file.
+                            Please <a href="{% url 'user_management:profile' %}#signature" class="font-medium underline hover:text-yellow-900">upload your signature</a> in your profile before approving this file.
                         </p>
                     </div>
                 </div>
