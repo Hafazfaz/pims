@@ -988,18 +988,21 @@
             open: false,
             staffId: '',
             staffName: '',
+            staffMeta: '',
             init() {
-                window.noteModalSetStaff = (id, name) => {
+                window.noteModalSetStaff = (id, name, designation, department) => {
                     this.staffId = id;
                     this.staffName = name;
+                    const parts = [designation, department].filter(Boolean);
+                    this.staffMeta = parts.join(' — ');
                     const el = document.getElementById('note-staff-results');
                     if (el) el.innerHTML = '';
                 };
             }
         };
     }
-    function selectStaffForNote(id, name) {
-        if (window.noteModalSetStaff) window.noteModalSetStaff(id, name);
+    function selectStaffForNote(id, name, designation, department) {
+        if (window.noteModalSetStaff) window.noteModalSetStaff(id, name, designation, department);
     }
     </script>
 
@@ -1036,9 +1039,12 @@
                 </template>
                 <template x-if="staffName">
                     <div class="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
-                        <span class="text-sm font-bold text-blue-800" x-text="staffName"></span>
-                        <button type="button" @click="staffId = ''; staffName = ''; $nextTick(() => document.getElementById('note-staff-results').innerHTML = '')"
-                                class="text-[10px] font-bold text-blue-500 hover:text-red-500 uppercase">Change</button>
+                        <div class="min-w-0">
+                            <div class="text-sm font-bold text-blue-800" x-text="staffName"></div>
+                            <div class="text-[10px] text-blue-600 font-medium" x-show="staffMeta" x-text="staffMeta"></div>
+                        </div>
+                        <button type="button" @click="staffId = ''; staffName = ''; staffMeta = ''; $nextTick(() => document.getElementById('note-staff-results').innerHTML = '')"
+                                class="text-[10px] font-bold text-blue-500 hover:text-red-500 uppercase shrink-0 ml-3">Change</button>
                     </div>
                 </template>
             </div>
