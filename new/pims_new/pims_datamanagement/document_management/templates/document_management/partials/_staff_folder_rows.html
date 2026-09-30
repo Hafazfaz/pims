@@ -36,7 +36,7 @@
                     <span class="px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border
                         {% if file.status == 'active' %}bg-green-50 text-green-700 border-green-200
                         {% elif file.status == 'inactive' %}bg-slate-50 text-slate-500 border-slate-200
-                        {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border-amber-200
+                        {% elif file.status == 'inactive' %}bg-slate-50 text-slate-700 border-slate-200
                         {% elif file.status == 'closed' %}bg-red-50 text-red-700 border-red-200
                         {% else %}bg-blue-50 text-blue-700 border-blue-200{% endif %}">
                         {{ file.get_status_display }}
