@@ -6,7 +6,6 @@ app_name = "document_management"
 
 urlpatterns = [
     path("registry/", views.RegistryDashboardView.as_view(), name="registry"),
-    path("registry/hub/", views.RegistryHubView.as_view(), name="registry_hub"),
     path("executive/dashboard/", views.ExecutiveDashboardView.as_view(), name="executive_dashboard"),
     path("create/", views.FileCreateView.as_view(), name="file_create"),
     path("my-files/", views.MyFilesView.as_view(), name="my_files"),
