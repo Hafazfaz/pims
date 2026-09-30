@@ -4,7 +4,7 @@ from audit_log.utils import log_action
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -1000,6 +1000,57 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
         return super().dispatch(request, *args, **kwargs)
 
+    def get(self, request, *args, **kwargs):
+        # HTMX dispatch-recipient search for the Add Document modal:
+        # ?dispatch_search=1&q=... returns option rows calling
+        # selectDocDispatchStaff(staff_pk, name, meta).
+        if request.headers.get("HX-Request") and request.GET.get("dispatch_search"):
+            self.file_obj = get_object_or_404(File, pk=self.kwargs.get("file_pk"))
+            return self._dispatch_recipient_options(request)
+        return super().get(request, *args, **kwargs)
+
+    def _dispatch_recipient_options(self, request):
+        from django.db.models import Q
+
+        from document_management.permissions import get_dispatch_recipients
+
+        query = request.GET.get("q", "").strip()
+        eligible = get_dispatch_recipients(request.user, self.file_obj).select_related(
+            "user", "designation", "department"
+        )
+        if query and len(query) >= 1:
+            eligible = eligible.filter(
+                Q(user__username__icontains=query)
+                | Q(user__first_name__icontains=query)
+                | Q(user__last_name__icontains=query)
+                | Q(department__name__icontains=query)
+                | Q(designation__name__icontains=query)
+            ).distinct()[:10]
+        else:
+            eligible = eligible[:10]
+        if not eligible:
+            return HttpResponse(
+                '<div class="p-4 text-center text-sm text-slate-400">No eligible recipients found.</div>'
+            )
+        html = '<div class="divide-y divide-slate-100">'
+        for staff in eligible:
+            name = staff.user.get_full_name() or staff.user.username
+            safe = name.replace("'", "\\'")
+            desig = staff.designation.name if staff.designation else ""
+            dept = staff.department.name if staff.department else ""
+            meta = " — ".join(p for p in [desig, dept] if p)
+            safe_meta = meta.replace("'", "\\'")
+            html += (
+                '<div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50 cursor-pointer">'
+                f'<div class="min-w-0"><p class="text-sm font-bold text-slate-900">{name}</p>'
+                f'<p class="text-[10px] text-slate-500 font-medium">{meta}</p></div>'
+                '<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
+                'text-[10px] font-black uppercase rounded-lg" '
+                f"onclick=\"selectDocDispatchStaff('{staff.pk}', '{safe}', '{safe_meta}')\">Select</button></div>"
+            )
+        html += "</div>"
+        return HttpResponse(html)
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
@@ -1074,17 +1125,28 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             except Exception:
                 pass
 
-        # Route the file — SKIPPED for registry uploads: the document is
-        # already approved, the file keeps its status, and the owner is
-        # simply notified instead of dispatching anything.
-        send_to_staff = None if is_registry_upload else form.cleaned_data.get("send_to")
+        # Route the file. Registry uploads stay approved but may still be
+        # dispatched: an optional send_to routes with a movement +
+        # notification; without it the file keeps its status and the owner
+        # is simply notified instead.
+        send_to_staff = form.cleaned_data.get("send_to")
         staff_user = getattr(self.request.user, "staff", None)
+
+        if send_to_staff and is_registry_upload:
+            from document_management.permissions import get_dispatch_recipients
+
+            if not get_dispatch_recipients(self.request.user, self.file_obj).filter(
+                pk=send_to_staff.pk
+            ).exists():
+                messages.error(self.request, "Selected recipient is not eligible for dispatch.")
+                return redirect(self.file_obj.get_absolute_url())
 
         from ..permissions import is_privileged_viewer
 
         if (
             not send_to_staff
             and staff_user
+            and not is_registry_upload
             and not is_privileged_viewer(self.request.user)
         ):
             # Auto-route lower staff (including pure heads-of-unit) up the
@@ -1196,6 +1258,13 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs
+
+    def get_form(self, form_class=None):
+        # Standalone documents are not tied to a file, so there is no
+        # dispatch target — drop the routing field entirely.
+        form = super().get_form(form_class)
+        form.fields.pop("send_to", None)
+        return form
 
     def get_initial(self):
         initial = super().get_initial()
