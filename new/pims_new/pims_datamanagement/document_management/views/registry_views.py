@@ -144,7 +144,7 @@ class StaffFolderListView(RegistryRequiredMixin, ListView):
     model = File
     template_name = "document_management/staff_folder_list.html"
     context_object_name = "file_list"
-    paginate_by = 5
+    paginate_by = 10
 
     def get_queryset(self):
         qs = File.objects.select_related("owner__user", "department", "unit").order_by("-created_at")
@@ -223,9 +223,15 @@ class StaffFolderListView(RegistryRequiredMixin, ListView):
         context["selected_outgoing_department"] = outgoing_department and int(outgoing_department)
         context["all_file_types"] = FILE_TYPE_CHOICES
 
+        from django.core.paginator import Paginator
+
+        outgoing_page_number = self.request.GET.get("out_page", 1)
+        outgoing_paginator = Paginator(outgoing_qs.order_by("-created_at"), 10)
+        outgoing_page = outgoing_paginator.get_page(outgoing_page_number)
+
         outgoing_list = []
         overdue_count = 0
-        for file in outgoing_qs.order_by("-created_at")[:50]:
+        for file in outgoing_page.object_list:
             is_overdue = file.is_overdue()
             outgoing_list.append(
                 {
@@ -238,7 +244,8 @@ class StaffFolderListView(RegistryRequiredMixin, ListView):
                 overdue_count += 1
 
         context["outgoing_files"] = outgoing_list
-        context["outgoing_files_count"] = len(outgoing_list)
+        context["outgoing_page"] = outgoing_page
+        context["outgoing_files_count"] = outgoing_qs.count()
         context["outgoing_overdue_count"] = overdue_count
         context["total_files_count"] = File.objects.count()
         return context
