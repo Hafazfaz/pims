@@ -886,7 +886,13 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         context["can_add_minute"] = is_registry or is_mayor or ((is_custodian or is_owner) and has_rw_access)
         context["can_add_minutes"] = context["can_add_minute"]
-        context["can_send_file"] = (is_custodian or is_registry or is_mayor) and file_obj.status == "active"
+        from document_management.permissions import can_manual_dispatch
+
+        context["can_send_file"] = (
+            (is_custodian or is_registry or is_mayor)
+            and file_obj.status == "active"
+            and can_manual_dispatch(user)
+        )
         # Custody-derived gating: at rest with Registry vs in transit with third party.
         # At rest (active + holder is Registry)  -> request access FROM Registry.
         # In transit (status in_transit, or holder is neither owner nor Registry)
@@ -1033,6 +1039,16 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         if action == "send_file":
             staff_user = getattr(request.user, "staff", None)
             is_registry = staff_user and staff_user.is_registry
+
+            from document_management.permissions import can_manual_dispatch as _can_dispatch
+
+            if not _can_dispatch(request.user):
+                messages.error(
+                    request,
+                    "Only Registry, HODs, supervisors, and executives can dispatch files. "
+                    "Your documents route automatically to your head.",
+                )
+                return redirect(file_obj.get_absolute_url())
 
             # Block if there are pending access requests on the file
             if file_obj.access_requests.filter(status="pending").exists():
