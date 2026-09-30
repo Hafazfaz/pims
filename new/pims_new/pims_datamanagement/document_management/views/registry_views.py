@@ -67,9 +67,6 @@ class RegistryHubView(RegistryRequiredMixin, ListView):
 
         base_scope = Q()
 
-        context["pending_activation_files"] = File.objects.filter(base_scope, status="pending_activation").order_by(
-            "-created_at"
-        )
         context["archived_files"] = File.objects.filter(base_scope, status="archived").order_by("-created_at")
 
         context["all_file_types"] = FILE_TYPE_CHOICES
@@ -181,7 +178,7 @@ class RegistryDashboardView(RegistryRequiredMixin, ListView):
         today = timezone.now().date()
 
         context["total_files_count"] = File.objects.filter(status="active").count()
-        context["pending_activation_count"] = File.objects.filter(status="pending_activation").count()
+        context["pending_access_count"] = FileAccessRequest.objects.filter(status="pending").count()
         context["archived_files_count"] = File.objects.filter(status="archived").count()
 
         registry_staff_ids = Staff.objects.filter(
@@ -255,52 +252,6 @@ class StaffWithoutFilesView(RegistryRequiredMixin, ListView):
         context["total_count"] = self.get_queryset().count()
         context["search_query"] = self.request.GET.get("q", "")
         return context
-
-
-class FileApproveActivationView(RegistryRequiredMixin, View):
-    def post(self, request, pk):
-        file_obj = get_object_or_404(File, pk=pk)
-        if file_obj.status not in ("pending_activation", "inactive"):
-            messages.error(request, "File cannot be activated from its current status.")
-            return redirect("document_management:registry_hub")
-
-        file_obj.status = "active"
-        file_obj.current_location = getattr(request.user, "staff", None)
-        file_obj.save(update_fields=["status", "current_location"])
-
-        log_action(request.user, "FILE_ACTIVATED", request=request, obj=file_obj)
-
-        # Notify creator that file is now active
-        if file_obj.created_by:
-            create_notification(
-                user=file_obj.created_by,
-                message=f"File {file_obj.file_number} — {file_obj.title} has been activated and is now active.",
-                obj=file_obj,
-                link=file_obj.get_absolute_url(),
-            )
-
-        # Notify owner (personal files) or HOD (policy files)
-        if file_obj.file_type == "personal" and file_obj.owner and file_obj.owner.user:
-            create_notification(
-                user=file_obj.owner.user,
-                message=f"Your personal file {file_obj.file_number} — {file_obj.title} has been activated.",
-                obj=file_obj,
-                link=file_obj.get_absolute_url(),
-            )
-        elif file_obj.file_type == "policy" and file_obj.department and file_obj.department.head and file_obj.department.head.user:
-            create_notification(
-                user=file_obj.department.head.user,
-                message=f"Policy file {file_obj.file_number} — {file_obj.title} for your department has been activated.",
-                obj=file_obj,
-                link=file_obj.get_absolute_url(),
-            )
-
-        messages.success(request, f"File {file_obj.file_number} has been activated.")
-
-        if request.headers.get("HX-Request"):
-            return render(request, "document_management/partials/_registry_file_status.html", {"file": file_obj})
-
-        return redirect("document_management:file_detail", pk=file_obj.pk)
 
 
 class StaffFolderHubView(RegistryRequiredMixin, DetailView):
