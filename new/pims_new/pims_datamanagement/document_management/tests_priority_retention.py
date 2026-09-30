@@ -254,7 +254,7 @@ class FileCreationApprovalModelTest(TestCase):
             owner=self.owner,
             department=self.dept,
             current_location=self.reg_staff,
-            created_by=reg_user,
+            created_by=self.reg_staff.user,
         )
         self.assertEqual(f.status, "active")
 
