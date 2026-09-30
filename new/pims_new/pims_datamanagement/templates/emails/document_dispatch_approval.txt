@@ -14,11 +14,11 @@ Department: {{ file.department.name|default:"—" }}
 Sent By: {{ sender.get_full_name|default:sender.username }}
 Your Role: {{ role }}
 
-Please review the document and approve or reject it using your verified digital signature.
+Please review the document and approve or reject it using your digital signature.
 
 Review & Approve: {{ link }}
 
-IMPORTANT: You must have an active, verified digital signature to approve this document.
+IMPORTANT: You must have an active digital signature to approve this document.
 If you haven't set up your signature yet, please configure it in your profile.
 
 Thank you,
