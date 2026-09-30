@@ -1007,6 +1007,42 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         file_obj = self.get_object()
         action = request.POST.get("action")
 
+        if action == "change_status":
+            staff_user = getattr(request.user, "staff", None)
+            is_registry = bool(
+                request.user.is_superuser or (staff_user and staff_user.is_registry)
+            )
+            if not is_registry:
+                messages.error(request, "Only Registry can change a file's status.")
+                return redirect(file_obj.get_absolute_url())
+            new_status = (request.POST.get("new_status") or "").strip()
+            if new_status not in ("active", "inactive"):
+                messages.error(request, "Only Active or Inactive can be selected.")
+                return redirect(file_obj.get_absolute_url())
+            if file_obj.status not in ("active", "inactive"):
+                messages.error(
+                    request,
+                    f"Status cannot be changed while the file is '{file_obj.get_status_display()}'.",
+                )
+                return redirect(file_obj.get_absolute_url())
+            if new_status == file_obj.status:
+                messages.info(request, f"File is already '{file_obj.get_status_display()}'.")
+                return redirect(file_obj.get_absolute_url())
+            old_display = file_obj.get_status_display()
+            file_obj.status = new_status
+            file_obj.save(update_fields=["status"])
+            log_action(
+                request.user,
+                "FILE_STATUS_CHANGED",
+                request=request,
+                obj=file_obj,
+                details={"from": old_display, "to": file_obj.get_status_display()},
+            )
+            messages.success(
+                request, f"File status changed from {old_display} to {file_obj.get_status_display()}."
+            )
+            return redirect(file_obj.get_absolute_url())
+
         if action == "request_access":
             already_pending = FileAccessRequest.objects.filter(
                 file=file_obj, requested_by=request.user, status="pending"
