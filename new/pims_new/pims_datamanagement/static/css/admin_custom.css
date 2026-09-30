@@ -16,3 +16,65 @@ textarea:focus {
     outline: none !important;
     box-shadow: 0 0 0 2px rgba(0, 135, 81, 0.2) !important;
 }
+
+/* Site color scheme (matches main site: nigeria-green #008751,
+   nigeria-dark #006B40, nigeria-light #E6F3EE, Inter font). */
+body, #container, .login {
+    font-family: "Inter", sans-serif !important;
+}
+
+a:link, a:visited {
+    color: #008751 !important;
+}
+
+.button, input[type="submit"], input[type="button"], .submit-row input, .submit-row .button {
+    background-color: #008751 !important;
+    border-color: #008751 !important;
+    color: #fff !important;
+}
+
+.button:hover, input[type="submit"]:hover, input[type="button"]:hover,
+.submit-row input:hover, .submit-row .button:hover {
+    background-color: #006B40 !important;
+    border-color: #006B40 !important;
+}
+
+.button.default, input[type="submit"].default, .submit-row input.default {
+    background-color: #006B40 !important;
+    border-color: #006B40 !important;
+}
+
+#header, #branding h1, #branding h1 a {
+    color: #fff !important;
+}
+
+#user-tools a:hover, #header a:hover {
+    color: #E6F3EE !important;
+}
+
+.module h2, .module caption, .inline-group h2 {
+    background-color: #008751 !important;
+    color: #fff !important;
+}
+
+div.breadcrumbs {
+    background-color: #006B40 !important;
+    color: #fff !important;
+}
+
+div.breadcrumbs a {
+    color: #E6F3EE !important;
+}
+
+/* Login page: dark backdrop with green card accent like the main site. */
+body.login {
+    background-color: #0f172a !important;
+}
+
+body.login #header {
+    background-color: #0f172a !important;
+}
+
+body.login .submit-row input {
+    background-color: #008751 !important;
+}
