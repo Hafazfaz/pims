@@ -26,11 +26,6 @@
       <p class="text-[10px] text-slate-400 mt-1">{{ active_files }} active</p>
     </div>
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-      <p class="text-[9px] font-black {% if pending_files > 0 %}text-amber-500{% else %}text-slate-400{% endif %} uppercase tracking-widest mb-3">Pending Activation</p>
-      <p class="text-3xl font-black {% if pending_files > 0 %}text-amber-500{% else %}text-slate-900{% endif %}">{{ pending_files }}</p>
-      <p class="text-[10px] text-slate-400 mt-1">awaiting registry</p>
-    </div>
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
       <p class="text-[9px] font-black {% if files_in_custody > 0 %}text-blue-500{% else %}text-slate-400{% endif %} uppercase tracking-widest mb-3">In My Custody</p>
       <p class="text-3xl font-black {% if files_in_custody > 0 %}text-blue-600{% else %}text-slate-900{% endif %}">{{ files_in_custody }}</p>
       <p class="text-[10px] text-slate-400 mt-1">dispatched to me</p>
