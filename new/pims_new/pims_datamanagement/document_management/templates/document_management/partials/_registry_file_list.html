@@ -49,7 +49,7 @@
                                 {% endif %}
                             </td>
                             <td class="px-8 py-6">
-                                <span class="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-tighter {% if file.status == 'active' %}bg-green-50 text-green-700 border border-green-100 {% elif file.status == 'pending_activation' %}bg-amber-50 text-amber-700 border border-amber-100 {% else %}bg-slate-50 text-slate-700 border border-slate-100{% endif %}">
+                                <span class="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-tighter {% if file.status == 'active' %}bg-green-50 text-green-700 border border-green-100 {% else %}bg-slate-50 text-slate-700 border border-slate-100{% endif %}">
                                     {{ file.get_status_display }}
                                 </span>
                             </td>
