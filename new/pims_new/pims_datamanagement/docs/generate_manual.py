@@ -208,12 +208,12 @@ def ch_welcome():
             "Click your name in the bottom-left of the sidebar, or open <b>Activity → Profile</b>.",
             "Scroll to <b>Digital Signature</b>.",
             "Either draw your signature on the canvas pad or upload a clear PNG/JPG image.",
-            "Submit. Your signature is saved as <b>Pending Verification</b>.",
-            "Contact Registry or your administrator to have it verified. Once verified, you can sign minutes and approve documents.",
+            "Submit. Your signature is saved and automatically verified.",
+            "Once uploaded, you can immediately sign minutes and approve documents.",
         ]),
         warning(
-            "Approvals, signing, and inbox actions all require an <b>active, verified</b> signature. "
-            "Until verification is complete you can read and navigate but cannot take decision actions."
+            "Approvals, signing, and inbox actions all require an <b>active signature</b>. "
+            "Signatures uploaded in your profile are verified automatically."
         ),
     ]
 
@@ -303,7 +303,7 @@ def ch_staff():
             "Choose a <b>Document Type</b> from the dropdown.",
             "Either write text in <b>Minute Content</b> (rich editor) or leave it blank.",
             "Click the attachment area to select <b>one or more files</b> — PDF, Word, images. Multi-select is supported.",
-            "If you are authorised and have a verified signature, tick <b>Attach Digital Signature</b>.",
+            "If you are authorised and have an active signature, tick <b>Attach Digital Signature</b>.",
             "Click <b>Submit</b>. The document is saved as <b>Pending</b> and auto-routed to your direct head.",
         ]),
         note("Once submitted you can track the document's status (Pending → In Transit → Approved/Rejected) from the tracking table on your hub. You cannot open or download it — that is restricted by policy."),
@@ -381,7 +381,7 @@ def ch_hod():
         steps([
             "Open <b>Inbox → Untreated</b>.",
             "Click <b>View Doc</b> on the item to read the full document, reference documents, and movement history.",
-            "Return to the inbox row. Click <b>Approve</b> to accept (signs with your verified signature) or <b>Reject</b> (enter a mandatory reason).",
+            "Return to the inbox row. Click <b>Approve</b> to accept (signs with your active signature) or <b>Reject</b> (enter a mandatory reason).",
             "Approval marks the document <b>Approved</b>, returns the file to <b>Active</b> with Registry, and notifies the sender.",
             "The item moves to the <b>Treated</b> tab.",
         ]),
@@ -510,7 +510,8 @@ def ch_admin():
             "<b>Organisation Placement</b> (right panel): Department (required), Unit (optional, filtered by department), Designation, Staff Type (Permanent / Contract / Temp).",
             "<b>Permissions</b> checkboxes: <b>Supervisor</b> (grants flagged-supervisor oversight), "
             "<b>Can Mark Documents as Urgent/High Priority</b>, <b>Can Share Documents with Other Users</b>.",
-            "Click <b>Create User Account</b>. The user receives a welcome email with their password and must change it on first login.",
+            "Click <b>Create User Account</b>. The user receives a welcome email with their password and must change it on first login. "
+            "User creation is immediate; the new account can log in right away. Signature verification is only required later for signing or approving documents.",
         ]),
         h3("Batch user upload"),
         steps([
@@ -618,8 +619,8 @@ def ch_permissions():
                 ["Mark urgent",
                  "Create urgent/high-priority documents and see the <b>New Urgent</b> menu. Tick-box per person.",
                  "Granted per user by an administrator"],
-                ["Share documents",
-                 "Email a document to someone outside the workflow, with your signature attached. Needs a verified signature; works for HODs.",
+                 ["Share documents",
+                 "Email a document to someone outside the workflow, with your signature attached. Needs an active signature; works for HODs.",
                  "Granted per user by an administrator"],
                 ["Manage users",
                  "Open Management → Users: create, edit, unlock, suspend, and delete accounts.",
@@ -649,9 +650,9 @@ def ch_permissions():
                 ["Can Mark Documents as Urgent/High Priority",
                  "Unlocks the <b>New Urgent</b> sidebar entry and lets the person file standalone <b>urgent/high-priority</b> documents that notify heads directly.",
                  "Useful for front-desk or records staff who raise time-sensitive matters."],
-                ["Can Share Documents with Other Users",
-                 "Unlocks the <b>Share</b> action on a document, emailing it outside the workflow with the sender's signature image attached.",
-                 "Only takes effect for HODs, and only with a verified signature on their profile."],
+                 ["Can Share Documents with Other Users",
+                  "Unlocks the <b>Share</b> action on a document, emailing it outside the workflow with the sender's signature image attached.",
+                  "Only takes effect for HODs, and only with an active signature on their profile."],
             ],
             widths=[4, 8, 5],
         ),
@@ -691,7 +692,7 @@ def ch_documents():
                 ["Document Type", "Select from the configured type list (managed by Registry under Tools → Document Types)."],
                 ["Minute Content", "Rich-text body. Use for formal minutes, memos, or cover letters."],
                 ["Upload Attachment(s)", "Select one or more files (PDF, Word, image). All files land on the same document record."],
-                ["Attach Digital Signature", "Available only if your role permits signing. Requires a verified signature on your profile."],
+                ["Attach Digital Signature", "Available only if your role permits signing. Requires an active signature on your profile."],
             ],
             widths=[4, 8],
         ),
@@ -778,7 +779,7 @@ def ch_faq():
         ("My file disappeared from My Files / Pending Files.",
          "Regular staff only see files that are currently in transit. Once the file is settled (active) it leaves the list. Use View My History or your Inbox for historical items."),
         ("I cannot sign or approve — 'no verified signature'.",
-         "Upload a signature on your Profile and ask Registry or an administrator to verify it. Until it is verified, signing and approval actions are blocked."),
+         "Upload a signature on your Profile. It is verified automatically on upload and you can then sign and approve documents."),
         ("I was locked out.",
          "Three failed logins trigger a 15-minute lockout. An administrator can unlock you immediately from Management → Users → Unlock."),
         ("I can see a document listed but cannot open or download it.",
