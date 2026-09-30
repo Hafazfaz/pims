@@ -17,11 +17,21 @@ FILE_TYPE_CHOICES = [
 STATUS_CHOICES = [
     ("inactive", "Inactive"),
     ("pending_approval", "Pending Approval"),
-    ("pending_activation", "Pending Activation"),
     ("active", "Active"),
     ("in_transit", "In Transit"),
     ("in_review", "In Review"),
     ("rejected", "Rejected"),
+    ("closed", "Closed"),
+    ("archived", "Archived"),
+]
+
+# File-level statuses only. Files are created active, so the approval and
+# activation pipeline states do not apply to files.
+FILE_STATUS_CHOICES = [
+    ("inactive", "Inactive"),
+    ("active", "Active"),
+    ("in_transit", "In Transit"),
+    ("in_review", "In Review"),
     ("closed", "Closed"),
     ("archived", "Archived"),
 ]
