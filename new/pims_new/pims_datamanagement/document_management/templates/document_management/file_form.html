@@ -174,7 +174,7 @@
                             <button type="button"
                                     class="px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-100 whitespace-nowrap"
                                     x-show="dispatchName"
-                                    @click="dispatchName=''; document.querySelector('select[name=dispatch_to]').value='';">Clear</button>
+                                    @click="dispatchName=''; document.querySelector('input[name=dispatch_to]').value='';">Clear</button>
                         </div>
                         <p class="text-[10px] text-slate-400 font-medium italic">Leave empty to keep the file with Registry. That person can then add documents to the file.</p>
                     </div>
@@ -353,20 +353,10 @@
     }
     function selectDispatchStaff(id, name, meta) {
         const label = meta ? `${name} — ${meta}` : name;
-        const select = document.querySelector('select[name="dispatch_to"]');
-        if (select) {
-            // Ensure option exists for selected staff
-            let opt = select.querySelector(`option[value="${id}"]`);
-            if (!opt) {
-                opt = document.createElement('option');
-                opt.value = id;
-                opt.text = label;
-                select.appendChild(opt);
-            } else {
-                opt.text = label;
-            }
-            select.value = id;
-            select.dispatchEvent(new Event('change'));
+        const hidden = document.querySelector('input[name="dispatch_to"]');
+        if (hidden) {
+            hidden.value = id;
+            hidden.dispatchEvent(new Event('change'));
         }
         // Update Alpine display via x-data scope
         const root = document.querySelector('[x-data]');
