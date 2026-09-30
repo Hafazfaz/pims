@@ -13,13 +13,13 @@ File Title: {{ file.title }}
 File Type: {{ file.get_file_type_display }}
 Department: {{ file.department.name|default:"—" }}
 Approved By: {{ approver.user.get_full_name|default:"Authorized Approver" }}
-Current Status: Pending Activation
+Current Status: Active
 
 {% if link %}
 View File: {{ link }}
 {% endif %}
 
-The registry team will now activate the file. You will receive another notification once the file is fully active.
+The file is now active and ready for use.
 
 Thank you,
 The PIMS Team
