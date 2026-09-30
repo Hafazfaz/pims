@@ -292,6 +292,9 @@ class UserDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         context["has_urgent_priority"] = user_obj.user_permissions.filter(
             codename="can_set_urgent_priority",
         ).exists()
+        context["has_share_documents"] = user_obj.user_permissions.filter(
+            codename="can_share_documents",
+        ).exists()
         try:
             context["staff_profile"] = user_obj.staff
         except Exception:
@@ -783,10 +786,11 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
 
             signature.staff = staff
             signature.is_active = True
+            signature.is_verified = True
             signature.save()
 
             log_action(request.user, "SIGNATURE_UPLOADED", request=request)
-            messages.success(request, "Your signature has been uploaded and is pending verification.")
+            messages.success(request, "Your signature has been uploaded and verified.")
             return redirect("user_management:profile")
 
         context = self.get_context_data()
