@@ -1029,7 +1029,7 @@
 
 <!-- Send Note Modal -->
 <div x-data="sendNoteModal()"
-     @open-send-note.window="open = true"
+     @open-send-note.window="open = true; $nextTick(() => { const i = document.getElementById('note-staff-search'); if (i && window.htmx) htmx.trigger(i, 'search'); })"
      x-show="open" x-cloak
      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
      @keydown.escape.window="open = false">
@@ -1043,16 +1043,17 @@
         <form method="post" action="{{ file.get_absolute_url }}" class="p-6 space-y-4">
             {% csrf_token %}
             <input type="hidden" name="action" value="send_file">
-            <input type="hidden" name="recipient" x-bind:value="staffId">
+            <input type="hidden" id="note-recipient-id" name="recipient" x-bind:value="staffId">
 
             <div>
                 <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Send To</label>
                 <template x-if="!staffName">
                     <div>
-                        <input type="text" name="q" placeholder="Search by name, email or username…"
+                        <input type="text" id="note-staff-search" name="q" placeholder="Search by name, email or username…"
                                autocomplete="off"
                                hx-get="{% url 'document_management:staff_search' %}"
-                               hx-trigger="keyup changed delay:300ms"
+                               hx-trigger="keyup changed delay:300ms, search"
+                               hx-include="#note-recipient-id"
                                hx-target="#note-staff-results"
                                class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400" />
                         <div id="note-staff-results" class="mt-1 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm empty:hidden max-h-48 overflow-y-auto"></div>
