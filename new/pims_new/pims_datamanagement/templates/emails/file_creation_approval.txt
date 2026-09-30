@@ -13,11 +13,11 @@ Department: {{ file.department.name|default:"—" }}
 Created: {{ file.created_at|date:"M d, Y H:i" }}
 Current Status: {{ file.get_status_display }}
 
-Please review the file details and approve or reject the creation using your verified digital signature.
+Please review the file details and approve or reject the creation using your digital signature.
 
 Review & Approve: {{ link }}
 
-IMPORTANT: You must have an active, verified digital signature to approve this file. 
+IMPORTANT: You must have an active digital signature to approve this file.
 If you haven't set up your signature yet, please configure it in your profile.
 
 Thank you,
