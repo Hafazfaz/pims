@@ -14,10 +14,10 @@ from user_management.models import CustomUser
 
 from document_management.models import (
     Document,
+    DocumentType,
     File,
     FileAccessRequest,
     FileMovement,
-    DocumentType,
 )
 
 
@@ -997,3 +997,111 @@ class AssignOrganizationHeadsTest(TestCase):
         dept_two.refresh_from_db()
         self.assertEqual(self.dept.head_id, staff_c.pk)
         self.assertIsNone(dept_two.head_id)  # candidate was taken -> skip, no crash
+
+
+class GlobalViewerTest(TestCase):
+    """user_management.can_view_all_staff_files — global visibility for
+    MD / Executives / admin-designated viewers, even with no department."""
+
+    def setUp(self):
+        self.dept = Department.objects.create(name="Lab", code="LAB")
+        self.registry_user = make_user("reg_gv", "Registry")
+        self.registry_staff = make_staff(self.registry_user, "Registry Officer")
+        self.owner_user = make_user("owner_gv", "Staff")
+        self.owner_staff = make_staff(self.owner_user, "Officer", self.dept)
+        self.doc_type = DocumentType.objects.create(name="Report")
+        self.file = File.objects.create(
+            title="GLOBAL VIEW FILE",
+            file_type="personal",
+            owner=self.owner_staff,
+            current_location=self.registry_staff,
+            created_by=self.registry_user,
+            status="active",
+        )
+        self.doc = Document.objects.create(
+            file=self.file,
+            uploaded_by=self.owner_user,
+            title="Sensitive minute",
+            minute_content="Private content",
+            document_type=self.doc_type,
+            status="approved",
+        )
+
+    def _global_perm(self):
+        from django.contrib.auth.models import Permission
+        from django.contrib.contenttypes.models import ContentType
+        from user_management.models import CustomUser
+
+        ct = ContentType.objects.get_for_model(CustomUser)
+        return Permission.objects.get(content_type=ct, codename="can_view_all_staff_files")
+
+    def test_oversight_groups_hold_the_permission(self):
+        """Migration grants it to MD, Executives and Administrator."""
+        for group_name in ("MD", "Executives", "Administrator"):
+            group = Group.objects.get(name=group_name)
+            self.assertTrue(
+                group.permissions.filter(codename="can_view_all_staff_files").exists(),
+                f"{group_name} group missing can_view_all_staff_files",
+            )
+
+    def test_user_without_department_sees_everything_with_permission(self):
+        from document_management.permissions import (
+            can_view_document_content,
+            can_view_file,
+            can_view_staff_documents,
+            has_content_scope,
+        )
+
+        viewer = make_user("global_viewer")
+        viewer.user_permissions.add(self._global_perm())
+        # No staff profile at all — belongs to no department.
+        self.assertFalse(hasattr(viewer, "staff"))
+
+        self.assertTrue(can_view_file(viewer, self.file))
+        self.assertTrue(can_view_document_content(viewer, file=self.file, document=self.doc))
+        self.assertTrue(has_content_scope(viewer, self.file, document=self.doc))
+        self.assertTrue(can_view_staff_documents(viewer))
+
+    def test_same_user_without_permission_is_scoped_out(self):
+        from document_management.permissions import (
+            can_view_document_content,
+            can_view_file,
+            can_view_staff_documents,
+            has_content_scope,
+        )
+
+        stranger = make_user("plain_viewer")  # no permission, no staff profile
+        self.assertFalse(can_view_file(stranger, self.file))
+        self.assertFalse(can_view_document_content(stranger, file=self.file, document=self.doc))
+        self.assertFalse(has_content_scope(stranger, self.file, document=self.doc))
+        self.assertFalse(can_view_staff_documents(stranger))
+
+    def test_registry_stays_denied_even_with_permission(self):
+        """Separation of duties: the registry check runs first."""
+        from document_management.permissions import (
+            can_view_document_content,
+            can_view_staff_documents,
+        )
+
+        self.registry_user.user_permissions.add(self._global_perm())
+        self.registry_user = CustomUser.objects.get(pk=self.registry_user.pk)  # refresh perm cache
+        self.assertFalse(can_view_document_content(self.registry_user, file=self.file, document=self.doc))
+        self.assertFalse(can_view_staff_documents(self.registry_user))
+
+    def test_executives_group_matches_is_executive(self):
+        """Group is named 'Executives' in fixtures — both spellings must match."""
+        exec_user = make_user("exec_gv", "Executives")
+        exec_staff = make_staff(exec_user, "Director", self.dept)
+        self.assertTrue(exec_staff.is_executive)
+
+        legacy_user = make_user("legacy_exec", "Executive")
+        legacy_staff = make_staff(legacy_user, "Director", self.dept)
+        self.assertTrue(legacy_staff.is_executive)
+
+    def test_md_group_user_is_global_viewer(self):
+        """Membership in the MD group alone grants global visibility."""
+        from document_management.permissions import can_view_file, is_global_viewer
+
+        md_user = make_user("md_gv", "MD")
+        self.assertTrue(is_global_viewer(md_user))
+        self.assertTrue(can_view_file(md_user, self.file))
