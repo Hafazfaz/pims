@@ -72,12 +72,28 @@ def is_privileged_viewer(user):
     return bool(user.is_superuser or staff.is_privileged_head)
 
 
+def is_global_viewer(user):
+    """Explicitly-granted global visibility: every file and staff record,
+    regardless of department, ownership, or custody.
+
+    Granted via ``user_management.can_view_all_staff_files`` — held by the
+    MD, Executives, and Administrator groups, and assignable from the admin
+    to any individual user (including people in no department at all).
+
+    Gates that enforce separation of duties (Registry vs personnel records)
+    check ``is_registry`` FIRST, so Registry stays denied even if someone
+    grants this permission to the Registry group.
+    """
+    return bool(user and user.is_authenticated and user.has_perm("user_management.can_view_all_staff_files"))
+
+
 def can_view_staff_documents(user):
     """
     Gate for seeing staff personnel documents — even just titles/metadata.
 
     Granted via the ``document_management.view_staff_documents`` permission,
-    which every group EXCEPT Registry holds (see migration 0045). Registry is
+    which every group EXCEPT Registry holds (see migration 0045), or via the
+    global ``user_management.can_view_all_staff_files`` grant. Registry is
     hard-denied here regardless (separation of duties): registry staff manage
     file custody but must never see what documents a staff member has.
     """
@@ -86,6 +102,9 @@ def can_view_staff_documents(user):
     staff = get_staff(user)
     if staff is not None and staff.is_registry:
         return False
+    # Global viewers see personnel records too (registry still denied above).
+    if is_global_viewer(user):
+        return True
     return user.has_perm("document_management.view_staff_documents")
 
 
@@ -102,6 +121,8 @@ def can_create_file(user):
 def can_view_file(user, file):
     """Who can open the file detail page."""
     if user.is_superuser or is_registry(user) or is_executive(user) or is_mayor(user):
+        return True
+    if is_global_viewer(user):
         return True
     staff = get_staff(user)
     if not staff:
@@ -299,7 +320,13 @@ def has_content_scope(user, file, document=None):
     leadership or a fresh approved request opens it.
     """
     staff = get_staff(user)
-    if not staff or staff.is_registry:
+    if staff is not None and staff.is_registry:
+        return False
+    # Global viewers (MD / Executives / granted users) always carry scope,
+    # so their View and Download stay in sync.
+    if is_global_viewer(user):
+        return True
+    if not staff:
         return False
 
     # Approved documents: standing scope is over (owner, unit head,
@@ -350,7 +377,9 @@ def can_view_document_content(user, file=None, document=None):
     explicit grant — an approved (unexpired) FileAccessRequest, an active
     FileMovement, or a direct document share. Browsing a file from the
     inbox/sent lists without custody shows metadata only.
-    Standing access (no custody needed): superusers, Executives, MD, Mayor,
+    Standing access (no custody needed): holders of the explicit
+    ``user_management.can_view_all_staff_files`` grant (MD / Executives /
+    admin-designated viewers), superusers, Executives, MD, Mayor,
     the file owner, and the uploader of the specific document — except on
     approved documents, where owner/uploader standing access ends and only
     top leadership or a fresh approved request opens them.
@@ -360,15 +389,20 @@ def can_view_document_content(user, file=None, document=None):
     if user.is_superuser:
         return True
     staff = get_staff(user)
+    # Separation of duties first: Registry stays denied even with the grant.
+    if staff is not None and staff.is_registry:
+        return False
+    # Explicit global grant (MD / Executives / admin-designated viewers) —
+    # works with or without a staff profile / department.
+    if is_global_viewer(user):
+        return True
     if not staff:
-        return False
-    if staff.is_registry:
-        return False
-    if file is None:
         return False
     # Top leadership retains oversight access without custody.
     if staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False):
         return True
+    if file is None:
+        return False
     # Owner scope (own file, no custody needed) and uploader scope —
     # both end once the document is approved.
     _is_approved_doc = document is not None and document.status == "approved"
