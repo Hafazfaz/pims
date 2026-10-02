@@ -850,6 +850,83 @@ class AddDocumentPermissionTest(TestCase):
             )
 
 
+class PersonalFileOneToOneTest(TestCase):
+    """Personal files are 1:1 with Staff — enforced in clean() AND in the DB."""
+
+    def setUp(self):
+        self.dept = Department.objects.create(name="HR", code="HR")
+        self.registry_user = make_user("reg_111", "Registry")
+        self.registry_staff = make_staff(self.registry_user, "Registry Officer")
+        self.staff_user = make_user("owner_111", "Staff")
+        self.staff = make_staff(self.staff_user, "Officer", self.dept)
+
+    def test_first_personal_file_allowed(self):
+        File.objects.create(
+            title="PERSONNEL RECORD - OWNER",
+            file_type="personal",
+            owner=self.staff,
+            created_by=self.registry_user,
+        )
+        self.assertEqual(File.objects.filter(file_type="personal", owner=self.staff).count(), 1)
+
+    def test_second_personal_file_rejected_by_clean(self):
+        File.objects.create(
+            title="PERSONNEL RECORD - OWNER",
+            file_type="personal",
+            owner=self.staff,
+            created_by=self.registry_user,
+        )
+        from django.core.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            File.objects.create(
+                title="DUPLICATE PERSONNEL RECORD",
+                file_type="personal",
+                owner=self.staff,
+                created_by=self.registry_user,
+            )
+        self.assertEqual(File.objects.filter(file_type="personal", owner=self.staff).count(), 1)
+
+    def test_db_constraint_rejects_duplicate_bypassing_clean(self):
+        """Even if full_clean() is skipped, the partial unique index blocks it."""
+        from django.db import IntegrityError, transaction
+
+        File.objects.create(
+            title="PERSONNEL RECORD - OWNER",
+            file_type="personal",
+            owner=self.staff,
+            created_by=self.registry_user,
+        )
+        dup = File(
+            title="DUPLICATE PERSONNEL RECORD",
+            file_type="personal",
+            owner=self.staff,
+            file_number="FMCAB-UNIQUE-DUP-1",
+            created_by=self.registry_user,
+        )
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            dup.save_base()  # bypasses full_clean -> hits the DB constraint
+        self.assertEqual(File.objects.filter(file_type="personal", owner=self.staff).count(), 1)
+
+    def test_non_personal_files_unaffected(self):
+        """Policy files have owner=NULL — the partial index must not clash."""
+        File.objects.create(
+            title="POLICY FILE - HR",
+            file_type="policy",
+            department=self.dept,
+            owner=None,
+            created_by=self.registry_user,
+        )
+        File.objects.create(
+            title="POLICY FILE - HR 2",
+            file_type="policy",
+            department=self.dept,
+            owner=None,
+            created_by=self.registry_user,
+        )
+        self.assertEqual(File.objects.filter(file_type="policy", department=self.dept).count(), 2)
+
+
 class AssignOrganizationHeadsTest(TestCase):
     """create_fixtures.assign_organization_heads must never hit the
     UNIQUE constraint on organization_unit/department.head_id — a Staff

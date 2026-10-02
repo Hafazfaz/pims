@@ -82,6 +82,15 @@ class File(models.Model):
     )
 
     class Meta:
+        constraints = [
+            # Personal files are strictly 1:1 with their Staff owner —
+            # backs up the same check in clean() at the database level.
+            models.UniqueConstraint(
+                fields=["owner"],
+                condition=models.Q(file_type="personal"),
+                name="unique_personal_file_per_owner",
+            ),
+        ]
         permissions = [
             ("create_file", "Can create a new file"),
             ("activate_file", "Can activate an inactive file"),
