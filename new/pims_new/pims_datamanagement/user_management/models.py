@@ -14,6 +14,10 @@ class CustomUser(AbstractUser):
         permissions = [
             ("can_set_urgent_priority", "Can mark documents as Urgent or High Priority"),
             ("can_share_documents", "Can share documents with other users"),
+            (
+                "can_view_all_staff_files",
+                "Can view all staff files and personnel records regardless of department or custody",
+            ),
         ]
 
 
