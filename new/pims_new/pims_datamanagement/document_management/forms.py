@@ -1,5 +1,4 @@
 from django import forms
-from django.db.models import Q
 from organization.models import Division, Section, Staff, Unit
 from user_management.models import CustomUser
 
@@ -423,65 +422,6 @@ class FileUpdateForm(forms.ModelForm):
     def clean_title(self):
         title = self.cleaned_data["title"]
         return title.upper()  # Enforce uppercase for title
-
-
-class DocumentUploadForm(forms.ModelForm):
-    # This form allows uploading an attachment to an existing file
-    include_signature = forms.BooleanField(
-        required=False,
-        label="Attach Digital Signature",
-        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
-    )
-    attachment = MultipleFileField(
-        required=False,
-        label="Upload Document(s) — you may select multiple files",
-        widget=MultipleFileInput(attrs={"class": "form-control"}),
-    )
-
-    class Meta:
-        model = Document
-        fields = ["file", "title", "document_type", "minute_content", "attachment"]
-        widgets = {
-            "title": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "e.g., MSc Degree Certificate, Appraisal Form, etc.",
-                }
-            ),
-        }
-        labels = {
-            "title": "Document Title/Label",
-        }
-
-    def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop("user", None)
-        super().__init__(*args, **kwargs)
-
-        # Filter files that the current user has access to for association
-        if self.user and self.user.is_authenticated:
-            try:
-                staff_user = Staff.objects.get(user=self.user)
-                if staff_user.is_registry:
-                    # Registry can upload documents to ANY file
-                    self.fields["file"].queryset = File.objects.all().order_by("title")
-                else:
-                    # Users can upload documents to files they own or are currently at their location
-                    self.fields["file"].queryset = File.objects.filter(
-                        Q(owner=staff_user) | Q(current_location=staff_user)
-                    ).order_by("title")
-            except Staff.DoesNotExist:
-                # If not a staff user, no files to select (shouldn't happen with LoginRequiredMixin)
-                self.fields["file"].queryset = File.objects.none()
-            except Exception:
-                self.fields["file"].queryset = File.objects.none()
-
-    def clean(self):
-        cleaned_data = super().clean()
-        attachment = cleaned_data.get("attachment")
-        minute_content = cleaned_data.get("minute_content")
-        if not attachment and not minute_content:
-            raise forms.ValidationError("Please provide either a document upload or minute content.")
-        return cleaned_data
 
 
 class FileAccessRequestForm(forms.ModelForm):

@@ -12,93 +12,10 @@ from django.views.generic import CreateView, DetailView, ListView, View
 from notifications.utils import create_notification
 from organization.models import Staff
 
-from ..forms import DocumentForm, DocumentUploadForm, SendFileForm
+from ..forms import DocumentForm, SendFileForm
 from ..models import Document, File, FileAccessRequest, FileMovement
 from .base import HTMXLoginRequiredMixin
 from ..permissions import can_add_document, can_share_document
-
-
-class DocumentUploadView(LoginRequiredMixin, CreateView):
-    model = Document
-    form_class = DocumentUploadForm
-    template_name = "document_management/document_upload_form.html"
-
-    def get_file(self):
-        file_pk = self.kwargs.get("file_pk") or self.request.GET.get("file_pk")
-        if file_pk:
-            return get_object_or_404(File, pk=file_pk)
-        return None
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-    def get_initial(self):
-        initial = super().get_initial()
-        file = self.get_file()
-        if file:
-            initial["file"] = file
-        parent_id = self.request.GET.get("parent_id")
-        if parent_id:
-            initial["parent"] = parent_id
-        return initial
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["preselected_file"] = self.get_file()
-        return context
-
-    def get_success_url(self):
-        file = self.get_file()
-        if file:
-            return reverse_lazy("document_management:file_detail", kwargs={"pk": file.pk})
-        return reverse_lazy("document_management:my_files")
-
-    def form_valid(self, form):
-        document = form.save(commit=False)
-        file_obj = document.file
-        user = self.request.user
-        staff = getattr(user, "staff", None)
-
-        is_registry = staff and staff.is_registry
-        is_custodian = staff and file_obj.current_location == staff
-        has_rw = (
-            is_custodian
-            and FileAccessRequest.objects.filter(
-                file=file_obj, requested_by=user, status="approved", access_type="read_write"
-            )
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
-
-        if not (is_registry or has_rw):
-            messages.error(self.request, "You do not have permission to add documents to this file.")
-            return redirect(file_obj.get_absolute_url())
-
-        document.uploaded_by = user
-        # Registry uploads are official records: auto-approved. Everyone else's
-        # uploads stay pending until an approver signs off. The file itself
-        # keeps its current status (active until dispatched).
-        if file_obj is not None and (user.is_superuser or is_registry):
-            document.status = "approved"
-        document.save()
-        # Multi-file upload: first file lives on the document, the rest land
-        # on DocumentAttachment rows.
-        _save_extra_uploads(
-            document,
-            form.files.getlist("attachment"),
-            skip=form.cleaned_data.get("attachment"),
-            uploaded_by=user,
-        )
-        messages.success(self.request, "Document uploaded successfully.")
-        return redirect(self.get_success_url())
-
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        messages.error(self.request, "You do not have permission to upload documents.")
-        return redirect("document_management:my_files")
 
 
 class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
