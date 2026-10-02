@@ -54,8 +54,9 @@ DESIGNATIONS_DATA = [
 
 # Default leadership accounts created by the fixture script.
 # Each tuple: (username, first_name, last_name, designation_name, department_code, group_name)
+# group_name may be comma-separated to place the user in several groups.
 DEFAULT_LEADERSHIP_USERS = [
-    ("medical_director", "Medical", "Director", "Medical Director", "OPS", "Executives"),
+    ("medical_director", "Medical", "Director", "Medical Director", "OPS", "MD,Executives"),
     ("director_admin", "Director", "Admin", "Director of Admin", "OPS", "Executives"),
     ("director_nursing", "Director", "Nursing", "Director of Nursing", "HR", "Executives"),
     ("head_clinical", "Head", "Clinical Service", "Head of Clinical Service", "OPS", "Staff"),
@@ -222,6 +223,7 @@ def create_fixtures():
         ("document_management", "document", "add_minute"),
         ("document_management", "document", "add_attachment"),
         ("document_management", "document", "view_staff_documents"),
+        ("user_management", "customuser", "can_view_all_staff_files"),
     ]
 
     for app, model, codename in custom_perms:
@@ -235,14 +237,21 @@ def create_fixtures():
     registry_group, _ = Group.objects.get_or_create(name="Registry")
     staff_group, _ = Group.objects.get_or_create(name="Staff")
     executives_group, _ = Group.objects.get_or_create(name="Executives")
+    md_group, _ = Group.objects.get_or_create(name="MD")
 
-    # Assign all gathered perms for simplicity in dev — EXCEPT view_staff_documents,
-    # which Registry must never hold (Registry cannot see staff personnel documents,
-    # not even titles/metadata).
-    registry_perms = [p for p in perms_list if p.codename != "view_staff_documents"]
+    # Assign all gathered perms for simplicity in dev, EXCEPT:
+    # - view_staff_documents: Registry must never hold it (Registry cannot see
+    #   staff personnel documents, not even titles/metadata).
+    # - can_view_all_staff_files: oversight only (MD / Executives) — a blanket
+    #   Staff grant would hand every officer global visibility over files.
+    registry_perms = [
+        p for p in perms_list if p.codename not in ("view_staff_documents", "can_view_all_staff_files")
+    ]
+    staff_perms = [p for p in perms_list if p.codename != "can_view_all_staff_files"]
     registry_group.permissions.set(registry_perms)
-    staff_group.permissions.set(perms_list)
+    staff_group.permissions.set(staff_perms)
     executives_group.permissions.set(perms_list)
+    md_group.permissions.set(perms_list)
 
     # --- Organization Structure ---
     print("Creating Organization Structure...")
@@ -332,6 +341,7 @@ def create_fixtures():
         "Registry": registry_group,
         "Staff": staff_group,
         "Executives": executives_group,
+        "MD": md_group,
     }
 
     for username, first, last, des_name, dept_code, group_name in DEFAULT_LEADERSHIP_USERS:
@@ -345,12 +355,22 @@ def create_fixtures():
             print(f"  Warning: department '{dept_code}' not found, skipping {username}")
             continue
 
-        group = group_map.get(group_name)
+        # Comma-separated entries (e.g. "MD,Executives") put the user in
+        # several groups at once.
+        group_names = [g.strip() for g in group_name.split(",") if g.strip()]
+        group = group_map.get(group_names[0])
+        if group is None:
+            print(f"  Warning: group '{group_names[0]}' not found, skipping {username}")
+            continue
         unit = Unit.objects.filter(department=dept).first()
 
         user, staff = create_user_staff(
             username, first, last, group, dept, unit, designation
         )
+        for extra_name in group_names[1:]:
+            extra_group = group_map.get(extra_name)
+            if extra_group:
+                user.groups.add(extra_group)
         staff.is_supervisor = True
         staff.save()
 
