@@ -138,6 +138,52 @@ def get_random_date(start_date=None, end_date=None):
     return start_date + timedelta(days=random_days)
 
 
+def assign_organization_heads(departments, units):
+    """Fill in Department.head / Unit.head for rows that don't have one.
+
+    Both ``head`` fields are OneToOneFields, so a Staff member can head at
+    most ONE department and at most ONE unit. Real databases often contain
+    staff whose ``Staff.unit`` differs from the unit they already head
+    (e.g. set via the admin), so we explicitly skip anyone who already heads
+    a department/unit instead of blindly picking the first candidate —
+    otherwise this raises IntegrityError: UNIQUE constraint failed on
+    organization_unit.head_id.
+    """
+    taken_dept_heads = set(Department.objects.exclude(head=None).values_list("head_id", flat=True))
+    for dept in departments.values():
+        if dept.head_id:
+            taken_dept_heads.add(dept.head_id)
+            continue
+        head = (
+            Staff.objects.filter(department=dept, designation__level__lte=3)
+            .exclude(pk__in=taken_dept_heads)
+            .order_by("pk")
+            .first()
+        )
+        if head:
+            dept.head = head
+            dept.save()
+            taken_dept_heads.add(head.pk)
+
+    taken_unit_heads = set(Unit.objects.exclude(head=None).values_list("head_id", flat=True))
+    for unit in units:
+        if unit.head_id:
+            taken_unit_heads.add(unit.head_id)
+            continue
+        head = (
+            Staff.objects.filter(unit=unit, designation__level__lte=6)
+            .exclude(pk__in=taken_unit_heads)
+            .order_by("pk")
+            .first()
+        )
+        if head:
+            unit.head = head
+            unit.save()
+            taken_unit_heads.add(head.pk)
+        else:
+            print(f"  No eligible head available for unit {unit.name} (all candidates already head something)")
+
+
 def create_fixtures():
     print("--- Starting Fixture Generation ---")
 
@@ -271,12 +317,13 @@ def create_fixtures():
     users.append(reg_user)
 
     # Create a signature for registry officer
-    StaffSignature.objects.create(
-        staff=reg_staff,
-        image="signatures/verified/registry_sig.png",  # Placeholder path
-        is_active=True,
-        is_verified=True,
-    )
+    if not reg_staff.get_active_signature():
+        StaffSignature.objects.create(
+            staff=reg_staff,
+            image="signatures/verified/registry_sig.png",  # Placeholder path
+            is_active=True,
+            is_verified=True,
+        )
 
     # --- Default Leadership Users ---
     print("Creating Default Leadership Users...")
@@ -342,20 +389,7 @@ def create_fixtures():
         staff_members.append(s)
 
     # Assign Heads
-    for dept in departments.values():
-        if not dept.head:
-            # Find a high ranking staff in this dept
-            potential_heads = Staff.objects.filter(department=dept, designation__level__lte=3)
-            if potential_heads.exists():
-                dept.head = potential_heads.first()
-                dept.save()
-
-    for unit in units:
-        if not unit.head:
-            potential_heads = Staff.objects.filter(unit=unit, designation__level__lte=6)
-            if potential_heads.exists():
-                unit.head = potential_heads.first()
-                unit.save()
+    assign_organization_heads(departments, units)
 
     # Create signatures for HODs
     for dept in departments.values():

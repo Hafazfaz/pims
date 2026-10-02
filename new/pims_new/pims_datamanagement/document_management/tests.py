@@ -848,3 +848,75 @@ class AddDocumentPermissionTest(TestCase):
                 can_add_document(CustomUser.objects.get(username=username), self.file),
                 f"can_add_minute diverged for {username}",
             )
+
+
+class AssignOrganizationHeadsTest(TestCase):
+    """create_fixtures.assign_organization_heads must never hit the
+    UNIQUE constraint on organization_unit/department.head_id — a Staff
+    member can head only ONE unit/department (OneToOneField)."""
+
+    def setUp(self):
+        self.dept = Department.objects.create(name="Operations", code="OPS")
+        self.unit_one = Unit.objects.create(department=self.dept, name="Unit One")
+        self.unit_two = Unit.objects.create(department=self.dept, name="Unit Two")
+
+    def test_skips_staff_who_already_heads_another_unit(self):
+        from create_fixtures import assign_organization_heads
+
+        desig = Designation.objects.get_or_create(name="Head of Unit", defaults={"level": 4})[0]
+        # staff_a already heads unit_one, but their own Staff.unit points at
+        # unit_two — exactly the pattern that crashed the server run.
+        staff_a = make_staff(make_user("head_a"), "Head of Unit", self.dept)
+        staff_a.designation = desig
+        staff_a.unit = self.unit_two
+        staff_a.save()
+        self.unit_one.head = staff_a
+        self.unit_one.save()
+
+        # staff_b is a plain eligible candidate sitting in unit_two.
+        staff_b = make_staff(make_user("head_b"), "Officer", self.dept)
+        staff_b.unit = self.unit_two
+        staff_b.save()
+
+        # Old code: IntegrityError UNIQUE constraint failed organization_unit.head_id
+        assign_organization_heads({self.dept.code: self.dept}, [self.unit_two])
+
+        self.unit_two.refresh_from_db()
+        self.unit_one.refresh_from_db()
+        self.assertEqual(self.unit_two.head_id, staff_b.pk)
+        self.assertEqual(self.unit_one.head_id, staff_a.pk)
+
+    def test_unit_left_without_head_when_all_candidates_taken(self):
+        from create_fixtures import assign_organization_heads
+
+        staff_a = make_staff(make_user("head_c"), "Officer", self.dept)
+        staff_a.unit = self.unit_two
+        staff_a.save()
+        self.unit_one.head = staff_a
+        self.unit_one.save()
+
+        assign_organization_heads({self.dept.code: self.dept}, [self.unit_two])
+
+        self.unit_two.refresh_from_db()
+        self.unit_one.refresh_from_db()
+        self.assertIsNone(self.unit_two.head_id)  # skipped, not crashed
+        self.assertEqual(self.unit_one.head_id, staff_a.pk)
+
+    def test_skips_staff_who_already_heads_another_department(self):
+        from create_fixtures import assign_organization_heads
+
+        dept_two = Department.objects.create(name="Finance", code="FIN")
+        director = Designation.objects.get_or_create(name="Director", defaults={"level": 2})[0]
+        # staff_c works in finance but already heads operations.
+        staff_c = make_staff(make_user("head_d"), "Director", dept_two)
+        staff_c.designation = director
+        staff_c.save()
+        self.dept.head = staff_c
+        self.dept.save()
+
+        assign_organization_heads({self.dept.code: self.dept, dept_two.code: dept_two}, [])
+
+        self.dept.refresh_from_db()
+        dept_two.refresh_from_db()
+        self.assertEqual(self.dept.head_id, staff_c.pk)
+        self.assertIsNone(dept_two.head_id)  # candidate was taken -> skip, no crash
