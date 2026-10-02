@@ -15,7 +15,7 @@ from organization.models import Staff
 from ..forms import DocumentForm, DocumentUploadForm, SendFileForm
 from ..models import Document, File, FileAccessRequest, FileMovement
 from .base import HTMXLoginRequiredMixin
-from ..permissions import can_share_document
+from ..permissions import can_add_document, can_share_document
 
 
 class DocumentUploadView(LoginRequiredMixin, CreateView):
@@ -227,25 +227,9 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         is_custodian = hasattr(self.request.user, "staff") and file_obj.current_location == self.request.user.staff
         is_owner = hasattr(self.request.user, "staff") and file_obj.owner == self.request.user.staff
 
-        has_approved_access = (
-            FileAccessRequest.objects.filter(file=file_obj, requested_by=self.request.user, status="approved")
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
-
-        access_type = None
-        if has_approved_access:
-            active_access = (
-                FileAccessRequest.objects.filter(file=file_obj, requested_by=self.request.user, status="approved")
-                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-                .first()
-            )
-            if active_access:
-                access_type = active_access.access_type
-
-        context["can_add_minute"] = (
-            is_registry or (is_custodian and access_type == "read_write")
-        ) and file_obj.status == "active"
+        # Same rule set as the endpoint (DocumentCreateView.dispatch), so the
+        # button is only shown when adding will actually be allowed.
+        context["can_add_minute"] = can_add_document(self.request.user, file_obj)
 
         from document_management.permissions import can_manual_dispatch
 
@@ -522,6 +506,7 @@ class DocumentShareEmailView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         from ..permissions import can_share_document
+
         from django.core.mail import send_mail
         from django.conf import settings
 
@@ -947,48 +932,9 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             return self.handle_no_permission()
         self.file_obj = get_object_or_404(File, pk=self.kwargs.get("file_pk"))
 
-        staff_user = getattr(request.user, "staff", None)
-
-        has_approved_access = (
-            FileAccessRequest.objects.filter(
-                file=self.file_obj, requested_by=request.user, status="approved", access_type="read_write"
-            )
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
-
-        if has_approved_access:
-            if self.file_obj.status != "active":
-                messages.error(request, "Documents can only be added to active files.")
-                return redirect(self.file_obj.get_absolute_url())
-            return super().dispatch(request, *args, **kwargs)
-
-        has_permission = False
-
-        if staff_user and staff_user.is_registry:
-            has_permission = True
-
-        elif staff_user and (
-            getattr(staff_user, "is_mayor", False) or staff_user.is_md or staff_user.is_executive
-        ):
-            # Mayor / MD / Executive carry read & write on any file.
-            has_permission = True
-
-        elif self.file_obj.file_type == "personal":
-            if self.file_obj.owner == staff_user:
-                has_permission = True
-
-        elif self.file_obj.file_type == "policy":
-            if staff_user and staff_user.is_hod and self.file_obj.department == staff_user.department:
-                has_permission = True
-
-        else:
-            if self.file_obj.owner == staff_user:
-                has_permission = True
-            if staff_user and staff_user.is_hod and self.file_obj.department == staff_user.department:
-                has_permission = True
-
-        if not has_permission:
+        # One rule set, shared with the button visibility (can_add_minute):
+        # document_management.permissions.can_add_document.
+        if not can_add_document(request.user, self.file_obj, require_active=False):
             messages.error(
                 request, "You do not have permission to add documents to this file. Restricted to File Owner/HOD."
             )

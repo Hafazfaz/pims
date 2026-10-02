@@ -187,31 +187,50 @@ def can_send_file(user, file):
 # ---------------------------------------------------------------------------
 
 
-def can_add_document(user, file):
-    """Registry, Mayor, or current custodian with RW access can add documents."""
-    if file.status != "active":
+def can_add_document(user, file, *, require_active=True):
+    """Single source of truth: may ``user`` add a document to ``file``?
+
+    Called by BOTH the add-document endpoint (``DocumentCreateView.dispatch``)
+    and the button-visibility context (``can_add_minute``) so the button can
+    never be shown for an action the endpoint will refuse.
+
+    Rules (in order):
+    - the file must be active (unless ``require_active=False``, used by the
+      endpoint so it can show an accurate "file is not active" message);
+    - Registry / superuser — always;
+    - Mayor, MD, Executive — read & write on any file;
+    - an approved, unexpired ``read_write`` FileAccessRequest;
+    - movement-based RW — dispatched recipient still holding active access;
+    - the file owner (any file type);
+    - HOD of the file's department, on non-personal files.
+    """
+    if require_active and file.status != "active":
         return False
     if is_registry(user):
         return True
     staff = get_staff(user)
     if not staff:
         return False
-    # Mayor carries read & write on any file they can open.
-    if is_mayor(user):
+    if is_mayor(user) or is_executive(user):
         return True
-    if file.current_location != staff:
-        return False
     from document_management.models import FileAccessRequest
 
     if (
-        FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved", access_type="read_write")
+        FileAccessRequest.objects.filter(
+            file=file, requested_by=user, status="approved", access_type="read_write"
+        )
         .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
         .exists()
     ):
         return True
-    # Movement-based RW: dispatched recipient holding (or sent) the file.
     latest = file.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
-    return bool(latest and latest.is_active_access)
+    if latest and latest.is_active_access:
+        return True
+    if file.owner == staff:
+        return True
+    if file.file_type != "personal" and is_hod(user) and file.department == staff.department:
+        return True
+    return False
 
 
 def can_manual_dispatch(user):

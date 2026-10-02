@@ -755,3 +755,96 @@ class ActionExpiryTest(TestCase):
         self.assertEqual(self.movement.status, "rejected")
         self.assertFalse(self.movement.is_active_access)
 
+
+
+class AddDocumentPermissionTest(TestCase):
+    """Regression tests: no 403 on create-file, one shared add-document rule."""
+
+    def setUp(self):
+        self.client = Client()
+        self.dept = Department.objects.create(name="Legal", code="LEG")
+        self.registry_user = make_user("reg_add", "Registry")
+        self.registry_staff = make_staff(self.registry_user, "Registry Officer")
+        self.owner_user = make_user("owner_add", "Staff")
+        self.owner_staff = make_staff(self.owner_user, "Officer", self.dept)
+        self.stranger_user = make_user("stranger_add", "Staff")
+        self.stranger_staff = make_staff(self.stranger_user, "Analyst", self.dept)
+        self.doc_type = DocumentType.objects.create(name="Memo")
+        self.file = File.objects.create(
+            title="ADD PERM FILE",
+            file_type="personal",
+            owner=self.owner_staff,
+            current_location=self.registry_staff,
+            created_by=self.registry_user,
+            status="active",
+        )
+
+    def test_create_file_redirects_instead_of_403_for_non_registry(self):
+        """FileCreateView.handle_no_permission must be a real method: a
+        non-registry user used to get a hard 403 Forbidden."""
+        self.client.login(username="stranger_add", password="Test1234!")
+        r = self.client.get(reverse("document_management:file_create"))
+        self.assertNotEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 302)
+
+    def test_create_file_denies_non_registry_post(self):
+        self.client.login(username="stranger_add", password="Test1234!")
+        r = self.client.post(
+            reverse("document_management:file_create"),
+            {"title": "SNEAKY FILE", "file_type": "personal", "owner": self.stranger_staff.pk},
+        )
+        self.assertNotEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(File.objects.filter(title="SNEAKY FILE").exists())
+
+    def test_registry_can_still_open_create_file(self):
+        self.client.login(username="reg_add", password="Test1234!")
+        r = self.client.get(reverse("document_management:file_create"))
+        self.assertEqual(r.status_code, 200)
+
+    def test_document_add_endpoint_allows_owner_not_stranger(self):
+        from document_management.permissions import can_add_document
+
+        url = reverse("document_management:document_add", kwargs={"file_pk": self.file.pk})
+
+        self.client.login(username="owner_add", password="Test1234!")
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(can_add_document(self.owner_user, self.file))
+
+        self.client.login(username="stranger_add", password="Test1234!")
+        r = self.client.get(url)
+        self.assertNotEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(can_add_document(self.stranger_user, self.file))
+
+    def test_can_add_document_single_rule_set(self):
+        from document_management.permissions import can_add_document
+
+        # Registry / superuser: yes.
+        self.assertTrue(can_add_document(self.registry_user, self.file))
+        # Owner of the personal file: yes.
+        self.assertTrue(can_add_document(self.owner_user, self.file))
+        # Unrelated staff: no.
+        self.assertFalse(can_add_document(self.stranger_user, self.file))
+        # Inactive file: no, even for registry — matches endpoint + button.
+        self.file.status = "closed"
+        self.file.save()
+        self.assertFalse(can_add_document(self.registry_user, self.file))
+        self.assertFalse(can_add_document(self.owner_user, self.file))
+
+    def test_button_visibility_matches_endpoint(self):
+        """The can_add_minute flag shown on the file page must equal what the
+        endpoint will accept for the same user."""
+        from document_management.permissions import can_add_document
+
+        for username in ("reg_add", "owner_add", "stranger_add"):
+            self.client.login(username=username, password="Test1234!")
+            r = self.client.get(reverse("document_management:file_detail", kwargs={"pk": self.file.pk}))
+            if r.status_code != 200:
+                continue
+            self.assertEqual(
+                r.context["can_add_minute"],
+                can_add_document(CustomUser.objects.get(username=username), self.file),
+                f"can_add_minute diverged for {username}",
+            )

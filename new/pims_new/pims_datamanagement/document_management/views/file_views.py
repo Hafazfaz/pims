@@ -28,7 +28,7 @@ from organization.models import Department, Staff
 
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
 from ..models import Document, DocumentSignature, EmailLog, File, FileAccessRequest, FileMovement
-from ..permissions import get_dispatch_recipients
+from ..permissions import can_add_document, get_dispatch_recipients
 from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin
 
 logger = logging.getLogger("document_management")
@@ -867,7 +867,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             has_approved_access = True
             has_rw_access = True
 
-        context["can_add_minute"] = is_registry or is_mayor or ((is_custodian or is_owner) and has_rw_access)
+        # Same rule set as the endpoint (DocumentCreateView.dispatch), so the
+        # button is only shown when adding will actually be allowed.
+        context["can_add_minute"] = can_add_document(user, file_obj)
         context["can_add_minutes"] = context["can_add_minute"]
         from document_management.permissions import can_manual_dispatch
 
