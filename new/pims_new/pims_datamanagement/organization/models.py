@@ -1,6 +1,7 @@
 from core.constants import STAFF_TYPE_CHOICES
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 
 class Department(models.Model):
@@ -154,7 +155,10 @@ class Staff(models.Model):
 
     @property
     def is_executive(self):
-        return self.user.groups.filter(name__iexact="Executive").exists()
+        # Group is "Executives" in fixtures/audit views; "Executive" kept for
+        # older data and tests — matching only one of them silently dropped
+        # real Executives out of every oversight check.
+        return self.user.groups.filter(Q(name__iexact="Executive") | Q(name__iexact="Executives")).exists()
 
     @property
     def is_md(self):
