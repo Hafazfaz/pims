@@ -1105,3 +1105,74 @@ class GlobalViewerTest(TestCase):
         md_user = make_user("md_gv", "MD")
         self.assertTrue(is_global_viewer(md_user))
         self.assertTrue(can_view_file(md_user, self.file))
+
+
+class DocxPreviewTest(TestCase):
+    """DOCX uploads get an auto-generated PDF preview so they can be viewed
+    in the browser without downloading the original file."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.dept = Department.objects.create(name="Preview Dept", code="PRV")
+        cls.user = make_user("preview_user", "Staff")
+        cls.staff = make_staff(cls.user, "Officer", cls.dept)
+        cls.pims_file = File.objects.create(
+            title="PREVIEW FILE",
+            file_type="policy",
+            created_by=cls.user,
+            department=cls.dept,
+        )
+
+    def _make_docx(self):
+        import subprocess
+        import tempfile
+
+        tmpdir = tempfile.mkdtemp()
+        txt = f"{tmpdir}/sample.txt"
+        with open(txt, "w") as f:
+            f.write("Preview content")
+        subprocess.run(
+            ["soffice", "--headless", "--convert-to", "docx", "--outdir", tmpdir, txt],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=60,
+        )
+        return f"{tmpdir}/sample.docx"
+
+    def test_docx_generates_preview_pdf_on_save(self):
+        from django.core.files import File as DjangoFile
+
+        docx_path = self._make_docx()
+        with open(docx_path, "rb") as f:
+            doc = Document.objects.create(
+                file=self.pims_file,
+                uploaded_by=self.user,
+                title="Preview Doc",
+                attachment=DjangoFile(f, name="sample.docx"),
+            )
+        doc.refresh_from_db()
+        self.assertTrue(doc.preview_pdf)
+        self.assertTrue(doc.preview_pdf.name.endswith(".pdf"))
+        self.assertTrue(doc.preview_pdf.storage.exists(doc.preview_pdf.name))
+
+    def test_download_view_serves_preview_pdf_when_inline(self):
+        from django.core.files import File as DjangoFile
+        from django.test import RequestFactory
+
+        from document_management.views.document_views import DocumentDownloadView
+
+        docx_path = self._make_docx()
+        with open(docx_path, "rb") as f:
+            doc = Document.objects.create(
+                file=self.pims_file,
+                uploaded_by=self.user,
+                title="Preview Doc",
+                attachment=DjangoFile(f, name="sample.docx"),
+            )
+        request = RequestFactory().get(f"/fake/{doc.pk}/?inline=1")
+        request.user = self.user
+        response = DocumentDownloadView.as_view()(request, pk=doc.pk)
+        self.assertEqual(response.status_code, 200)
+        # Content-Disposition should be inline because we served the preview PDF.
+        self.assertIn("inline", response.get("Content-Disposition", ""))

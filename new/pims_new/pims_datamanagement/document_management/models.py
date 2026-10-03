@@ -1,3 +1,5 @@
+import logging
+import tempfile
 from pathlib import Path
 
 from core.constants import FILE_STATUS_CHOICES, FILE_TYPE_CHOICES, STATUS_CHOICES
@@ -6,6 +8,9 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
 from organization.models import Department, Division, Section, Staff, Unit
+
+
+logger = logging.getLogger(__name__)
 
 
 def _apply_pdf_watermark(field_file):
@@ -260,6 +265,12 @@ class Document(models.Model):
     # A document can be either a text minute or an uploaded file
     minute_content = models.TextField(blank=True, null=True)
     attachment = models.FileField(upload_to="", blank=True, null=True)
+    preview_pdf = models.FileField(
+        upload_to="document_previews/",
+        blank=True,
+        null=True,
+        help_text="Auto-generated PDF preview for Office documents (DOCX, etc.).",
+    )
     has_signature = models.BooleanField(default=False)
     signature_record = models.ForeignKey(
         "organization.StaffSignature",
@@ -328,8 +339,49 @@ class Document(models.Model):
         if self.attachment:
             _apply_pdf_watermark(self.attachment)
         super().save(*args, **kwargs)
+        # Generate a PDF preview for Office documents once the row has a PK.
+        if self.attachment and not self.preview_pdf:
+            self._maybe_generate_preview_pdf()
 
-    def __str__(self):
+    def _maybe_generate_preview_pdf(self):
+        from document_management.utils import CONVERTIBLE_TO_PREVIEW
+
+        ext = Path(self.attachment.name).suffix.lower()
+        if ext not in CONVERTIBLE_TO_PREVIEW:
+            return
+        try:
+            self.generate_preview_pdf()
+        except Exception:
+            logger.exception("Failed to generate preview PDF for document %s", self.pk)
+
+    def generate_preview_pdf(self):
+        """Convert the Office attachment to a PDF preview and store it.
+
+        Returns the generated preview FileField, or None if the attachment is
+        not a supported Office document or conversion fails.
+        """
+        from django.core.files import File as DjangoFile
+
+        from document_management.utils import CONVERTIBLE_TO_PREVIEW, convert_office_to_pdf
+
+        if not self.attachment:
+            return None
+        ext = Path(self.attachment.name).suffix.lower()
+        if ext not in CONVERTIBLE_TO_PREVIEW:
+            return None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / Path(self.attachment.name).name
+            with self.attachment.open("rb") as src:
+                source_path.write_bytes(src.read())
+            pdf_path = convert_office_to_pdf(source_path, tmpdir)
+            if not pdf_path:
+                return None
+            with pdf_path.open("rb") as f:
+                filename = f"{self.pk or 'doc'}_preview.pdf"
+                self.preview_pdf.save(filename, DjangoFile(f), save=False)
+        # Persist only the preview_pdf field; avoid recursion.
+        self.save(update_fields=["preview_pdf"])
+        return self.preview_pdf
         if self.minute_content:
             return f"Minute on {self.file.title} at {self.uploaded_at.strftime('%Y-%m-%d')}"
         elif self.attachment:

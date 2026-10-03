@@ -730,7 +730,12 @@ class DocumentDownloadView(LoginRequiredMixin, View):
             return redirect(file_obj.get_absolute_url())
 
         inline = request.GET.get("inline") == "1"
-        response = _serve_field_file(document.attachment, inline=inline)
+        # For Office documents, preview the generated PDF so the user can view
+        # it in the browser without downloading the original file.
+        if inline and document.preview_pdf:
+            response = _serve_field_file(document.preview_pdf, inline=True)
+        else:
+            response = _serve_field_file(document.attachment, inline=inline)
         if response is None:
             messages.error(request, "Attachment file not found on server.")
             return redirect(file_obj.get_absolute_url())
@@ -1163,19 +1168,17 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
 
         # Notify HODs/supervisors of this urgent document
         if priority in ("urgent", "high"):
-            from organization.models import Staff
-            from notifications.utils import create_notification
-
             from document_management.views.base import EXCLUDE_REGISTRY_Q
+            from notifications.utils import create_notification
+            from organization.models import Staff
 
-            recipients = (
-                Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
+            recipients = [
+                staff
+                for staff in Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
                 .exclude(user=self.request.user)
-                .filter(
-                    Q(is_hod=True) | Q(is_effective_supervisor=True) | Q(is_executive=True) | Q(is_md=True)
-                )
                 .select_related("user")
-            )
+                if staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md
+            ]
             for recipient in recipients:
                 if recipient.user:
                     create_notification(
@@ -1185,7 +1188,7 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
                             f"by {self.request.user.get_full_name() or self.request.user.username}."
                         ),
                         obj=document,
-                        link=reverse_lazy("document_management:inbox_document_standalone", kwargs={"pk": document.pk}),
+                        link=reverse_lazy("document_management:inbox") + "?mode=urgent",
                     )
 
         messages.success(self.request, f"Urgent document '{document.title or 'Untitled'}' created successfully.")
