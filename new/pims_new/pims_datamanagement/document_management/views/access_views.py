@@ -37,6 +37,16 @@ class FileAccessRequestListView(RegistryRequiredMixin, ListView):
 class FileAccessRequestApproveView(RegistryRequiredMixin, View):
     def post(self, request, pk):
         access_req = get_object_or_404(FileAccessRequest, pk=pk)
+
+        # Defence-in-depth: R&W access can only be approved for users with the
+        # supervisor-level permission. Read-only requests are open to normal staff.
+        if (
+            access_req.access_type == "read_write"
+            and not access_req.requested_by.has_perm("user_management.can_request_file_access_rw")
+        ):
+            messages.error(request, "Read & Write access can only be approved for users in the Supervisor group.")
+            return redirect("document_management:access_request_list")
+
         access_req.status = "approved"
         access_req.approved_at = timezone.now()
         access_req.expires_at = timezone.now() + timedelta(hours=ACCESS_REQUEST_DURATION_HOURS)

@@ -339,6 +339,22 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
+        # Notify the relevant party about the new file.
+        if self.object.file_type == "personal" and self.object.owner and self.object.owner.user:
+            create_notification(
+                user=self.object.owner.user,
+                message=f"A personnel file has been created for you: {self.object.file_number} — {self.object.title}.",
+                obj=self.object,
+                link=self.object.get_absolute_url(),
+            )
+        elif self.object.file_type == "policy" and self.object.department and self.object.department.head and self.object.department.head.user:
+            create_notification(
+                user=self.object.department.head.user,
+                message=f"A policy file has been created in your department: {self.object.file_number} — {self.object.title}.",
+                obj=self.object,
+                link=self.object.get_absolute_url(),
+            )
+
         save_as_draft = form.cleaned_data.get("save_as_draft", False)
         dispatch_to = form.cleaned_data.get("dispatch_to")
 
@@ -900,18 +916,22 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         pending_access_request = FileAccessRequest.objects.filter(
             file=file_obj, requested_by=user, status="pending"
         ).exists()
+        can_request_ro = user.has_perm("user_management.can_request_file_access")
+        can_request_rw = user.has_perm("user_management.can_request_file_access_rw")
         can_request_access = bool(
             not has_approved_access
             and not pending_access_request
             and not is_registry
             and file_obj.status == "active"
             and is_at_rest_with_registry
+            and (can_request_ro or can_request_rw)
         )
         context["is_custodian"] = is_custodian
         context["is_owner"] = is_owner
         context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
         context["access_type"] = "read_write" if has_rw_access else ("read_only" if has_approved_access else None)
+        context["can_request_rw_access"] = can_request_rw
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
         context["is_limited_view"] = not context["can_view_original"]
@@ -1041,17 +1061,22 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             ).exists()
             holder = file_obj.current_location
             holder_is_registry = bool(holder and holder.is_registry)
+            access_type = request.POST.get("access_type", "read_only")
             if already_pending:
                 messages.warning(request, "You already have a pending access request for this file.")
             elif file_obj.status == "in_transit" or (holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry):
                 messages.error(request, "File is in transit with another custodian. Wait until it returns to Registry before requesting access.")
             elif not (holder_is_registry and file_obj.status == "active"):
                 messages.error(request, "Access can only be requested when the file is at rest with Registry.")
+            elif access_type == "read_write" and not request.user.has_perm("user_management.can_request_file_access_rw"):
+                messages.error(request, "You do not have permission to request Read & Write access.")
+            elif access_type == "read_only" and not request.user.has_perm("user_management.can_request_file_access"):
+                messages.error(request, "You do not have permission to request file access.")
             else:
                 FileAccessRequest.objects.create(
                     file=file_obj,
                     requested_by=request.user,
-                    access_type=request.POST.get("access_type", "read_only"),
+                    access_type=access_type,
                     reason=request.POST.get("reason", ""),
                     status="pending",
                 )

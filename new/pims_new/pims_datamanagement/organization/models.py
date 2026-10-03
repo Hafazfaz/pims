@@ -3,6 +3,18 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
+# Designation names that make a staff member a department head even when
+# they were never wired up as ``Department.head``.
+HOD_DESIGNATION_ROLES = ("head of department", "hod", "director")
+
+
+def designation_implies_hod(designation):
+    """True when a designation marks the holder as a department head."""
+    if designation is None or not designation.name:
+        return False
+    lowered = designation.name.lower()
+    return any(role in lowered for role in HOD_DESIGNATION_ROLES)
+
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -86,27 +98,41 @@ class Staff(models.Model):
 
     @property
     def is_registry(self):
-        if self.designation and "registry" in self.designation.name.lower():
-            return True
-        return self.user.groups.filter(name__iexact="Registry").exists()
+        return self.user.has_perm("user_management.can_manage_registry")
 
     @property
     def is_hod(self):
-        if self.designation and any(
-            role in self.designation.name.lower() for role in ["head of department", "hod", "director"]
-        ):
-            return True
-        try:
-            return self.headed_department is not None
-        except Exception:
-            return False
+        """Department-head scope — backed by ``user_management.can_head_department``.
+
+        The permission is granted by the organization signals whenever this
+        staff is appointed ``Department.head`` or given an HOD-level
+        designation. Superusers hold every permission implicitly, so they
+        fall back to the structural check — otherwise every admin would count
+        as a department head.
+        """
+        if self.user.is_superuser:
+            if designation_implies_hod(self.designation):
+                return True
+            try:
+                return self.headed_department is not None
+            except Exception:
+                return False
+        return self.user.has_perm("user_management.can_head_department")
 
     @property
     def is_head_of_unit(self):
-        try:
-            return self.headed_unit is not None
-        except Exception:
-            return False
+        """Head-of-unit scope — backed by ``user_management.can_head_unit``.
+
+        Granted by the organization signals when this staff is appointed
+        ``Unit.head``. Superusers fall back to the structural check, as in
+        :meth:`is_hod`.
+        """
+        if self.user.is_superuser:
+            try:
+                return self.headed_unit is not None
+            except Exception:
+                return False
+        return self.user.has_perm("user_management.can_head_unit")
 
     @property
     def is_head_of_division(self):
@@ -129,47 +155,47 @@ class Staff(models.Model):
 
     @property
     def is_effective_supervisor(self):
-        """True if this staff acts as a supervisor — either flagged, HOU, HOD, etc."""
+        """True if this staff acts as a supervisor (permission-based or flagged)."""
         return (
             self.is_supervisor
             or self.is_head_of_unit
             or self.is_head_of_section
             or self.is_head_of_division
             or self.is_hod
-            or self.is_executive
-            or self.is_md
-            or self.is_mayor
+            or self.user.has_perm("user_management.can_supervise")
+            or self.user.has_perm("user_management.can_executive")
         )
 
     @property
     def is_privileged_head(self):
         """Oversight heads: HOD / section / division heads, flagged supervisors,
         executives, MD, Mayor — but NOT pure heads-of-unit, who are treated
-        like regular staff for viewing personnel documents."""
-        try:
-            if self.is_hod or self.is_head_of_section or self.is_head_of_division:
-                return True
-        except Exception:
-            pass
-        return bool(self.is_supervisor or self.is_executive or self.is_md or self.is_mayor)
+        like regular staff for viewing personnel documents.
+
+        Pure heads-of-unit are excluded even though they hold
+        ``can_supervise`` through the Supervisor group: they are recognised
+        separately via :attr:`is_head_of_unit`.
+        """
+        if self.is_hod or self.is_head_of_section or self.is_head_of_division:
+            return True
+        if self.is_supervisor:
+            return True
+        if not self.is_head_of_unit and self.user.has_perm("user_management.can_supervise"):
+            return True
+        return self.user.has_perm("user_management.can_executive")
 
     @property
     def is_executive(self):
-        # Group is "Executives" in fixtures/audit views; "Executive" kept for
-        # older data and tests — matching only one of them silently dropped
-        # real Executives out of every oversight check.
-        return self.user.groups.filter(Q(name__iexact="Executive") | Q(name__iexact="Executives")).exists()
+        return self.user.has_perm("user_management.can_executive")
 
     @property
     def is_md(self):
-        return self.user.groups.filter(name__iexact="MD").exists()
+        return self.user.has_perm("user_management.can_executive")
 
     @property
     def is_mayor(self):
-        """Custom Mayor role — via 'Mayor' group or a designation containing 'mayor'."""
-        if self.designation and "mayor" in self.designation.name.lower():
-            return True
-        return self.user.groups.filter(name__iexact="Mayor").exists()
+        """Custom Mayor role — via the executive permission bundle."""
+        return self.user.has_perm("user_management.can_executive")
 
 
 class StaffSignature(models.Model):

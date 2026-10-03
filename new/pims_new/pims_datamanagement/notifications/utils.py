@@ -67,21 +67,33 @@ def _send_notification_email(user, message, link=None, template=None, extra_cont
             "site_name": "PIMS",
             "site_url": getattr(settings, "BASE_URL", ""),
             "link": f"{settings.BASE_URL}{link}" if link else None,
+            "subject": email_subject,
         }
         if extra_context:
             context.update(extra_context)
 
-        # Use custom template if provided, otherwise fall back to generic
+        # Use custom template if provided, otherwise fall back to generic.
+        # A missing/broken custom template must not swallow the email — the
+        # generic notification template is used instead.
+        html_message = None
+        text_message = None
         if template:
-            html_message = render_to_string(template, context)
-            text_template = template.replace(".html", ".txt")
             try:
-                text_message = render_to_string(text_template, context)
+                html_message = render_to_string(template, context)
+                text_template = template.replace(".html", ".txt")
+                try:
+                    text_message = render_to_string(text_template, context)
+                except Exception:
+                    text_message = message
+            except Exception:
+                html_message = None
+                text_message = None
+        if html_message is None:
+            html_message = render_to_string("emails/notification.html", context)
+            try:
+                text_message = render_to_string("emails/notification.txt", context)
             except Exception:
                 text_message = message
-        else:
-            html_message = render_to_string("emails/notification.html", context)
-            text_message = render_to_string("emails/notification.txt", context)
 
         send_mail(
             subject=email_subject,

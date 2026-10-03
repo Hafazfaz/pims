@@ -14,7 +14,9 @@ from notifications.utils import create_notification
 
 
 def make_user(username, group_name=None, is_superuser=False):
-    u = CustomUser.objects.create_user(username=username, password="Test1234!")
+    u = CustomUser.objects.create_user(
+        username=username, email=f"{username}@example.com", password="Test1234!"
+    )
     u.is_superuser = is_superuser
     u.save()
     if group_name:
@@ -84,7 +86,8 @@ class NotificationUtilsTest(TestCase):
         self.assertTrue(mock_send.called)
         call_args = mock_send.call_args
         self.assertEqual(call_args.kwargs["subject"], "Custom Subject")
-        self.assertIn("file_creation_approved", call_args.kwargs["html_message"])
+        # The custom template rendered (not the generic fallback).
+        self.assertIn("File Creation Approved", call_args.kwargs["html_message"])
 
     @patch("notifications.utils.send_mail")
     def test_create_notification_extra_context(self, mock_send):
@@ -127,7 +130,7 @@ class NotificationUtilsTest(TestCase):
 
         notify_admins_of_critical_event("Critical event", obj=self.file)
 
-        self.assertTrue(admin1.notifications.filter(message__notifications__message__icontains="Critical event").exists())
+        self.assertTrue(admin1.notifications.filter(message__icontains="Critical event").exists())
         self.assertTrue(admin2.notifications.filter(message__icontains="Critical event").exists())
 
 
@@ -170,7 +173,13 @@ class EmailTemplateRenderingTest(TestCase):
         )
         html = render_to_string(
             "emails/file_creation_approved.html",
-            {"file": file, "approver": self.reg_staff, "approved_at": "2026-01-15 10:00", "site_url": "http://test"},
+            {
+                "file": file,
+                "user": self.staff_user,
+                "approver": self.reg_staff,
+                "approved_at": "2026-01-15 10:00",
+                "site_url": "http://test",
+            },
         )
         self.assertIn("APPROVED TEST", html)
         self.assertIn("Approved", html)
@@ -191,6 +200,7 @@ class EmailTemplateRenderingTest(TestCase):
             "emails/file_creation_rejected.html",
             {
                 "file": file,
+                "user": self.staff_user,
                 "rejector_name": "Jane Doe",
                 "rejection_reason": "Invalid title format",
                 "rejected_at": "2026-01-15 10:00",
@@ -238,18 +248,26 @@ class FileAccessRestrictionTest(TestCase):
         self.doc = Document.objects.create(file=self.file, uploaded_by=self.reg_user, title="Test Doc")
 
     def test_hod_can_view_document_content(self):
-        """HOD can view document contents."""
+        """HOD sees contents only while holding custody — never by role alone."""
         from document_management.permissions import can_view_document_content
 
-        self.assertTrue(can_view_document_content(self.hod_user))
+        self.assertFalse(can_view_document_content(self.hod_user, file=self.file, document=self.doc))
+        self.file.current_location = self.hod
+        self.file.save(update_fields=["current_location"])
+        self.assertTrue(can_view_document_content(self.hod_user, file=self.file, document=self.doc))
 
     def test_supervisor_can_view_document_content(self):
-        """Supervisor can view document contents."""
+        """Flagged supervisor sees contents only while holding custody."""
         from document_management.permissions import can_view_document_content
 
-        self.staff.is_supervisor = True
-        self.staff.save()
-        self.assertTrue(can_view_document_content(self.staff_user))
+        sup_user = make_user("sup_access", "Staff")
+        sup = make_staff(sup_user, "Officer", self.dept)
+        sup.is_supervisor = True
+        sup.save()
+        self.assertFalse(can_view_document_content(sup_user, file=self.file, document=self.doc))
+        self.file.current_location = sup
+        self.file.save(update_fields=["current_location"])
+        self.assertTrue(can_view_document_content(sup_user, file=self.file, document=self.doc))
 
     def test_registry_cannot_view_document_content(self):
         """Registry staff cannot view document contents."""

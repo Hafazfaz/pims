@@ -129,9 +129,10 @@ class PriorityNotificationTest(TestCase):
             uploaded_by=self.reg_user,
             title="URGENT REMINDER DOC",
             priority="urgent",
-            uploaded_at=timezone.now() - timedelta(hours=25),
             status="pending",
         )
+        # Bypass auto_now_add to simulate an old document.
+        Document.objects.filter(pk=doc.pk).update(uploaded_at=timezone.now() - timedelta(hours=25))
 
         # Run task
         result = send_urgent_document_reminders()
@@ -154,9 +155,9 @@ class PriorityNotificationTest(TestCase):
             uploaded_by=self.reg_user,
             title="HIGH REMINDER DOC",
             priority="high",
-            uploaded_at=timezone.now() - timedelta(hours=25),
             status="pending",
         )
+        Document.objects.filter(pk=doc.pk).update(uploaded_at=timezone.now() - timedelta(hours=25))
 
         send_urgent_document_reminders()
 

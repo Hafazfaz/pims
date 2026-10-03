@@ -18,51 +18,70 @@ def get_staff(user):
 
 
 def is_registry(user):
-    staff = get_staff(user)
-    return user.is_superuser or (staff is not None and staff.is_registry)
+    """Registry custody management access.
+
+    Separation of duties is preserved elsewhere: this only grants custody
+    management rights (create file, activate/close/archive, approve access),
+    not content viewing.
+    """
+    if user.is_superuser:
+        return True
+    return user.has_perm("user_management.can_manage_registry")
 
 
 def is_hod(user):
+    """Department-head scope.
+
+    Delegates to :attr:`Staff.is_hod`, which reads the
+    ``user_management.can_head_department`` permission granted by the
+    organization signals on appointment.
+    """
     staff = get_staff(user)
     return staff is not None and staff.is_hod
 
 
 def is_unit_manager(user):
+    """Head-of-unit scope (``user_management.can_head_unit``)."""
     staff = get_staff(user)
     return staff is not None and staff.is_unit_manager
 
 
 def is_supervisor(user):
+    """Effective supervisor: flagged, head of unit/section/division, HOD, or
+    holder of ``can_supervise`` / ``can_executive``."""
     staff = get_staff(user)
     return staff is not None and staff.is_effective_supervisor
 
 
 def is_executive(user):
-    staff = get_staff(user)
-    return staff is not None and (staff.is_md or staff.is_executive)
+    """Executive / MD / Mayor level broad access."""
+    if user.is_superuser:
+        return True
+    return user.has_perm("user_management.can_executive")
 
 
 def is_md(user):
-    staff = get_staff(user)
-    return staff is not None and staff.is_md
+    """MD is covered by the executive permission bundle."""
+    return is_executive(user)
 
 
 def is_mayor(user):
-    staff = get_staff(user)
-    return staff is not None and staff.is_mayor
+    """Mayor is covered by the executive permission bundle."""
+    return is_executive(user)
 
 
 def is_head_or_supervisor(user):
     """Oversight heads (HOD / section / division) or supervisor / executive /
-    MD / Mayor. Pure heads-of-unit are treated like regular staff."""
+    MD / Mayor (and superusers)."""
     return is_privileged_viewer(user)
 
 
 def is_privileged_viewer(user):
     """Who counts as oversight for VIEWING personnel documents.
 
-    HOD, section/division heads, flagged supervisors, executives, MD, Mayor
-    (and superusers). Pure heads-of-unit are NOT included — they get the same
+    Backed by :attr:`Staff.is_privileged_head`: HOD, section/division heads,
+    flagged/group-granted supervisors, executives, MD, Mayor (and
+    superusers). Pure heads-of-unit are NOT included — they get the same
     lower-staff treatment: no own-file contents, in-transit-only My Files,
     no subordinate browsing.
     """
@@ -99,8 +118,7 @@ def can_view_staff_documents(user):
     """
     if user.is_superuser:
         return True
-    staff = get_staff(user)
-    if staff is not None and staff.is_registry:
+    if is_registry(user):
         return False
     # Global viewers see personnel records too (registry still denied above).
     if is_global_viewer(user):
@@ -114,13 +132,13 @@ def can_view_staff_documents(user):
 
 
 def can_create_file(user):
-    """Only registry staff can create files."""
+    """Only registry staff (permission-based) can create files."""
     return is_registry(user)
 
 
 def can_view_file(user, file):
-    """Who can open the file detail page."""
-    if user.is_superuser or is_registry(user) or is_executive(user) or is_mayor(user):
+    """Who can open the file detail page (capability + relational scope)."""
+    if user.is_superuser or is_registry(user) or is_executive(user):
         return True
     if is_global_viewer(user):
         return True
@@ -129,48 +147,28 @@ def can_view_file(user, file):
         return False
     if file.owner == staff or file.current_location == staff:
         return True
-    if file.file_type == "policy" and is_hod(user) and file.department == staff.department:
+    if file.file_type == "policy" and user.has_perm("user_management.can_supervise") and file.department == staff.department:
         return True
     if file.file_type == "personal":
         owner = file.owner
         owner_dept = owner.department if owner else None
         file_dept = file.department
-        # HOD sees personal files in their department.
-        if is_hod(user) and (
-            (owner and owner_dept == staff.department) or file_dept == staff.department
-        ):
-            return True
-        # Head of unit sees personal files of staff in their OWN unit
-        # (HOD-like oversight, unit-scoped). Never their own file via this
-        # branch — owners are handled above.
-        if owner and owner.pk != staff.pk and staff.is_head_of_unit:
+        # Supervisors see personal files in their department / unit / section / division.
+        if user.has_perm("user_management.can_supervise"):
+            if owner and owner_dept and staff.department and owner_dept.pk == staff.department.pk:
+                return True
+            if file_dept and staff.department and file_dept.pk == staff.department.pk:
+                return True
+            # Unit scope
+            if owner and owner.unit_id and staff.unit_id and owner.unit_id == staff.unit_id:
+                return True
+        # Head of the owner's unit (kept as a narrower scope for unit heads)
+        if owner and owner.pk != staff.pk and user.has_perm("user_management.can_supervise"):
             try:
                 headed_unit = staff.headed_unit
             except Exception:
                 headed_unit = None
             if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
-                return True
-        # Section / division heads + supervisors see staff files in their own
-        # jurisdiction (section / division / department). Pure heads-of-unit
-        # are treated like regular staff and get nothing here.
-        if staff.is_privileged_head:
-            if owner:
-                if staff.is_head_of_section and owner.section_id:
-                    try:
-                        if owner.section_id == staff.headed_section.pk:
-                            return True
-                    except Exception:
-                        pass
-                if staff.is_head_of_division and owner.division_id:
-                    try:
-                        if owner.division_id == staff.headed_division.pk:
-                            return True
-                    except Exception:
-                        pass
-                # Fallback: same-department visibility for any oversight head.
-                if owner_dept and staff.department and owner_dept.pk == staff.department.pk:
-                    return True
-            elif file_dept and staff.department and file_dept.pk == staff.department.pk:
                 return True
     # Approved access request
     from document_management.models import FileAccessRequest
@@ -218,22 +216,19 @@ def can_add_document(user, file, *, require_active=True):
     Rules (in order):
     - the file must be active (unless ``require_active=False``, used by the
       endpoint so it can show an accurate "file is not active" message);
-    - Registry / superuser — always;
-    - Mayor, MD, Executive — read & write on any file;
+    - Registry / superuser / Executives — always;
     - an approved, unexpired ``read_write`` FileAccessRequest;
     - movement-based RW — dispatched recipient still holding active access;
     - the file owner (any file type);
-    - HOD of the file's department, on non-personal files.
+    - Supervisor of the file's department, on non-personal files.
     """
     if require_active and file.status != "active":
         return False
-    if is_registry(user):
+    if is_registry(user) or user.is_superuser or is_executive(user):
         return True
     staff = get_staff(user)
     if not staff:
         return False
-    if is_mayor(user) or is_executive(user):
-        return True
     from document_management.models import FileAccessRequest
 
     if (
@@ -249,22 +244,29 @@ def can_add_document(user, file, *, require_active=True):
         return True
     if file.owner == staff:
         return True
-    if file.file_type != "personal" and is_hod(user) and file.department == staff.department:
+    if (
+        file.file_type != "personal"
+        and user.has_perm("user_management.can_supervise")
+        and file.department == staff.department
+    ):
         return True
     return False
 
 
 def can_manual_dispatch(user):
-    """Who may manually dispatch/forward a file at all.
+    """Who may manually dispatch/forward a document at all.
 
-    Registry, oversight heads (HOD / section / division), flagged
-    supervisors, executives, MD, Mayor (and superusers). Regular staff
-    and pure heads-of-unit cannot dispatch — their documents auto-route
-    up the reporting chain instead.
+    Registry, supervisors, and executives (and superusers). Regular staff
+    cannot dispatch — their documents auto-route up the reporting chain.
     """
     if user.is_superuser:
         return True
-    return bool(is_registry(user) or is_privileged_viewer(user))
+    return (
+        is_registry(user)
+        or user.has_perm("user_management.can_dispatch_document")
+        or user.has_perm("user_management.can_supervise")
+        or user.has_perm("user_management.can_executive")
+    )
 
 
 def can_dispatch_document(user, file):
@@ -290,25 +292,14 @@ def can_delete_document(user, document):
     return is_registry(user) or document.uploaded_by == user
 
 
-def can_share_document(user):
-    """Check if user can share documents via email (HODs with permission)."""
-    if user.is_superuser:
-        return True
-    staff = get_staff(user)
-    if not staff:
-        return False
-    # HODs with the can_share_documents permission
-    return staff.is_hod and user.has_perm("user_management.can_share_documents")
-
-
 def has_content_scope(user, file, document=None):
-    """Role/jurisdiction scope for viewing AND downloading document contents.
+    """Permission/jurisdiction scope for viewing AND downloading document contents.
 
     Grants (registry NEVER passes — checked by callers first):
     - file owner — always, including their own personal file;
     - head of the owner's unit — personal files of members of that unit;
-    - HOD or effective supervisor of the relevant department — personal
-      files of staff in that department, or policy files of that department;
+    - Supervisor of the relevant department — personal files of staff in that
+      department, or policy files of that department;
     - uploader of the specific document (when ``document`` is given).
 
     This is the jurisdiction scope used by the download gate
@@ -319,13 +310,11 @@ def has_content_scope(user, file, document=None):
     once a document is approved, standing scope ends and only top
     leadership or a fresh approved request opens it.
     """
-    staff = get_staff(user)
-    if staff is not None and staff.is_registry:
+    if is_registry(user):
         return False
-    # Global viewers (MD / Executives / granted users) always carry scope,
-    # so their View and Download stay in sync.
     if is_global_viewer(user):
         return True
+    staff = get_staff(user)
     if not staff:
         return False
 
@@ -350,7 +339,7 @@ def has_content_scope(user, file, document=None):
         if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
             return True
 
-    # HOD / effective supervisor of the relevant department.
+    # Department head / supervisor of the file's department.
     dept_id = None
     if file is not None:
         if file.file_type == "personal" and owner is not None:
@@ -372,17 +361,16 @@ def can_view_document_content(user, file=None, document=None):
     """
     Who can view the actual contents of documents (minute_content, attachments).
 
-    Custody rule: HODs, unit/section/division heads, and supervisors see
-    contents ONLY while they hold custody (current_location) or hold an
-    explicit grant — an approved (unexpired) FileAccessRequest, an active
-    FileMovement, or a direct document share. Browsing a file from the
-    inbox/sent lists without custody shows metadata only.
+    Custody rule: supervisors see contents ONLY while they hold custody
+    (current_location) or hold an explicit grant — an approved (unexpired)
+    FileAccessRequest, an active FileMovement, or a direct document share.
+    Browsing a file from the inbox/sent lists without custody shows metadata only.
     Standing access (no custody needed): holders of the explicit
     ``user_management.can_view_all_staff_files`` grant (MD / Executives /
-    admin-designated viewers), superusers, Executives, MD, Mayor,
-    the file owner, and the uploader of the specific document — except on
-    approved documents, where owner/uploader standing access ends and only
-    top leadership or a fresh approved request opens them.
+    admin-designated viewers), superusers, Executives, the file owner, and the
+    uploader of the specific document — except on approved documents, where
+    owner/uploader standing access ends and only top leadership or a fresh
+    approved request opens them.
     Registry can NEVER view contents (separation-of-duties), even as custodian.
     Sensitive files follow the same rule — no role bypasses it.
     """
@@ -390,7 +378,7 @@ def can_view_document_content(user, file=None, document=None):
         return True
     staff = get_staff(user)
     # Separation of duties first: Registry stays denied even with the grant.
-    if staff is not None and staff.is_registry:
+    if is_registry(user):
         return False
     # Explicit global grant (MD / Executives / admin-designated viewers) —
     # works with or without a staff profile / department.
@@ -399,7 +387,7 @@ def can_view_document_content(user, file=None, document=None):
     if not staff:
         return False
     # Top leadership retains oversight access without custody.
-    if staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False):
+    if is_executive(user):
         return True
     if file is None:
         return False
@@ -411,24 +399,8 @@ def can_view_document_content(user, file=None, document=None):
         return True
     if document is not None and document.uploaded_by_id == user.pk and not _is_approved_doc:
         return True
-    # Head of the owner's unit — standing oversight of members' personal
-    # files in that unit (mirrors has_content_scope so View and Download
-    # stay in sync). Excludes approved documents and the viewer's own file.
-    if (
-        file.file_type == "personal"
-        and owner is not None
-        and owner.pk != staff.pk
-        and not _is_approved_doc
-        and staff.is_head_of_unit
-    ):
-        try:
-            headed_unit = staff.headed_unit
-        except Exception:
-            headed_unit = None
-        if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
-            return True
-    # Everyone else — HODs, all heads, supervisors, regular staff — needs
-    # custody or an explicit grant. No silent role-based viewing.
+    # Everyone else — supervisors, regular staff — needs custody or an
+    # explicit grant. No silent role-based viewing.
     if file.current_location == staff:
         return True
     from document_management.models import FileAccessRequest
@@ -470,10 +442,8 @@ def get_dispatch_recipients(user, file):
     """
     Returns a Staff queryset of valid recipients for dispatching a document.
     Registry → anyone (all non-registry staff).
-    MD / Executive → anyone.
-    HOD → other HODs, heads of units/sections/divisions, supervisors.
-    Unit Manager → HOD, other HODs, heads of units/sections/divisions, supervisors.
-    Supervisor sending someone else's file → other supervisors + direct heads.
+    Executives / MD → anyone.
+    Supervisors → other supervisors, heads of units/sections/divisions, other HODs.
     Regular staff (and pure heads-of-unit) → none; they cannot dispatch.
     """
     from organization.models import Department as Dept
@@ -494,61 +464,43 @@ def get_dispatch_recipients(user, file):
     if not can_manual_dispatch(user):
         return base_qs.none()
 
-    if is_registry(user) or is_executive(user) or is_md(user) or is_mayor(user):
+    if is_registry(user) or is_executive(user):
         return base_qs
 
-    if is_hod(user) or (is_unit_manager(user) and is_privileged_viewer(user)):
-        # HODs (and unit managers who ALSO hold an oversight role) can send to:
-        # - Other HODs
-        # - Heads of units, sections, divisions
-        # - Supervisors
-        # Pure heads-of-unit fall through to the regular hierarchy below.
+    if user.has_perm("user_management.can_supervise"):
+        # Supervisors can send to other HODs, unit/section/division heads, and supervisors.
         allowed_pks = set()
-        
+
         # Other HODs
         for d in Dept.objects.filter(head__isnull=False):
             if d.head.pk != staff.pk:
                 allowed_pks.add(d.head.pk)
-        
+
         # Heads of units
         for u in Unit.objects.filter(head__isnull=False):
             if u.head.pk != staff.pk:
                 allowed_pks.add(u.head.pk)
-        
+
         # Heads of sections
         from organization.models import Section
         for s in Section.objects.filter(head__isnull=False):
             if s.head.pk != staff.pk:
                 allowed_pks.add(s.head.pk)
-        
+
         # Heads of divisions
         from organization.models import Division
         for d in Division.objects.filter(head__isnull=False):
             if d.head.pk != staff.pk:
                 allowed_pks.add(d.head.pk)
-        
+
         # Supervisors
         for s in base_qs.filter(is_supervisor=True):
             if s.pk != staff.pk:
                 allowed_pks.add(s.pk)
-        
+
         return base_qs.filter(pk__in=allowed_pks)
 
-    if is_supervisor(user) and file.owner != staff:
-        supervisor_pks = [s.pk for s in base_qs if s.is_effective_supervisor]
-        head_pks = []
-        if staff.unit and staff.unit.head:
-            head_pks.append(staff.unit.head.pk)
-        if staff.section and staff.section.head:
-            head_pks.append(staff.section.head.pk)
-        if staff.division and staff.division.head:
-            head_pks.append(staff.division.head.pk)
-        if staff.department and staff.department.head:
-            head_pks.append(staff.department.head.pk)
-        return base_qs.filter(pk__in=set(supervisor_pks + head_pks))
-
-    # Regular staff (and pure heads-of-unit): up the reporting hierarchy,
-    # skipping self so a unit manager routes to THEIR head, not themselves.
+    # Fallback reporting-hierarchy route for anyone with dispatch permission.
     for head in (
         staff.unit.head if staff.unit else None,
         staff.section.head if staff.section else None,

@@ -193,6 +193,10 @@ class AccessRequestTest(TestCase):
         )
 
     def test_access_request_approve_transfers_custody(self):
+        from django.contrib.auth.models import Group
+
+        # R&W access requests are only approvable for users in the Supervisor group.
+        self.staff_user.groups.add(Group.objects.get(name="Supervisor"))
         req = FileAccessRequest.objects.create(
             file=self.file,
             requested_by=self.staff_user,

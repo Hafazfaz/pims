@@ -543,11 +543,14 @@ def can_download_document_file(user, document):
     if has_content_scope(user, file_obj, document=document):
         allowed = True
 
+    _is_supervisor = user.has_perm("user_management.can_supervise")
+    _is_executive = user.has_perm("user_management.can_executive")
+
     # Oversight-head scoped download: same department as the file owner.
     # Pure heads-of-unit are treated like regular staff (no scope grant).
     dept_scoped = bool(
         staff
-        and staff.is_privileged_head
+        and _is_supervisor
         and file_obj.file_type == "personal"
         and file_obj.owner
         and staff.department_id
@@ -556,20 +559,11 @@ def can_download_document_file(user, document):
 
     if user.is_superuser or (
         staff
-        and (
-            staff.is_hod
-            or staff.is_privileged_head
-            or staff.is_executive
-            or staff.is_md
-            or getattr(staff, "is_mayor", False)
-        )
+        and (_is_supervisor or _is_executive)
         and (
             staff == file_obj.owner
             or staff == file_obj.current_location
-            or getattr(staff, "is_mayor", False)
-            or staff.is_executive
-            or staff.is_md
-            or (staff.is_hod and file_obj.owner and file_obj.owner.department == staff.department)
+            or _is_executive
             or dept_scoped
         )
     ):
@@ -579,13 +573,7 @@ def can_download_document_file(user, document):
         not allowed
         and document.uploaded_by == user
         and staff
-        and (
-            staff.is_hod
-            or staff.is_privileged_head
-            or staff.is_executive
-            or staff.is_md
-            or getattr(staff, "is_mayor", False)
-        )
+        and (_is_supervisor or _is_executive)
     ):
         allowed = True
 

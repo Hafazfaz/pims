@@ -18,6 +18,28 @@ class CustomUser(AbstractUser):
                 "can_view_all_staff_files",
                 "Can view all staff files and personnel records regardless of department or custody",
             ),
+            # File access requests
+            ("can_request_file_access", "Can request Read-Only access to files"),
+            ("can_request_file_access_rw", "Can request Read & Write access to files"),
+            ("can_approve_file_access", "Can approve or reject file access requests"),
+            # File/document capabilities
+            ("can_manage_registry", "Can perform Registry operations (create files, manage lifecycle, approve access)"),
+            ("can_create_file", "Can create new files"),
+            ("can_manage_file_lifecycle", "Can activate, close and archive files"),
+            ("can_view_file", "Can view file details (subject to custody/scope)"),
+            ("can_view_file_content", "Can view document contents (subject to custody/scope)"),
+            ("can_add_document", "Can add a document/minute to a file"),
+            ("can_dispatch_document", "Can dispatch or forward a document to another staff member"),
+            ("can_delete_document", "Can delete a document"),
+            ("can_approve_document", "Can approve or reject documents"),
+            # Oversight / leadership
+            ("can_supervise", "Can supervise staff (HOD, head of unit/section/division, or flagged supervisor)"),
+            ("can_executive", "Has executive/MD level access across departments"),
+            # Head-of-scope roles — granted per user by organization signals
+            # whenever they are appointed head of a department / unit (or an
+            # HOD-level designation is assigned).
+            ("can_head_department", "Heads a department (HOD scope)"),
+            ("can_head_unit", "Heads a unit (head-of-unit scope)"),
         ]
 
 
