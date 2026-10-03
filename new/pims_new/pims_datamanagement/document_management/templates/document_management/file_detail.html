@@ -10,11 +10,7 @@
              previewUrl: '', 
              previewTitle: '', 
              showPreviewModal: false, 
-             showAccessRequestModal: false,
-             shareModalOpen: false,
-             openShareModal() {
-                 this.shareModalOpen = true;
-             }
+             showAccessRequestModal: false
          }"
          @open-preview.window=" previewUrl = $event.detail.url; previewTitle = $event.detail.title; showPreviewModal = true; ">
         <!-- File Header Card -->
@@ -141,17 +137,6 @@
                                     </svg>
                                     Add Document
                                 </a>
-                            {% endif %}
-
-                            {% if can_share_document %}
-                                <button type="button"
-                                        @click="openShareModal()"
-                                        class="px-6 py-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-red-700 transition-all shadow-md flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4"/>
-                                    </svg>
-                                    Share
-                                </button>
                             {% endif %}
 
                             {% if user.staff.is_registry or file.owner == user.staff or file.created_by == user %}
@@ -378,10 +363,6 @@
                                                                                     class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 hover:underline">
                                                                                 View Document
                                                                             </button>
-                                                                            <a href="{% url 'document_management:document_download' entry.item.pk %}"
-                                                                               class="text-xs font-bold text-slate-500 hover:text-nigeria-green transition-colors hover:underline">
-                                                                                Download
-                                                                            </a>
                                                                         </div>
                                                                     {% endif %}
                                                                     <div class="mt-3 flex items-center gap-4">
@@ -907,65 +888,6 @@
                     </p>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Share Document Modal (inside x-data scope) -->
-    <div x-show="shareModalOpen"
-         x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-         @keydown.escape.window="shareModalOpen = false">
-        <div @click.outside="shareModalOpen = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Share Document</h3>
-                <button type="button" @click="shareModalOpen = false" class="text-slate-400 hover:text-slate-600">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-            <form method="post" action="{{ file.get_absolute_url }}" class="p-6 space-y-4">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="share_document">
-
-                <div>
-                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">File</label>
-                    <div class="relative">
-                        <input type="text" disabled value="{{ file.file_number }}"
-                               class="block w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 cursor-not-allowed">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Recipient Email</label>
-                    <input type="email" name="recipient_email"
-                           placeholder="recipient@example.com"
-                           class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
-                           required>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Message (Optional)</label>
-                    <textarea name="message" rows="3" placeholder="Add a personal message..."
-                              class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none placeholder:text-slate-400"></textarea>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="include_signature" class="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-2 focus:ring-red-500">
-                        <span class="text-sm text-slate-700">Include my digital signature</span>
-                    </label>
-                </div>
-
-                <div class="pt-4 flex gap-3">
-                    <button type="button" @click="shareModalOpen = false"
-                            class="flex-1 py-3 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                            class="flex-1 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all shadow-md">
-                        Send Document
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>

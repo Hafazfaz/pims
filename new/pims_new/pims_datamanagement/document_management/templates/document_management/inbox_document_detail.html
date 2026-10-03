@@ -172,10 +172,6 @@
                      class="text-sm font-semibold text-nigeria-green hover:underline shrink-0">
                     View in browser
                   </a>
-                  <a href="{% url 'document_management:document_download' document.pk %}"
-                     class="text-sm font-semibold text-slate-500 hover:text-nigeria-green hover:underline shrink-0">
-                    Download
-                  </a>
                 </div>
                 {% endif %}
                 {% for extra in document.extra_attachments.all %}
@@ -188,17 +184,13 @@
                      class="text-sm font-semibold text-nigeria-green hover:underline shrink-0">
                     View in browser
                   </a>
-                  <a href="{% url 'document_management:attachment_download' att_pk=extra.pk %}"
-                     class="text-sm font-semibold text-slate-500 hover:text-nigeria-green hover:underline shrink-0">
-                    Download
-                  </a>
                 </div>
                 {% endfor %}
               </div>
             </div>
             {% else %}
             <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attachments locked — request access to view or download</p>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attachments locked — request access to view</p>
             </div>
             {% endif %}
             {% endif %}
@@ -231,12 +223,6 @@
                 <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|default:"Unknown" }} · {{ doc.uploaded_at|date:"M d, Y" }}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                {% if doc.has_files and doc.pk in downloadable_doc_ids %}
-                <a href="{% url 'document_management:document_download' doc.pk %}"
-                   class="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">
-                  Download
-                </a>
-                {% endif %}
                 {% if doc.pk in viewable_doc_ids %}
                 <a href="{% url 'document_management:inbox_ref_doc' doc.pk %}"
                    class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-amber-100 transition-all">

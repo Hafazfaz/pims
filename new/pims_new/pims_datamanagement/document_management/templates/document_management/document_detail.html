@@ -25,7 +25,7 @@ $(document).ready(function() {
 </script>
 {% endblock %}
 {% block content %}
-    <div class="flex flex-col gap-4 h-full" x-data="{ showDispatchModal: false }">
+    <div class="flex flex-col gap-4 h-full" x-data="{ showShareModal: false }">
         <!-- Breadcrumb Navigation -->
         <div class="flex items-center gap-2 text-sm shrink-0">
             <a href="{% url 'document_management:file_detail' pk=document.file.pk %}"
@@ -122,8 +122,6 @@ $(document).ready(function() {
                                         <div class="flex items-center gap-3 shrink-0">
                                             <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key='main' %}"
                                                class="text-sm font-bold text-nigeria-green hover:underline">View</a>
-                                            <a href="{% url 'document_management:document_download' document.pk %}"
-                                               class="text-sm font-bold text-indigo-600 hover:underline">Download</a>
                                         </div>
                                     </div>
                                 {% endif %}
@@ -142,8 +140,6 @@ $(document).ready(function() {
                                         <div class="flex items-center gap-3 shrink-0">
                                             <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key=extra.pk %}"
                                                class="text-sm font-bold text-nigeria-green hover:underline">View</a>
-                                            <a href="{% url 'document_management:attachment_download' att_pk=extra.pk %}"
-                                               class="text-sm font-bold text-indigo-600 hover:underline">Download</a>
                                         </div>
                                     </div>
                                 {% endfor %}
@@ -169,18 +165,17 @@ $(document).ready(function() {
                     {% endif %}
                 </div>
                 <div class="flex flex-wrap gap-3 mt-8 pt-6 border-t border-slate-100">
-                    {% if document_is_approved and is_latest_version %}
-                        <span class="px-4 py-3 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg">✓ Approved — Edit to create a new version before dispatching again</span>
-                    {% elif can_send_file %}
-                        <button type="button" @click="showDispatchModal = true"
-                                class="px-6 py-3 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all shadow-md flex items-center gap-2">
+                    {% if document_is_approved %}
+                        <span class="px-4 py-3 bg-green-50 border border-green-200 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg">✓ Approved</span>
+                    {% endif %}
+                    {% if can_share_document %}
+                        <button type="button" @click="showShareModal = true"
+                                class="px-6 py-3 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4"/>
                             </svg>
-                            Send File
+                            Share
                         </button>
-                    {% elif not is_latest_version %}
-                        <span class="px-4 py-3 bg-slate-100 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-lg">Dispatch not allowed</span>
                     {% endif %}
                     {% if can_add_minute %}
                     <div x-data="{ open: false }">
@@ -203,14 +198,14 @@ $(document).ready(function() {
                                 <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                                     <div>
                                         <p class="text-sm font-black text-slate-900 uppercase tracking-widest">Edit Document</p>
-                                        <p class="text-[10px] text-slate-400 mt-0.5">Saves as <strong class="text-slate-600">Version {{ document.version|add:1 }}</strong> — original is preserved.</p>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Changes save onto <strong class="text-slate-600">this document</strong>.</p>
                                     </div>
                                     <button @click="open = false" class="text-slate-400 hover:text-slate-600">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                     </button>
                                 </div>
                                 <div class="flex-1 overflow-y-auto p-6">
-                                    <form method="post" action="{% url 'document_management:document_new_version' pk=document.pk %}" enctype="multipart/form-data" class="space-y-4">
+                                    <form method="post" action="{% url 'document_management:document_edit' pk=document.pk %}" enctype="multipart/form-data" class="space-y-4">
                                         {% csrf_token %}
                                         <div>
                                             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Title</label>
@@ -243,7 +238,7 @@ $(document).ready(function() {
                                             </div>
                                         </div>
                                         <button type="submit" class="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black transition-all">
-                                            Save as Version {{ document.version|add:1 }}
+                                            Save changes
                                         </button>
                                     </form>
                                 </div>
@@ -256,153 +251,59 @@ $(document).ready(function() {
                         View Full Chronicle
                     </a>
                 </div>
-
-                <!-- Document Chronicle -->
-                {% if doc_chronicle|length > 1 %}
-                <div class="mt-8 pt-6 border-t border-slate-100">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Document History</p>
-                    <ol class="space-y-3">
-                        {% for entry in doc_chronicle %}
-                        <li class="flex gap-3">
-                            <span class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5
-                                {% if entry.type == 'version' %}
-                                    {% if entry.item.pk == document.pk %}bg-indigo-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}
-                                {% elif entry.item.status == 'approved' %}bg-green-100 text-green-700
-                                {% else %}bg-red-100 text-red-700{% endif %}">
-                                {% if entry.type == 'version' %}v{{ entry.item.version }}{% elif entry.item.status == 'approved' %}✓{% else %}✗{% endif %}
-                            </span>
-                            <div class="flex-1">
-                                {% if entry.type == 'version' %}
-                                    <p class="text-xs font-bold text-slate-800">
-                                        {% if entry.item.pk == document.pk %}This version{% else %}<a href="{% url 'document_management:document_detail' pk=entry.item.pk %}" class="hover:text-nigeria-green hover:underline">Version {{ entry.item.version }}</a>{% endif %}
-                                        <span class="font-normal text-slate-400 ml-1">by {{ entry.item.uploaded_by.get_full_name|default:entry.item.uploaded_by.username }}</span>
-                                    </p>
-                                    {% if entry.item.minute_content and entry.item.pk != document.pk %}
-                                    <p class="text-xs text-slate-500 italic mt-0.5">{{ entry.item.minute_content|striptags|truncatechars:100 }}</p>
-                                    {% endif %}
-                                {% else %}
-                                    <p class="text-xs font-bold {% if entry.item.status == 'approved' %}text-green-700{% else %}text-red-600{% endif %}">
-                                        {% if entry.item.status == 'approved' %}Approved{% else %}Rejected{% endif %} by {{ entry.item.approver }}
-                                    </p>
-                                    {% if entry.item.note %}<p class="text-xs text-slate-500 italic mt-0.5">"{{ entry.item.note }}"</p>{% endif %}
-                                {% endif %}
-                                <p class="text-[10px] text-slate-400 mt-0.5">{{ entry.timestamp|date:"M d, Y H:i" }}</p>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ol>
-                </div>
-                {% endif %}
             </div>
         </div>
-        <!-- Send File Modal -->
-        <div x-show="showDispatchModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center">
-            <div class="absolute inset-0 bg-slate-900/75" @click="showDispatchModal = false"></div>
-            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8 z-10"
-                 x-data="{
-                     search: '',
-                     page: 1,
-                     perPage: 5,
-                     selectedId: '',
-                     selectedName: '',
-                     init() { const all = window._docSendRecipients || []; if (all.length > 0) { this.selectedId = all[0].id; this.selectedName = all[0].name; } },
-                     get recipients() { const all = window._docSendRecipients || []; if (!this.search) return all; const q = this.search.toLowerCase(); return all.filter(r => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.dept.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q)); },
-                     get totalPages() { return Math.ceil(this.recipients.length / this.perPage); },
-                     get paged() { return this.recipients.slice((this.page-1)*this.perPage, this.page*this.perPage); },
-                     select(id, name) { this.selectedId = id; this.selectedName = name; }
-                 }">
-                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Send File</h3>
-                <p class="text-xs text-slate-400 mb-4">Dispatch <strong class="text-slate-700">{{ document.title|default:"this document" }}</strong> to a recipient.</p>
-                <form method="post" action="" enctype="multipart/form-data" class="space-y-4">
+
+        {% if can_share_document %}
+        <!-- Share Document Modal (email only) -->
+        <div x-show="showShareModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+            <div class="absolute inset-0 bg-slate-900/75" @click="showShareModal = false"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 z-10"
+                 @keydown.escape.window="showShareModal = false">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-black text-slate-900 uppercase tracking-widest">Share Document</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Sends <strong class="text-slate-600">{{ document.title|default:"this document" }}</strong> by email.</p>
+                    </div>
+                    <button type="button" @click="showShareModal = false" class="text-slate-400 hover:text-slate-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <form method="post" action="{% url 'document_management:document_share_email' pk=document.pk %}" class="p-6 space-y-4">
                     {% csrf_token %}
-                    <input type="hidden" name="recipient" :value="selectedId">
-
-                    <!-- Selected badge -->
                     <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Send To *</label>
-                        <div x-show="selectedId" class="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg mb-2">
-                            <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span class="text-xs font-bold text-green-800" x-text="selectedName"></span>
-                            <button type="button" @click="selectedId=''; selectedName=''" class="ml-auto text-green-500 hover:text-green-700 text-xs font-bold">✕</button>
-                        </div>
-
-                        <!-- Search (only show if more than one recipient) -->
-                        {% if approver_choices|length > 1 %}
-                        <input type="text" x-model="search" @input="page=1" placeholder="Search by name…"
-                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-nigeria-green bg-slate-50 mb-2">
-                        {% endif %}
-
-                        <!-- Recipient list -->
-                        <div class="border border-slate-200 rounded-lg overflow-hidden">
-                            <template x-if="paged.length === 0">
-                                <p class="text-xs text-slate-400 italic text-center py-3">No recipients found.</p>
-                            </template>
-                            <template x-for="r in paged" :key="r.id">
-                                <button type="button" @click="select(r.id, r.name)"
-                                        :class="selectedId == r.id ? 'bg-nigeria-green/10 border-l-4 border-nigeria-green' : 'hover:bg-slate-50'"
-                                        class="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-slate-100 last:border-0 transition-colors">
-                                    <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 flex-shrink-0" x-text="r.name.charAt(0)"></div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs font-bold text-slate-900" x-text="r.name"></p>
-                                        <p class="text-[10px] text-slate-500 font-medium" x-text="r.role"></p>
-                                        <p class="text-[10px] text-slate-400 truncate" x-text="r.email"></p>
-                                        <p class="text-[9px] text-slate-400 truncate" x-text="[r.unit, r.dept].filter(Boolean).join(' · ')"></p>
-                                    </div>
-                                </button>
-                            </template>
-                        </div>
-
-                        <!-- Pagination -->
-                        <div x-show="totalPages > 1" class="flex items-center justify-between mt-2">
-                            <button type="button" @click="page=Math.max(1,page-1)" :disabled="page===1" class="text-[10px] font-bold text-slate-500 disabled:opacity-30 uppercase tracking-widest">← Prev</button>
-                            <span class="text-[10px] text-slate-400" x-text="`Page ${page} of ${totalPages}`"></span>
-                            <button type="button" @click="page=Math.min(totalPages,page+1)" :disabled="page===totalPages" class="text-[10px] font-bold text-slate-500 disabled:opacity-30 uppercase tracking-widest">Next →</button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Covering Note</label>
-                        {{ send_file_form.note|add_class:"w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-nigeria-green resize-none" }}
+                        <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">Recipient Email *</label>
+                        <input type="email" name="recipient_email" placeholder="recipient@example.com" required
+                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-nigeria-green">
                     </div>
                     <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Covering Memo (optional)</label>
-                        {{ send_file_form.movement_attachment }}
+                        <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">Subject (Optional)</label>
+                        <input type="text" name="subject" placeholder="Shared Document: {{ document.title|default:'Untitled'|truncatechars:40 }}"
+                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-nigeria-green">
                     </div>
-                    {% if send_file_form.reference_documents.field.queryset.exists %}
                     <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Reference Documents (optional)</label>
-                        <div class="border border-slate-200 rounded-lg max-h-32 overflow-y-auto divide-y divide-slate-100">
-                            {% for ref in send_file_form.reference_documents.field.queryset %}
-                            <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer">
-                                <input type="checkbox" name="reference_documents" value="{{ ref.pk }}" class="accent-nigeria-green shrink-0">
-                                <span class="text-[11px] text-slate-700 font-medium">{{ ref.title|default:"Untitled" }} <span class="text-slate-400">· {{ ref.uploaded_at|date:"M d, Y" }}</span></span>
-                            </label>
-                            {% endfor %}
-                        </div>
+                        <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">Message (Optional)</label>
+                        <textarea name="message" rows="3" placeholder="Add a personal message..."
+                                  class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-nigeria-green resize-none placeholder:text-slate-400"></textarea>
                     </div>
-                    {% endif %}
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="include_signature" class="w-4 h-4 accent-nigeria-green">
+                        <span class="text-sm text-slate-700">Include my digital signature</span>
+                    </label>
                     <div class="flex gap-3 pt-2">
-                        <button type="button" @click="showDispatchModal = false"
+                        <button type="button" @click="showShareModal = false"
                                 class="flex-1 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all">
                             Cancel
                         </button>
-                        <button type="submit" :disabled="!selectedId"
-                                class="flex-1 py-2.5 bg-nigeria-green text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
-                            Send File
+                        <button type="submit"
+                                class="flex-1 py-2.5 bg-nigeria-green text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-nigeria-dark transition-all active:scale-95">
+                            Send Document
                         </button>
                     </div>
                 </form>
-
-                <script>
-                window._docSendRecipients = [
-                    {% for s in approver_choices %}
-                    { id: {{ s.user.pk }}, name: "{{ s.user.get_full_name|default:s.user.username|escapejs }}", role: "{{ s.designation.name|default:'Staff'|escapejs }}", email: "{{ s.user.email|escapejs }}", dept: "{{ s.department.name|default:''|escapejs }}", unit: "{{ s.unit.name|default:''|escapejs }}" }{% if not forloop.last %},{% endif %}
-                    {% endfor %}
-                ];
-                </script>
             </div>
         </div>
-        </div> <!-- end dispatch modal -->
+        {% endif %}
         </div> <!-- end document-main-panel -->
         </div> <!-- end centre scroll col -->
         </div> <!-- end top row -->

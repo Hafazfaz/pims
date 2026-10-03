@@ -1,21 +1,98 @@
 import contextlib
+import logging
 
+from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, View
+from notifications.models import Notification
 from notifications.utils import create_notification
 from organization.models import Staff
 
-from ..forms import DocumentForm, SendFileForm
+from ..forms import DocumentForm
 from ..models import Document, File, FileAccessRequest, FileMovement
-from .base import HTMXLoginRequiredMixin
+from .base import HTMXLoginRequiredMixin, inbox_action_response
 from ..permissions import can_add_document, can_share_document
+
+
+logger = logging.getLogger(__name__)
+
+
+def _document_share_email_html(*, document, message, sender_name, sender_dept, shared_at):
+    """Branded HTML body for document share emails (same look as file shares)."""
+    import base64
+    import os
+
+    from django.utils.html import escape
+
+    logo_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        "static",
+        "img",
+        "logo_email.png",
+    )
+    logo_b64 = ""
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            logo_b64 = base64.b64encode(f.read()).decode()
+
+    parts = [
+        '<div style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;color:#333">',
+        '<div style="background:#008751;padding:30px;text-align:center;border-radius:12px 12px 0 0">',
+    ]
+    if logo_b64:
+        parts.append(
+            f'<img src="data:image/png;base64,{logo_b64}" '
+            'style="width:50px;height:58px;margin-bottom:10px" alt="PIMS Logo" />'
+        )
+    parts += [
+        '<h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:2px">PERSONNEL INFORMATION MANAGEMENT SYSTEM</h1>',
+        '<p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:12px">Document Share Notification</p></div>',
+        '<div style="background:#fff;padding:30px;border:1px solid #e0e0e0">',
+        '<p style="font-size:15px;margin:0 0 20px">Dear Colleague,</p>',
+        f'<p style="font-size:15px;margin:0 0 20px"><strong>{escape(sender_name)}</strong> from '
+        f'<strong>{escape(sender_dept)}</strong> has shared a document with you via PIMS.</p>',
+    ]
+    if message:
+        parts.append(
+            f'<p style="font-size:15px;margin:0 0 15px;padding:12px;background:#E6F3EE;'
+            f'border-left:4px solid #008751;border-radius:4px">{escape(message)}</p>'
+        )
+    parts.append('<table style="width:100%;border-collapse:collapse;margin:20px 0">')
+    rows = [
+        ("Document", document.title or "Untitled"),
+        ("File Number", document.file.file_number),
+        ("File Title", document.file.title),
+        ("File Type", document.file.get_file_type_display()),
+        ("Status", document.get_status_display()),
+        ("Shared By", sender_name),
+        ("Department", sender_dept),
+        ("Date", shared_at.strftime("%B %d, %Y @ %H:%M")),
+    ]
+    for label, value in rows:
+        parts.append(
+            '<tr>'
+            f'<td style="padding:12px;background:#f8f9fa;font-weight:bold;width:40%;border-bottom:1px solid #e0e0e0">{label}</td>'
+            f'<td style="padding:12px;border-bottom:1px solid #e0e0e0">{escape(str(value))}</td>'
+            "</tr>"
+        )
+    parts.append("</table>")
+    parts.append(
+        '<p style="font-size:13px;color:#555;margin:20px 0 0">'
+        "The document is attached as a PDF together with its original file.</p>"
+    )
+    parts.append(
+        '<p style="font-size:12px;color:#888;margin:20px 0 0;border-top:1px solid #e0e0e0;padding-top:15px">'
+        "This is an automated notification from PIMS. Please do not reply directly to this email.</p>"
+    )
+    parts.append("</div></div>")
+    return "\n".join(parts)
 
 
 class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
@@ -128,6 +205,12 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         return False
 
     def dispatch(self, request, *args, **kwargs):
+        # Standalone urgent documents have no file — this view assumes one at
+        # every turn. Send them to their own tracking page instead of 500ing.
+        if request.user.is_authenticated and Document.objects.filter(
+            pk=kwargs.get("pk"), file__isnull=True
+        ).exists():
+            return redirect("document_management:urgent_document_detail", pk=kwargs["pk"])
         if not self.has_permission():
             return self.handle_no_permission()
         return super().dispatch(request, *args, **kwargs)
@@ -137,208 +220,14 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         document = self.object
         file_obj = document.file
 
-        is_registry = False
-        with contextlib.suppress(AttributeError):
-            is_registry = self.request.user.staff.is_registry
-
-        is_custodian = hasattr(self.request.user, "staff") and file_obj.current_location == self.request.user.staff
-        is_owner = hasattr(self.request.user, "staff") and file_obj.owner == self.request.user.staff
-
-        # Same rule set as the endpoint (DocumentCreateView.dispatch), so the
-        # button is only shown when adding will actually be allowed.
         context["can_add_minute"] = can_add_document(self.request.user, file_obj)
-
-        from document_management.permissions import can_manual_dispatch
-
-        can_send_file = False
-        # Can only dispatch if: active file AND not already approved AND
-        # sender holds a dispatch privilege (regular staff cannot dispatch).
-        if (
-            file_obj.status == "active"
-            and document.status != "approved"
-            and (is_owner or is_custodian or is_registry)
-            and can_manual_dispatch(self.request.user)
-        ):
-            can_send_file = True
-
-        context["can_send_file"] = can_send_file
         context["document_is_approved"] = document.status == "approved"
 
-        # Document chronicle
-        doc_chronicle = []
-        doc_chronicle.append({"type": "version", "item": document, "timestamp": document.uploaded_at})
-        doc_chronicle.sort(key=lambda x: x["timestamp"])
-        context["doc_chronicle"] = doc_chronicle
-
-        # Send file form
-        sender_staff = getattr(self.request.user, "staff", None)
-        context["send_file_form"] = SendFileForm(
-            user=self.request.user,
-            file_obj=file_obj,
-            document=document,
-            staff=sender_staff,
-        )
-
-        # Build recipient list using central permission function
-        from document_management.permissions import get_dispatch_recipients
-
-        recipient_qs = get_dispatch_recipients(self.request.user, file_obj)
-        context["approver_choices"] = recipient_qs.order_by("user__last_name")
+        # Sharing is document-only and email-only: requires the
+        # can_share_documents permission (see DocumentShareEmailView).
+        context["can_share_document"] = can_share_document(self.request.user)
 
         return context
-
-    def post(self, request, *args, **kwargs):
-        document = self.get_object()
-        file_obj = document.file
-        staff_user = getattr(request.user, "staff", None)
-        is_registry = staff_user and staff_user.is_registry
-
-        is_custodian = staff_user and file_obj.current_location == staff_user
-        is_owner = staff_user and file_obj.owner == staff_user
-
-        if not (is_owner or is_custodian or is_registry):
-            messages.error(request, "You do not have permission to send this file.")
-            return redirect(request.path)
-
-        from document_management.permissions import can_manual_dispatch as _can_dispatch
-
-        if not _can_dispatch(request.user):
-            messages.error(
-                request,
-                "Only Registry, HODs, supervisors, and executives can dispatch files. "
-                "Your documents route automatically to your head.",
-            )
-            return redirect(request.path)
-
-        if file_obj.status != "active":
-            messages.error(request, "Only active files can be sent.")
-            return redirect(request.path)
-
-        form = SendFileForm(
-            request.POST, request.FILES, user=request.user, file_obj=file_obj, document=document, staff=staff_user
-        )
-        if not form.is_valid():
-            messages.error(request, "Please correct the form errors.")
-            return redirect(request.path)
-
-        recipient_user = form.cleaned_data["recipient"]
-        try:
-            recipient = recipient_user.staff
-        except Staff.DoesNotExist:
-            messages.error(request, "Selected recipient has no staff profile.")
-            return redirect(request.path)
-
-        # Validate routing using central permission function
-        if not is_registry and staff_user:
-            from document_management.permissions import get_dispatch_recipients
-
-            allowed_recipients = get_dispatch_recipients(request.user, file_obj)
-            if recipient.pk not in allowed_recipients.values_list("pk", flat=True):
-                messages.error(
-                    request,
-                    "You can only send this file to your unit manager, HOD, or other authorized recipients based on your role.",
-                )
-                return redirect(request.path)
-
-        old_location = file_obj.current_location
-        FileMovement.objects.create(
-            file=file_obj,
-            document=document,
-            sent_by=request.user,
-            from_location=old_location,
-            sent_to=recipient,
-            note=form.cleaned_data.get("note", ""),
-            attachment=form.cleaned_data.get("movement_attachment"),
-            action="sent",
-        )
-
-        # Attach reference documents: tag them as shared with the recipient
-        ref_docs = form.cleaned_data.get("reference_documents")
-        if ref_docs:
-            # Tag the document as shared with the recipient so they can see the refs
-            document.shared_with.add(recipient_user)
-            for ref in ref_docs:
-                ref.shared_with.add(recipient_user)
-
-        # Auto-grant read-only access to the file for the recipient
-        FileAccessRequest.objects.get_or_create(
-            file=file_obj,
-            requested_by=recipient_user,
-            defaults={
-                "reason": f"Auto-granted: file sent by {request.user.get_full_name() or request.user.username}",
-                "access_type": "read_only",
-                "status": "approved",
-            },
-        )
-        # Auto-grant read-only access for the sender so they can still view after sending
-        FileAccessRequest.objects.get_or_create(
-            file=file_obj,
-            requested_by=request.user,
-            defaults={
-                "reason": "Auto-granted: sender retains read-only access",
-                "access_type": "read_only",
-                "status": "approved",
-            },
-        )
-
-        document.status = "in_transit"
-        document.save(update_fields=["status"])
-
-        file_obj.current_location = recipient
-        file_obj.status = "in_transit"
-        file_obj.save()
-
-        log_action(
-            request.user,
-            "FILE_SENT",
-            request=request,
-            obj=file_obj,
-            details={"to": recipient.user.get_full_name(), "document_id": document.pk},
-        )
-        create_notification(
-            user=recipient_user,
-            message=(
-                f"{request.user.get_full_name() or request.user.username} "
-                f"sent you file {file_obj.file_number} "
-                f"with document: {document.title or 'Untitled'}."
-            ),
-            obj=file_obj,
-            link=reverse_lazy("document_management:inbox"),
-        )
-
-        # Send email when document reaches HOD (policy) or Owner (personal) for approval
-        is_hod_recipient = recipient.is_hod and file_obj.file_type == "policy" and file_obj.department == recipient.department
-        is_owner_recipient = file_obj.file_type == "personal" and file_obj.owner == recipient
-
-        if is_hod_recipient or is_owner_recipient:
-            approval_link = reverse_lazy("document_management:document_approve_dispatch", kwargs={"pk": document.pk})
-            role = "Head of Department" if is_hod_recipient else "File Owner"
-            create_notification(
-                user=recipient_user,
-                message=(
-                    f"Action Required: Document '{document.title or 'Untitled'}' in file "
-                    f"{file_obj.file_number} requires your approval as {role}."
-                ),
-                obj=file_obj,
-                link=approval_link,
-                send_email=True,
-                email_template="emails/document_dispatch_approval.html",
-                email_context={
-                    "file": file_obj,
-                    "document": document,
-                    "sender": request.user,
-                    "role": role,
-                },
-                email_subject=f"Action Required: Approve Document - {file_obj.file_number}",
-            )
-
-        messages.success(request, f"File sent to {recipient.user.get_full_name() or recipient_user.username}.")
-        return redirect(file_obj.get_absolute_url())
-
-    def get_template_names(self):
-        if self.request.headers.get("HX-Request"):
-            return ["document_management/partials/_document_panel.html"]
-        return [self.template_name]
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -422,19 +311,17 @@ class DocumentShareEmailView(LoginRequiredMixin, View):
     """
 
     def post(self, request, pk):
-        from ..permissions import can_share_document
-
-        from django.core.mail import send_mail
+        from ..models import EmailLog
         from django.conf import settings
+        from django.core.mail import EmailMessage
 
         document = get_object_or_404(Document, pk=pk)
 
-        # Check permission
+        # Sharing is document-only and email-only.
         if not can_share_document(request.user):
             messages.error(request, "You do not have permission to share documents.")
             return redirect(document.file.get_absolute_url())
 
-        # Check if user has an active verified signature
         staff = getattr(request.user, "staff", None)
         if not staff:
             messages.error(request, "Staff profile not found.")
@@ -445,10 +332,10 @@ class DocumentShareEmailView(LoginRequiredMixin, View):
             messages.error(request, "You need an active digital signature to share documents.")
             return redirect(document.file.get_absolute_url())
 
-        # Get email parameters
         recipient_email = request.POST.get("recipient_email", "").strip()
         subject = request.POST.get("subject", "").strip()
         message = request.POST.get("message", "").strip()
+        include_signature = request.POST.get("include_signature") == "on"
 
         if not recipient_email:
             messages.error(request, "Recipient email is required.")
@@ -457,94 +344,168 @@ class DocumentShareEmailView(LoginRequiredMixin, View):
         if not subject:
             subject = f"Shared Document: {document.title or 'Untitled'}"
 
-        # Build email message
         sender_name = request.user.get_full_name() or request.user.username
-        file_number = document.file.file_number
+        sender_dept = staff.department.name if staff.department else "N/A"
+        now = timezone.now()
+        plain_body = (
+            f"{message}\n\n---\n"
+            f"Document: {document.title or 'Untitled'}\n"
+            f"File: {document.file.file_number}\n"
+            f"Shared by: {sender_name}\n"
+            f"Department: {sender_dept}\n"
+            f"Date: {now.strftime('%B %d, %Y @ %H:%M')}\n\n"
+            "This document was shared via the Personnel Information Management System (PIMS)."
+        )
+        html_body = _document_share_email_html(
+            document=document,
+            message=message,
+            sender_name=sender_name,
+            sender_dept=sender_dept,
+            shared_at=now,
+        )
 
-        email_message = f"""
-{message}
-
----
-Document: {document.title or 'Untitled'}
-File: {file_number}
-Shared by: {sender_name}
-Department: {staff.department.name if staff.department else 'N/A'}
-Date: {timezone.now().strftime("%B %d, %Y @ %H:%M")}
-
-This document was shared via the Personnel Information Management System (PIMS).
-"""
-
-        # Attach signature image
-        signature_attachment = None
-        if active_signature.image:
-            signature_attachment = active_signature.image
-
+        status, error_message = "sent", ""
         try:
-            send_mail(
+            email = EmailMessage(
                 subject=subject,
-                message=email_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient_email],
-                fail_silently=False,
-                attachments=[(f"signature_{staff.user.username}.png", signature_attachment.read(), "image/png")] if signature_attachment else None,
+                body=html_body,
+                from_email=getattr(settings, "PIMS_SHARE_EMAIL", settings.DEFAULT_FROM_EMAIL),
+                to=[recipient_email],
             )
+            email.content_subtype = "html"
+
+            # Branded PDF of the document (same generator the file flow used).
+            try:
+                from core.utils.pdf import generate_document_pdf
+
+                pdf_bytes = generate_document_pdf(
+                    document_title=document.title or f"Document #{document.pk}",
+                    document_content=document.minute_content or "",
+                    sender_name=sender_name,
+                    sender_dept=sender_dept,
+                    signature_image=active_signature.image if include_signature else None,
+                )
+                email.attach(
+                    f"{document.title or f'document_{document.pk}'}.pdf",
+                    pdf_bytes.read(),
+                    "application/pdf",
+                )
+            except Exception:
+                logger.warning("Share PDF failed for document %s", document.pk, exc_info=True)
+
+            # Original uploaded file, when present.
+            if document.attachment:
+                try:
+                    document.attachment.open()
+                    email.attach(
+                        document.attachment.name.split("/")[-1],
+                        document.attachment.read(),
+                    )
+                except (FileNotFoundError, OSError):
+                    pass
+
+            # Digital signature image (opt-in via the modal checkbox).
+            if include_signature:
+                try:
+                    signature_file = active_signature.image.open()
+                    email.attach(
+                        f"signature_{staff.user.username}.png",
+                        signature_file.read(),
+                        "image/png",
+                    )
+                except (FileNotFoundError, OSError):
+                    pass
+
+            email.send(fail_silently=False)
+            logger.info("Document share email sent to %s | document=%s", recipient_email, document.pk)
             messages.success(request, f"Document shared successfully with {recipient_email}.")
             log_action(
                 request.user,
                 "DOCUMENT_SHARED_EMAIL",
                 request=request,
                 obj=document.file,
-                details={"document_id": document.pk, "recipient": recipient_email, "subject": subject}
+                details={
+                    "document_id": document.pk,
+                    "recipient": recipient_email,
+                    "subject": subject,
+                },
             )
         except Exception as e:
-            messages.error(request, f"Failed to send email: {str(e)}")
+            status = "failed"
+            error_message = str(e)
+            logger.error(
+                "Failed to send document share email to %s: %s", recipient_email, error_message
+            )
+            messages.error(request, f"Failed to send email: {error_message}")
+
+        EmailLog.objects.create(
+            sent_by=request.user,
+            recipient_email=recipient_email,
+            subject=subject,
+            body=plain_body,
+            status=status,
+            error_message=error_message,
+            file=document.file,
+            has_signature=include_signature,
+        )
 
         return redirect(document.file.get_absolute_url())
 
 
-class DocumentNewVersionView(LoginRequiredMixin, View):
-    """Create a new version of an existing document."""
+class DocumentEditView(LoginRequiredMixin, View):
+    """Edit a document in place — title, content, attachments.
+
+    Replaces the old "new version" flow: the row is updated rather than a
+    child document being created under ``parent`` (versioning itself was
+    removed from the schema in migration 0028).
+    """
 
     def post(self, request, pk):
-        original = get_object_or_404(Document, pk=pk)
+        document = get_object_or_404(Document, pk=pk)
+        from ..models import DocumentAttachment
         from ..permissions import can_view_document_content, is_registry
 
         if (
-            not can_view_document_content(request.user, file=original.file)
+            not can_view_document_content(request.user, file=document.file, document=document)
             and not is_registry(request.user)
-            and original.uploaded_by != request.user
+            and document.uploaded_by != request.user
         ):
-            messages.error(request, "You do not have permission to create a new version of this document.")
-            return redirect(original.file.get_absolute_url())
-        title = request.POST.get("title", original.title)
-        minute_content = request.POST.get("minute_content", "").strip()
+            messages.error(request, "You do not have permission to edit this document.")
+            return redirect(self._detail_url(document))
+
+        document.title = request.POST.get("title", "").strip() or document.title
+        if "minute_content" in request.POST:
+            document.minute_content = request.POST.get("minute_content", "").strip()
+
         uploads = request.FILES.getlist("attachment")
+        replacing_files = bool(uploads)
+        if replacing_files:
+            document.attachment = uploads[0]
+        document.save()
 
-        # New version links to the original via parent.
-        # Registry versions are official records: auto-approved. Other
-        # versions start pending until approved.
-        staff = getattr(request.user, "staff", None)
-        new_status = (
-            "approved"
-            if (request.user.is_superuser or (staff and staff.is_registry))
-            else "pending"
-        )
-        new_doc = Document.objects.create(
-            file=original.file,
-            uploaded_by=request.user,
-            title=title or original.title,
-            minute_content=minute_content or original.minute_content,
-            document_type=original.document_type,
-            parent=original,
-            status=new_status,
-        )
-        if uploads:
-            new_doc.attachment = uploads[0]
-            new_doc.save()
-            _save_extra_uploads(new_doc, uploads[1:], uploaded_by=request.user)
+        if replacing_files:
+            # New files replace the previous set (legacy slot + extras).
+            document.extra_attachments.all().delete()
+            _save_extra_uploads(document, uploads[1:], uploaded_by=request.user)
 
-        messages.success(request, "New version created.")
-        return redirect("document_management:document_detail", pk=original.pk)
+        log_action(
+            request.user,
+            "DOCUMENT_UPDATED",
+            request=request,
+            obj=document,
+            details={
+                "document_title": document.title,
+                "files_replaced": replacing_files,
+            },
+        )
+        messages.success(request, "Document updated.")
+        return redirect(self._detail_url(document))
+
+    @staticmethod
+    def _detail_url(document):
+        if document.file_id is None:
+            return reverse("document_management:urgent_document_detail", kwargs={"pk": document.pk})
+        return reverse("document_management:document_detail", kwargs={"pk": document.pk})
 
 
 def can_download_document_file(user, document):
@@ -557,12 +518,20 @@ def can_download_document_file(user, document):
     Layer 2 (scope): must also be owner/custodian, hold an approved
     request/share, sit in the file's jurisdiction, or carry the role scope
     (so View and Download stay in sync).
+    Standalone documents (no file): any staff member except Registry, since
+    those are broadcast to the whole urgent list — never a personnel file.
     """
     from ..permissions import can_view_document_content, has_content_scope
 
     file_obj = document.file
     if file_obj is None:
-        return user.is_superuser or document.uploaded_by == user
+        # Standalone (urgent) documents carry no file ACL, so the audience is
+        # the one the urgent list already shows them to: any staff member,
+        # except Registry (separation of duties) — plus the filer/superuser.
+        if user.is_superuser or document.uploaded_by == user:
+            return True
+        staff = getattr(user, "staff", None)
+        return staff is not None and not staff.is_registry
     if not can_view_document_content(user, file=file_obj, document=document):
         return False
 
@@ -708,8 +677,11 @@ class DocumentDownloadView(LoginRequiredMixin, View):
     """
     Serves a document attachment if the user passes the content + scope gate
     (standing access for owner/uploader/Executive/MD/Mayor; custody or
-    explicit grant for everyone else). Registry staff can never download
-    contents.
+    explicit grant for everyone else). Registry staff can never open
+    document contents.
+
+    Plain downloads are disabled system-wide: only ``?inline=1`` (the
+    in-browser preview pipeline) is served.
     """
 
     def get(self, request, pk):
@@ -718,27 +690,34 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         user = request.user
 
         if not can_download_document_file(user, document):
-            messages.error(request, "You do not have permission to download this document.")
+            messages.error(request, "You do not have permission to view this document.")
             return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
 
         if not document.attachment:
             # Legacy slot empty but extras may exist — point at the first file.
             first_extra = document.extra_attachments.first()
             if first_extra:
-                return redirect("document_management:attachment_download", att_pk=first_extra.pk)
+                return redirect(
+                    "document_management:attachment_view",
+                    doc_pk=document.pk,
+                    att_key=first_extra.pk,
+                )
             messages.error(request, "This document has no attachment.")
-            return redirect(file_obj.get_absolute_url())
+            return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
 
-        inline = request.GET.get("inline") == "1"
+        if request.GET.get("inline") != "1":
+            messages.error(request, "Downloading is disabled — attachments are view-only in the browser.")
+            return redirect("document_management:attachment_view", doc_pk=document.pk, att_key="main")
+
         # For Office documents, preview the generated PDF so the user can view
         # it in the browser without downloading the original file.
-        if inline and document.preview_pdf:
+        if document.preview_pdf:
             response = _serve_field_file(document.preview_pdf, inline=True)
         else:
-            response = _serve_field_file(document.attachment, inline=inline)
+            response = _serve_field_file(document.attachment, inline=True)
         if response is None:
             messages.error(request, "Attachment file not found on server.")
-            return redirect(file_obj.get_absolute_url())
+            return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
         log_action(user, "DOCUMENT_DOWNLOADED", request=request, obj=document)
         return response
 
@@ -757,7 +736,11 @@ def _save_extra_uploads(document, uploads, skip=None, uploaded_by=None):
 
 
 class AttachmentDownloadView(LoginRequiredMixin, View):
-    """Serve one extra attachment of a document — same protection as downloads."""
+    """Serve one extra attachment of a document — same protection as downloads.
+
+    Plain downloads are disabled system-wide: only ``?inline=1`` (the
+    in-browser preview pipeline) is served.
+    """
 
     def get(self, request, att_pk):
         from ..models import DocumentAttachment
@@ -767,11 +750,18 @@ class AttachmentDownloadView(LoginRequiredMixin, View):
         file_obj = document.file
 
         if not can_download_document_file(request.user, document):
-            messages.error(request, "You do not have permission to download this document.")
+            messages.error(request, "You do not have permission to view this document.")
             return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
 
-        inline = request.GET.get("inline") == "1"
-        response = _serve_field_file(attachment.file, inline=inline)
+        if request.GET.get("inline") != "1":
+            messages.error(request, "Downloading is disabled — attachments are view-only in the browser.")
+            return redirect(
+                "document_management:attachment_view",
+                doc_pk=document.pk,
+                att_key=attachment.pk,
+            )
+
+        response = _serve_field_file(attachment.file, inline=True)
         if response is None:
             messages.error(request, "Attachment file not found on server.")
             return redirect(file_obj.get_absolute_url() if file_obj else "document_management:my_files")
@@ -826,6 +816,10 @@ class AttachmentViewerView(HTMXLoginRequiredMixin, View):
         if (mime_type or "").startswith("image/"):
             kind = "image"
         elif (mime_type or "") == "application/pdf" or filename.lower().endswith(".pdf"):
+            kind = "pdf"
+        # Office documents are read through their generated PDF preview —
+        # downloads are off, so the browser viewer is the only way in.
+        elif att_key == "main" and document.preview_pdf:
             kind = "pdf"
 
         return render(
@@ -1203,3 +1197,211 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy("document_management:inbox") + "?mode=urgent"
+
+
+class StandaloneUrgentDocumentDetailView(HTMXLoginRequiredMixin, DetailView):
+    """Tracking page for a standalone urgent/high-priority document.
+
+    Standalone urgent documents carry no file, so they have no movement and
+    none of the existing detail pages can open them — the urgent inbox could
+    only show a dead dash. This view is their page: status, priority, the
+    document content, and the activity trail.
+    """
+
+    model = Document
+    template_name = "document_management/urgent_document_detail.html"
+    context_object_name = "document"
+
+    # Readable trail labels for audit actions that carry no display choice.
+    ACTION_LABELS = {
+        "DOCUMENT_APPROVED": "Approved by a head / supervisor",
+        "DOCUMENT_REJECTED": "Sent back to the filer",
+        "DOCUMENT_DOWNLOADED": "Attachment downloaded",
+        "DOCUMENT_UPDATED": "Document updated",
+    }
+
+    def get_queryset(self):
+        return Document.objects.filter(file__isnull=True).select_related("uploaded_by", "document_type")
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        document = get_object_or_404(Document, pk=kwargs["pk"])
+        # File-backed documents keep their regular detail page.
+        if document.file_id is not None:
+            return redirect("document_management:document_detail", pk=document.pk)
+        # Same audience as the urgent inbox list: anyone with a staff profile,
+        # plus the uploader and superusers.
+        if not (request.user.is_superuser or document.uploaded_by_id == request.user.pk or hasattr(request.user, "staff")):
+            messages.error(request, "You do not have access to this document.")
+            return redirect(f"{reverse('document_management:inbox')}?mode=urgent")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        document = self.object
+        user = self.request.user
+        staff = getattr(user, "staff", None)
+
+        audit_entries = list(
+            AuditLogEntry.objects.filter(object_id=document.pk, content_type__model="document")
+            .select_related("user")
+            .order_by("timestamp")
+        )
+        alerts_qs = Notification.objects.filter(
+            object_id=document.pk, content_type__model="document"
+        )
+        alert_total = alerts_qs.count()
+        latest_alert = alerts_qs.order_by("-timestamp").first()
+
+        timeline = [
+            {
+                "timestamp": document.uploaded_at,
+                "label": "Urgent document filed",
+                "user": document.uploaded_by,
+                "detail": None,
+            }
+        ]
+        for entry in audit_entries:
+            # The creation is already the "filed" line above — one event, one row.
+            if entry.action == "STANDALONE_URGENT_DOCUMENT_CREATED":
+                continue
+            timeline.append(
+                {
+                    "timestamp": entry.timestamp,
+                    "label": self.ACTION_LABELS.get(entry.action, entry.get_action_display()),
+                    "user": entry.user,
+                    "detail": entry.details.get("reason") if isinstance(entry.details, dict) else None,
+                }
+            )
+        # One line for the broadcast instead of a row per recipient.
+        if latest_alert is not None:
+            timeline.append(
+                {
+                    "timestamp": latest_alert.timestamp,
+                    "label": (
+                        f"Alerts sent to {alert_total} "
+                        f"head{'s' if alert_total != 1 else ''} & supervisors"
+                    ),
+                    "user": None,
+                    "detail": None,
+                }
+            )
+        timeline.sort(key=lambda item: item["timestamp"], reverse=True)
+
+        # Registry never reads contents (separation of duties); everyone else
+        # on this page already sees the document in their urgent inbox.
+        context["can_view_content"] = bool(
+            user.is_superuser or (staff is not None and not staff.is_registry)
+        )
+        context["can_open_files"] = can_download_document_file(user, document)
+        context["is_uploader"] = document.uploaded_by_id == user.pk
+        context["is_pending"] = document.status in ("pending", "in_transit")
+        # Same audience/roles as the movement-based action endpoint: heads,
+        # supervisors, unit managers, executives — never the filer themselves,
+        # and never Registry (separation of duties: they log and track, they
+        # do not decide on contents).
+        context["can_action"] = bool(
+            staff
+            and staff.is_effective_supervisor
+            and not staff.is_registry
+            and document.uploaded_by_id != user.pk
+            and context["is_pending"]
+        )
+        context["timeline"] = timeline
+        context["alert_count"] = alert_total
+        context["waiting_since"] = document.uploaded_at
+        return context
+
+
+class StandaloneUrgentDocumentActionView(HTMXLoginRequiredMixin, View):
+    """Approve or reject a standalone urgent document.
+
+    Standalone urgent documents have no FileMovement, so the movement-based
+    :class:`DocumentActionView` can never reach them — the urgent list had no
+    working action for those rows.
+
+    - Approve: the document is closed as approved and the filer is notified.
+    - Reject: a reason is required and the document is returned to the filer
+      (status ``rejected`` + the reason stored on it, alert sent back).
+
+    Both outcomes drop the item out of everyone's untreated urgent list.
+    """
+
+    def post(self, request, pk):
+        document = get_object_or_404(Document, pk=pk, file__isnull=True)
+        staff = getattr(request.user, "staff", None)
+        action = request.POST.get("action", "")
+        note = request.POST.get("note", "").strip()
+
+        back_url = self._safe_next(request, document)
+
+        if not staff or not staff.is_effective_supervisor:
+            messages.error(request, "Only HODs, supervisors, and unit managers can action urgent documents.")
+            return inbox_action_response(request, back_url)
+        if staff.is_registry:
+            messages.error(request, "Registry records and tracks urgent documents — it does not decide on them.")
+            return inbox_action_response(request, back_url)
+        if document.uploaded_by_id == request.user.pk:
+            messages.error(request, "You cannot approve or reject your own document.")
+            return inbox_action_response(request, back_url)
+        if document.status not in ("pending", "in_transit"):
+            messages.error(request, "This document has already been actioned.")
+            return inbox_action_response(request, back_url)
+
+        actor = request.user.get_full_name() or request.user.username
+        title = document.title or "Untitled"
+
+        if action == "approve":
+            document.status = "approved"
+            document.save(update_fields=["status"])
+            log_action(
+                request.user,
+                "DOCUMENT_APPROVED",
+                request=request,
+                obj=document,
+                details={"document_title": title, "priority": document.priority, "note": note},
+            )
+            create_notification(
+                user=document.uploaded_by,
+                message=f"{actor} approved your urgent document '{title}'.",
+                obj=document,
+                link=reverse("document_management:urgent_document_detail", kwargs={"pk": document.pk}),
+            )
+            messages.success(request, f"Urgent document '{title}' approved.")
+        elif action == "reject":
+            if not note:
+                messages.error(request, "A reason is required when sending a document back.")
+                return inbox_action_response(request, back_url)
+            document.status = "rejected"
+            document.status_reason = note
+            document.save(update_fields=["status", "status_reason"])
+            log_action(
+                request.user,
+                "DOCUMENT_REJECTED",
+                request=request,
+                obj=document,
+                details={"document_title": title, "priority": document.priority, "reason": note},
+            )
+            create_notification(
+                user=document.uploaded_by,
+                message=f"{actor} sent your urgent document '{title}' back to you. Reason: {note}",
+                obj=document,
+                link=reverse("document_management:urgent_document_detail", kwargs={"pk": document.pk}),
+            )
+            messages.success(request, f"Sent back to {document.uploaded_by.get_full_name() or document.uploaded_by.username}.")
+        else:
+            messages.error(request, "Unknown action.")
+            return inbox_action_response(request, back_url)
+
+        return inbox_action_response(request, back_url)
+
+    @staticmethod
+    def _safe_next(request, document):
+        """Where to land after acting — the posted ?next= or the tracking page."""
+        from django.utils.http import url_has_allowed_host_and_scheme
+
+        next_url = request.POST.get("next", "") or request.GET.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return next_url
+        return reverse("document_management:urgent_document_detail", kwargs={"pk": document.pk})

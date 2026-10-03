@@ -724,10 +724,10 @@ def ch_documents():
             "Recipient clicks <b>Approve</b> (signs) or <b>Reject</b> (reason required). HODs approve; unit managers forward to their HOD.",
             "On final approval: document marked <b>Approved</b>, file returns to <b>Active</b> with Registry, sender notified.",
         ]),
-        h2("11.5 New versions"),
-        p("Open a document → click <b>Edit / New Version</b>. Enter updated content and/or attachments. "
-          "The new version links back to the original via <b>Parent</b>; the original is preserved. "
-          "Registry versions are auto-approved; others follow the normal approval path."),
+        h2("11.5 Editing a document"),
+        p("Open a document → click <b>Edit</b>. Update the title, content and/or attachments; "
+          "changes save onto the same document. Uploading new files replaces the attachments "
+          "already on it, and the document keeps its current status."),
     ]
 
 

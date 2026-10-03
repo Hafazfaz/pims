@@ -1,0 +1,13 @@
+{% if priority == 'urgent' %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm shadow-red-200">
+  <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+  Urgent
+</span>
+{% elif priority == 'high' %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase tracking-wider border border-amber-200">
+  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+  High
+</span>
+{% else %}
+<span class="inline-flex items-center px-2.5 py-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Normal</span>
+{% endif %}

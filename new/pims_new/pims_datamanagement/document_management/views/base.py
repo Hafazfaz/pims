@@ -40,3 +40,51 @@ class RegistryRequiredMixin(HTMXLoginRequiredMixin, UserPassesTestMixin):
             return super().handle_no_permission()
         messages.error(self.request, "Only registry staff can access this page.")
         return redirect("document_management:my_files")
+
+
+def render_inbox_panel(request, status=200):
+    """Render just the inbox panel fragment (tabs, filters, list, messages).
+
+    Used by the action endpoints so an htmx request gets a fresh panel —
+    counts and rows update in place with no page reload.
+    """
+    from django.shortcuts import render
+
+    from .file_views import InboxView
+
+    inbox = InboxView()
+    inbox.request = request
+    inbox.args, inbox.kwargs = (), {}
+    context = inbox.get_context_data(object_list=inbox.get_queryset())
+    return render(
+        request,
+        "document_management/partials/_inbox_panel.html",
+        context,
+        status=status,
+    )
+
+
+def inbox_action_response(request, redirect_url):
+    """Act on an inbox row: htmx swaps in a fresh panel, others redirect.
+
+    An htmx call issued from the inbox gets the re-rendered panel; from any
+    other page it gets an ``HX-Redirect`` so the browser lands there. Plain
+    form posts keep the classic redirect.
+    """
+    if request.headers.get("HX-Request"):
+        if "/inbox/" in request.headers.get("HX-Current-URL", ""):
+            return render_inbox_panel(request)
+        response = HttpResponse()
+        response["HX-Redirect"] = request.build_absolute_uri(_resolve_url(redirect_url))
+        return response
+    return redirect(_resolve_url(redirect_url))
+
+
+def _resolve_url(redirect_url):
+    """Accept either a path or a URL name from callers."""
+    url = str(redirect_url)
+    if url.startswith(("/", "http://", "https://")):
+        return url
+    from django.urls import reverse
+
+    return reverse(url)

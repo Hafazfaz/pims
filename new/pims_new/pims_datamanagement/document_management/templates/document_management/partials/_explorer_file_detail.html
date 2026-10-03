@@ -119,9 +119,10 @@
                                 </div>
                             </a>
                             {% if doc.attachment %}
-                                <a href="{% url 'document_management:document_download' doc.pk %}"
-                                   class="text-slate-400 hover:text-nigeria-green p-2 transition-colors">
-                                    <i class="fas fa-download text-sm"></i>
+                                <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}"
+                                   class="text-slate-400 hover:text-nigeria-green p-2 transition-colors"
+                                   title="View in browser">
+                                    <i class="fas fa-eye text-sm"></i>
                                 </a>
                             {% endif %}
                         </div>

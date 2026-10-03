@@ -34,15 +34,6 @@
                     </button>
                 </div>
             </form>
-            {% if messages %}
-                <div class="mt-8 pt-6 border-t border-slate-100 space-y-2">
-                    {% for message in messages %}
-                        <div class="p-3 rounded-lg text-xs font-bold {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-nigeria-green{% endif %}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
         </div>
         <div class="text-center mt-12">
             <p class="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">

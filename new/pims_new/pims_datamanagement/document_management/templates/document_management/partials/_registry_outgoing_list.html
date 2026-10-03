@@ -30,6 +30,9 @@
                                     <div class="text-[10px] text-slate-400 uppercase font-black tracking-tighter">
                                         {% if not item.file.current_location.is_registry %}{{ item.file.current_location.department.name }}{% endif %}
                                     </div>
+                                    {% if item.file.status == 'in_transit' %}
+                                        <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-700 border border-blue-200">In Transit</span>
+                                    {% endif %}
                                 </div>
                             </div>
                         </td>
@@ -56,15 +59,21 @@
                                        class="flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors">
                                         <i class="fas fa-arrow-right text-[8px]"></i> Track Hub
                                     </a>
-                                    <form action="{% url 'document_management:file_recall' pk=item.file.pk %}"
-                                          method="post"
-                                          onsubmit="return confirm('Are you sure you want to RECALL this file? This will instantly transfer custody to Registry');">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                                class="w-full flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-colors">
-                                            <i class="fas fa-undo-alt text-[8px]"></i> Recall
-                                        </button>
-                                    </form>
+                                    {% if item.file.status == 'in_transit' %}
+                                        <p class="flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <i class="fas fa-hourglass-half text-[8px]"></i> Awaiting Receipt
+                                        </p>
+                                    {% else %}
+                                        <form action="{% url 'document_management:file_recall' pk=item.file.pk %}"
+                                              method="post"
+                                              onsubmit="return confirm('Are you sure you want to RECALL this file? This will instantly transfer custody to Registry');">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    class="w-full flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-colors">
+                                                <i class="fas fa-undo-alt text-[8px]"></i> Recall
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                     {% if user.staff.is_registry or user.is_superuser %}
                                         <form action="{% url 'document_management:file_delete' pk=item.file.pk %}"
                                               method="post"

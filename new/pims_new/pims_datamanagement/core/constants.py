@@ -36,6 +36,11 @@ FILE_STATUS_CHOICES = [
     ("archived", "Archived"),
 ]
 
+# Files still in play: resting with their current holder (active) or
+# travelling to them (in_transit). Used wherever "outgoing" custody is
+# counted — a dispatched folder is out of Registry either way.
+LIVE_FILE_STATUSES = ["active", "in_transit"]
+
 # OTP constants
 OTP_EXPIRY_MINUTES = 10
 

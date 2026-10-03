@@ -3,6 +3,7 @@ import logging
 
 from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
+from core.constants import LIVE_FILE_STATUSES
 from django.contrib import messages
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
@@ -27,9 +28,9 @@ from notifications.utils import create_notification
 from organization.models import Department, Staff
 
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
-from ..models import Document, DocumentSignature, EmailLog, File, FileAccessRequest, FileMovement
+from ..models import Document, DocumentSignature, File, FileAccessRequest, FileMovement
 from ..permissions import can_add_document, get_dispatch_recipients
-from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin
+from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin, inbox_action_response
 
 logger = logging.getLogger("document_management")
 
@@ -87,7 +88,7 @@ class ExecutiveDashboardView(HTMXLoginRequiredMixin, PermissionRequiredMixin, Te
         ).values_list("id", flat=True)
 
         outgoing_files = (
-            File.objects.filter(scope_filter, status="active")
+            File.objects.filter(scope_filter, status__in=LIVE_FILE_STATUSES)
             .exclude(Q(current_location__isnull=True) | Q(current_location__id__in=registry_staff_ids))
             .select_related("current_location", "owner", "department")
         )
@@ -596,6 +597,15 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
             messages.info(request, "File is already with you.")
             return redirect(file_obj.get_absolute_url())
 
+        # Still travelling: the recipient has not acknowledged receipt, so
+        # there is nothing settled to pull back yet.
+        if file_obj.status == "in_transit":
+            messages.error(
+                request,
+                f"File {file_obj.file_number} is still in transit — it can only be recalled once receipt is acknowledged.",
+            )
+            return redirect(file_obj.get_absolute_url())
+
         old_location = file_obj.current_location
         # Recall must never leave custody empty (Unknown Location).
         # Registry recall -> back to recalling registry staff.
@@ -923,9 +933,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["access_request_form"] = FileAccessRequestForm()
         context["pending_access_request"] = pending_access_request
         context["movements"] = file_obj.movements.select_related("sent_by", "from_location__user", "sent_to__user")[:20]
-        # Share document permission
-        from document_management.permissions import can_share_document
-        context["can_share_document"] = can_share_document(user)
 
         # Build recipient list using central permission function
         from document_management.permissions import get_dispatch_recipients
@@ -1252,176 +1259,6 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
             return redirect(file_obj.get_absolute_url())
 
-        elif action == "share_document":
-            recipient_email = request.POST.get("recipient_email", "").strip()
-            subject = request.POST.get("subject", "").strip()
-            message = request.POST.get("message", "").strip()
-            include_signature = request.POST.get("include_signature") == "on"
-
-            from ..permissions import can_share_document
-            from django.conf import settings
-
-            if not can_share_document(request.user):
-                messages.error(request, "You do not have permission to share documents.")
-                return redirect(file_obj.get_absolute_url())
-
-            staff = getattr(request.user, "staff", None)
-            if not staff:
-                messages.error(request, "Staff profile not found.")
-                return redirect(file_obj.get_absolute_url())
-
-            active_signature = staff.get_active_signature()
-            if not active_signature or not active_signature.is_verified:
-                messages.error(request, "You need an active digital signature to share documents.")
-                return redirect(file_obj.get_absolute_url())
-
-            if not recipient_email:
-                messages.error(request, "Recipient email is required.")
-                return redirect(file_obj.get_absolute_url())
-
-            sender_name = request.user.get_full_name() or request.user.username
-            sender_dept = staff.department.name if staff.department else "N/A"
-            email_subject = subject if subject else f"PIMS: File {file_obj.file_number} Shared With You"
-
-            now = timezone.now()
-            pims_email = getattr(settings, "PIMS_SHARE_EMAIL", settings.DEFAULT_FROM_EMAIL)
-
-            plain_message = f"""{message}
-
----
-File Number: {file_obj.file_number}
-File Title: {file_obj.title}
-File Type: {file_obj.get_file_type_display()}
-Status: {file_obj.get_status_display()}
-Shared by: {sender_name}
-Department: {sender_dept}
-Date: {now.strftime("%B %d, %Y @ %H:%M")}
-
-This file was shared via the Personnel Information Management System (PIMS)."""
-
-            import base64, os
-            logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "img", "logo_email.png")
-            logo_b64 = ""
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as f:
-                    logo_b64 = base64.b64encode(f.read()).decode()
-
-            html_parts = [
-                '<div style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;color:#333">',
-                '<div style="background:#008751;padding:30px;text-align:center;border-radius:12px 12px 0 0">',
-            ]
-            if logo_b64:
-                html_parts.append(f'<img src="data:image/png;base64,{logo_b64}" style="width:50px;height:58px;margin-bottom:10px" alt="PIMS Logo" />')
-            html_parts += [
-                '<h1 style="color:#fff;margin:0;font-size:20px;letter-spacing:2px">PERSONNEL INFORMATION MANAGEMENT SYSTEM</h1>',
-                '<p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:12px">File Shared Notification</p></div>',
-                '<div style="background:#fff;padding:30px;border:1px solid #e0e0e0">',
-                '<p style="font-size:15px;margin:0 0 20px">Dear Colleague,</p>',
-                f'<p style="font-size:15px;margin:0 0 20px"><strong>{sender_name}</strong> from <strong>{sender_dept}</strong> has shared a file with you via PIMS.</p>',
-            ]
-            if message:
-                html_parts.append(f'<p style="font-size:15px;margin:0 0 15px;padding:12px;background:#E6F3EE;border-left:4px solid #008751;border-radius:4px">{message}</p>')
-            html_parts.append('<table style="width:100%;border-collapse:collapse;margin:20px 0">')
-            docs = list(file_obj.documents.all())
-            doc_count = len(docs)
-            doc_names = ", ".join(d.title or f"Doc #{d.pk}" for d in docs) if docs else "None"
-            rows = [
-                ("File Number", file_obj.file_number),
-                ("File Title", file_obj.title),
-                ("File Type", file_obj.get_file_type_display()),
-                ("Status", file_obj.get_status_display()),
-                ("Shared By", sender_name),
-                ("Department", sender_dept),
-                ("Documents", f"{doc_count} attached ({doc_names})"),
-                ("Date", now.strftime("%B %d, %Y @ %H:%M")),
-            ]
-            for label, value in rows:
-                html_parts.append(f'<tr><td style="padding:12px;background:#f8f9fa;font-weight:bold;width:40%;border-bottom:1px solid #e0e0e0">{label}</td><td style="padding:12px;border-bottom:1px solid #e0e0e0">{value}</td></tr>')
-            html_parts.append('</table>')
-
-            if docs:
-                html_parts.append('<h3 style="color:#008751;font-size:14px;margin:25px 0 10px;border-bottom:2px solid #008751;padding-bottom:8px">ATTACHED DOCUMENTS</h3>')
-                for doc in docs:
-                    doc_title = doc.title or f"Document #{doc.pk}"
-                    html_parts.append(f'<div style="margin:8px 0;padding:10px;background:#f8f9fa;border-left:4px solid #008751;border-radius:4px">')
-                    html_parts.append(f'<strong style="color:#333">{doc_title}</strong>')
-                    html_parts.append(f'<p style="margin:4px 0 0;font-size:11px;color:#888">See attached PDF for full content</p>')
-                    html_parts.append('</div>')
-
-            html_parts.append(f'<p style="font-size:12px;color:#888;margin:20px 0 0;border-top:1px solid #e0e0e0;padding-top:15px">This is an automated notification from PIMS. Please do not reply directly to this email.</p>')
-            html_parts.append('</div></div>')
-            html_message = "\n".join(html_parts)
-
-            signature_attachment = None
-            if include_signature and active_signature.image:
-                try:
-                    sig_file = active_signature.image.open()
-                    signature_attachment = (f"signature_{staff.user.username}.png", sig_file.read(), "image/png")
-                except (FileNotFoundError, OSError):
-                    pass
-
-            email_status = "sent"
-            email_error = ""
-            try:
-                from django.core.mail import EmailMessage
-                email = EmailMessage(
-                    subject=email_subject,
-                    body=html_message,
-                    from_email=pims_email,
-                    to=[recipient_email],
-                )
-                email.content_subtype = "html"
-                if signature_attachment:
-                    email.attach(*signature_attachment)
-
-                from core.utils.pdf import generate_document_pdf
-                sig_image = active_signature.image if (include_signature and active_signature.image) else None
-                for doc in docs:
-                    pdf_bytes = generate_document_pdf(
-                        document_title=doc.title or f"Document #{doc.pk}",
-                        document_content=doc.minute_content or "",
-                        sender_name=sender_name,
-                        sender_dept=sender_dept,
-                        signature_image=sig_image,
-                    )
-                    filename = f"{doc.title or f'document_{doc.pk}'}.pdf"
-                    email.attach(filename, pdf_bytes.read(), "application/pdf")
-                    if doc.attachment:
-                        try:
-                            doc_file = doc.attachment.open()
-                            email.attach(doc.attachment.name.split("/")[-1], doc_file.read())
-                        except (FileNotFoundError, OSError):
-                            pass
-                logger.info("Sending email to %s | Subject: %s | File: %s", recipient_email, email_subject, file_obj.file_number)
-                email.send(fail_silently=False)
-                logger.info("Email sent successfully to %s for file %s", recipient_email, file_obj.file_number)
-                messages.success(request, f"File shared successfully with {recipient_email}.")
-                log_action(
-                    request.user,
-                    "FILE_SHARED_EMAIL",
-                    request=request,
-                    obj=file_obj,
-                    details={"recipient": recipient_email, "subject": email_subject}
-                )
-            except Exception as e:
-                email_status = "failed"
-                email_error = str(e)
-                logger.error("Failed to send email to %s: %s", recipient_email, email_error)
-                messages.error(request, f"Failed to send email: {email_error}")
-
-            EmailLog.objects.create(
-                sent_by=request.user,
-                recipient_email=recipient_email,
-                subject=email_subject,
-                body=plain_message,
-                status=email_status,
-                error_message=email_error,
-                file=file_obj,
-                has_signature=include_signature,
-            )
-
-            return redirect(file_obj.get_absolute_url())
-
         return self.get(request, *args, **kwargs)
 
     def handle_no_permission(self):
@@ -1716,11 +1553,20 @@ def _get_allowed_forward_pks(staff):
 
 
 class InboxView(HTMXLoginRequiredMixin, ListView):
-    """Shows FileMovements sent to the current staff member, split into tabs.
+    """Unified inbox: file movements AND urgent/high-priority documents in one list.
 
-    Untreated (default): still pending — needs review, approval, or forwarding.
-    Treated: already approved, rejected, or forwarded by the user.
-    Supports 'urgent' mode to show urgent/high priority documents needing attention.
+    Rows come from two sources merged, newest first:
+      * FileMovements sent to this staff member (the classic inbox).
+      * Urgent/high priority documents from accessible active files plus
+        standalone urgent documents (the old "urgent" mode).
+
+    Tabs (?tab=):
+      untreated (default) — pending movements + pending/in-transit urgent docs.
+      treated             — approved/rejected/forwarded movements + closed docs.
+
+    Filter (?filter=):
+      all     — everything (default).
+      urgent  — only urgent/high priority rows (?mode=urgent is an alias).
     """
 
     model = FileMovement
@@ -1729,72 +1575,183 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
     paginate_by = 15
 
     TREATED_STATUSES = ["approved", "rejected", "forwarded"]
+    UNTREATED_DOC_STATUSES = ["pending", "in_transit"]
+    TREATED_DOC_STATUSES = ["approved", "rejected", "cancelled"]
+    ROW_LIMIT = 1000  # safety cap per source when merging in Python
 
-    def get_queryset(self):
-        staff = getattr(self.request.user, "staff", None)
-        if not staff:
-            return FileMovement.objects.none()
-
-        mode = self.request.GET.get("mode", "inbox")
-
-        if mode == "urgent":
-            # Show urgent/high priority documents in active files that need attention
-            # These are documents with priority != normal that are in active files
-            # and the user has permission to view (custodian, approver, HOD, etc.)
-            from ..models import Document
-            from ..permissions import can_view_document_content
-
-            # Get active files where user has access
-            user_files = File.objects.filter(
-                Q(current_location=staff) |
-                Q(owner=staff) |
-                Q(department=staff.department) if staff.department else Q(),
-                status="active"
-            ).distinct()
-
-            # Get urgent/high priority documents in those files
-            urgent_docs = Document.objects.filter(
-                file__in=user_files,
-                priority__in=["urgent", "high"],
-                status__in=["pending", "in_transit"]
-            ).select_related("file", "uploaded_by").order_by(
-                "-priority", "-uploaded_at"
-            )
-
-            # Convert to a pseudo-movement queryset for template compatibility
-            # We'll handle this in the template with a different context variable
-            return FileMovement.objects.none()
-
-        # Default inbox: movements sent to this user, split by treated tab.
-        qs = (
-            FileMovement.objects.filter(sent_to=staff, action="sent")
-            .select_related("file", "document", "sent_by", "from_location__user")
-            .order_by("-moved_at")
-        )
-        if self.get_current_tab() == "treated":
-            return qs.filter(status__in=self.TREATED_STATUSES)
-        return qs.filter(status="pending")
-
+    # ------------------------------------------------------------------ params
     def get_current_tab(self):
         tab = self.request.GET.get("tab", "untreated")
         return tab if tab in ("untreated", "treated") else "untreated"
 
+    def get_current_filter(self):
+        """'all' or 'urgent'. ?mode=urgent still works (old links)."""
+        f = self.request.GET.get("filter", "")
+        if f in ("all", "urgent"):
+            return f
+        if self.request.GET.get("mode") == "urgent":
+            return "urgent"
+        return "all"
+
+    # ------------------------------------------------------------------ sources
+    def _user_files(self, staff):
+        return File.objects.filter(
+            Q(current_location=staff)
+            | Q(owner=staff)
+            | (Q(department=staff.department) if staff.department else Q()),
+            status="active",
+        ).distinct()
+
+    def _movement_qs(self, staff):
+        return (
+            FileMovement.objects.filter(sent_to=staff, action="sent")
+            .select_related("file", "document", "sent_by", "from_location__user")
+            .order_by("-moved_at")
+        )
+
+    def _tab_movements(self, staff, tab):
+        qs = self._movement_qs(staff)
+        if tab == "treated":
+            return qs.filter(status__in=self.TREATED_STATUSES)
+        return qs.filter(status="pending")
+
+    def _urgent_doc_qs(self, staff, tab):
+        qs = (
+            Document.objects.filter(
+                Q(file__in=self._user_files(staff)) | Q(file__isnull=True),
+                priority__in=["urgent", "high"],
+            )
+            .select_related("file", "uploaded_by")
+            .order_by("-uploaded_at")
+        )
+        if tab == "treated":
+            return qs.filter(status__in=self.TREATED_DOC_STATUSES)
+        return qs.filter(status__in=self.UNTREATED_DOC_STATUSES)
+
+    # ------------------------------------------------------------------ rows
+    @staticmethod
+    def _movement_row(movement):
+        priority = movement.document.priority if movement.document else "normal"
+        return {
+            "kind": "movement",
+            "obj": movement,
+            "date": movement.moved_at,
+            "priority": priority,
+            "is_urgent": priority in ("urgent", "high"),
+        }
+
+    @staticmethod
+    def _document_row(document):
+        return {
+            "kind": "document",
+            "obj": document,
+            "date": document.uploaded_at,
+            "priority": document.priority,
+            "is_urgent": document.priority in ("urgent", "high"),
+        }
+
+    def _build_rows(self, staff, tab, urgent_only):
+        movements = list(self._tab_movements(staff, tab)[: self.ROW_LIMIT])
+        # A document already shown as a movement row must not appear twice.
+        seen_doc_ids = [m.document_id for m in movements if m.document_id]
+        documents = list(
+            self._urgent_doc_qs(staff, tab).exclude(pk__in=seen_doc_ids)[: self.ROW_LIMIT]
+        )
+
+        # Standalone urgent documents have no movement, so they only get an
+        # inline approve/reject if this viewer may decide on them. Registry
+        # tracks them but never decides (separation of duties).
+        can_decide = bool(
+            staff and staff.is_effective_supervisor and not staff.is_registry
+        )
+        viewer_pk = self.request.user.pk
+
+        rows = [self._movement_row(m) for m in movements]
+        rows.extend(
+            {
+                **self._document_row(d),
+                "can_action": bool(
+                    can_decide
+                    and d.file_id is None
+                    and d.uploaded_by_id != viewer_pk
+                    and d.status in ("pending", "in_transit")
+                ),
+            }
+            for d in documents
+        )
+        if urgent_only:
+            rows = [r for r in rows if r["is_urgent"]]
+        rows.sort(key=lambda r: r["date"], reverse=True)
+        return rows
+
+    def get_queryset(self):
+        staff = getattr(self.request.user, "staff", None)
+        if not staff:
+            return []
+        return self._build_rows(
+            staff,
+            self.get_current_tab(),
+            self.get_current_filter() == "urgent",
+        )
+
+    # ------------------------------------------------------------------ context
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         staff = getattr(self.request.user, "staff", None)
         context["can_approve"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
         context["is_hod_or_supervisor"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
-        context["current_mode"] = self.request.GET.get("mode", "inbox")
         context["current_tab"] = self.get_current_tab()
+        context["current_filter"] = self.get_current_filter()
+        # Legacy template/links key — 'urgent' while the urgent filter is on.
+        context["current_mode"] = "urgent" if context["current_filter"] == "urgent" else "inbox"
+
         if staff:
-            base = FileMovement.objects.filter(sent_to=staff, action="sent")
-            context["untreated_count"] = base.filter(status="pending").count()
-            context["treated_count"] = base.filter(status__in=self.TREATED_STATUSES).count()
+            mov_untreated = self._tab_movements(staff, "untreated")
+            mov_treated = self._tab_movements(staff, "treated")
+            # Urgent docs already represented by a movement row are excluded so
+            # the counts match what the merged list actually shows.
+            doc_untreated = self._urgent_doc_qs(staff, "untreated").exclude(
+                pk__in=mov_untreated.exclude(document__isnull=True).values("document_id")
+            )
+            doc_treated = self._urgent_doc_qs(staff, "treated").exclude(
+                pk__in=mov_treated.exclude(document__isnull=True).values("document_id")
+            )
+            mov_untreated_urgent = mov_untreated.filter(document__priority__in=["urgent", "high"])
+            mov_treated_urgent = mov_treated.filter(document__priority__in=["urgent", "high"])
+
+            context["untreated_count"] = mov_untreated.count() + doc_untreated.count()
+            context["treated_count"] = mov_treated.count() + doc_treated.count()
+            context["urgent_untreated_count"] = mov_untreated_urgent.count() + doc_untreated.count()
+            context["urgent_treated_count"] = mov_treated_urgent.count() + doc_treated.count()
         else:
-            context["untreated_count"] = 0
-            context["treated_count"] = 0
-        # Keeps ?tab= / ?mode= across pagination links.
-        context["pagination_extra"] = f"&tab={context['current_tab']}&mode={context['current_mode']}"
+            for key in (
+                "untreated_count",
+                "treated_count",
+                "urgent_untreated_count",
+                "urgent_treated_count",
+            ):
+                context[key] = 0
+
+        # Counts for the filter chips follow the active tab.
+        context["tab_all_count"] = (
+            context["treated_count"]
+            if context["current_tab"] == "treated"
+            else context["untreated_count"]
+        )
+        context["tab_urgent_count"] = (
+            context["urgent_treated_count"]
+            if context["current_tab"] == "treated"
+            else context["urgent_untreated_count"]
+        )
+
+        # Keeps ?tab= / ?filter= across pagination links.
+        context["pagination_extra"] = (
+            f"&tab={context['current_tab']}&filter={context['current_filter']}"
+        )
+
+        # An htmx swap renders only the panel, so flash messages must be drawn
+        # there. A full page load already shows them above the block content.
+        context["hx_request"] = bool(self.request.headers.get("HX-Request"))
 
         # For unit managers: pre-fill their HOD as the only forward recipient
         prefilled_recipient = None
@@ -1803,24 +1760,6 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
             if dept and dept.head:
                 prefilled_recipient = dept.head
         context["prefilled_recipient"] = prefilled_recipient
-
-        # Urgent mode: fetch urgent documents
-        if context["current_mode"] == "urgent" and staff:
-            from ..models import Document
-            user_files = File.objects.filter(
-                Q(current_location=staff) |
-                Q(owner=staff) |
-                (Q(department=staff.department) if staff.department else Q()),
-                status="active"
-            ).distinct()
-
-            # Include standalone urgent documents (file=None) that user can see
-            # Plus urgent documents in accessible files
-            context["urgent_documents"] = Document.objects.filter(
-                Q(file__in=user_files) | Q(file__isnull=True),
-                priority__in=["urgent", "high"],
-                status__in=["pending", "in_transit"]
-            ).select_related("file", "uploaded_by").order_by("-priority", "-uploaded_at")[:50]
 
         return context
 
@@ -2166,22 +2105,26 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
       remains the way back in.
     """
 
+    def _respond(self, request):
+        """htmx gets a freshly rendered inbox panel; plain posts redirect."""
+        return inbox_action_response(request, "document_management:inbox")
+
     def post(self, request, pk):
         movement = get_object_or_404(FileMovement, pk=pk)
         staff = getattr(request.user, "staff", None)
 
         if movement.sent_to != staff:
             messages.error(request, "This document was not sent to you.")
-            return redirect("document_management:inbox")
+            return self._respond(request)
 
         if movement.status != "pending":
             messages.error(request, "This document has already been actioned.")
-            return redirect("document_management:inbox")
+            return self._respond(request)
 
         # Prevent the document creator from approving/rejecting their own document
         if movement.document and movement.document.uploaded_by == request.user:
             messages.error(request, "You cannot approve or reject your own document.")
-            return redirect("document_management:inbox")
+            return self._respond(request)
 
         action = request.POST.get("action")
         note = request.POST.get("note", "").strip()
@@ -2205,7 +2148,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
         if action == "approve":
             if not staff or not (is_top_approver or is_hou_forwarder or staff.is_effective_supervisor):
                 messages.error(request, "Only HODs, supervisors, and unit managers can approve documents.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
 
             if is_hou_forwarder:
                 # Head-of-Unit: "Approve" auto-forwards to their own
@@ -2236,7 +2179,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
 
                 if not recipient:
                     messages.error(request, "No HOD found for your department.")
-                    return redirect("document_management:inbox")
+                    return self._respond(request)
 
                 # Optional reference documents from the same file to share
                 # with the recipient for context.
@@ -2338,19 +2281,19 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             # their own HOD via the Approve action.
             if is_hou_forwarder:
                 messages.error(request, "Unit managers approve documents to their HOD.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
             if not staff or not (
                 is_top_approver or staff.is_effective_supervisor
             ):
                 messages.error(request, "Only HODs and supervisors can forward documents.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
 
             recipient_staff_id = (
                 request.POST.get("recipient_staff_id") or request.POST.get("recipient") or ""
             ).strip()
             if not recipient_staff_id:
                 messages.error(request, "Select a supervisor or HOD to forward to.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
 
             recipient = None
             try:
@@ -2360,7 +2303,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 recipient = None
             if recipient is None:
                 messages.error(request, "Selected recipient is not eligible for forwarding.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
 
             ref_ids = request.POST.getlist("reference_documents")
             ref_docs = []
@@ -2415,11 +2358,11 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
         elif action == "reject":
             if not staff or not (staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager):
                 messages.error(request, "Only HODs, supervisors, and unit managers can reject documents.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
 
             if not note:
                 messages.error(request, "A reason is required when rejecting a document.")
-                return redirect("document_management:inbox")
+                return self._respond(request)
 
             movement.status = "rejected"
             movement.save(update_fields=["status"])
@@ -2464,7 +2407,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
         if movement.status in ("approved", "forwarded", "rejected"):
             _expire_actioned_movement_access(movement, actor=request.user)
 
-        return redirect("document_management:inbox")
+        return self._respond(request)
 
 
 class FileBatchUploadView(LoginRequiredMixin, UserPassesTestMixin, View):

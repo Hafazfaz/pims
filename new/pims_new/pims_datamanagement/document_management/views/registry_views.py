@@ -1,6 +1,6 @@
 from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
-from core.constants import FILE_TYPE_CHOICES
+from core.constants import FILE_TYPE_CHOICES, LIVE_FILE_STATUSES
 from django.contrib import messages
 from django.db.models import Q
 from django.http import Http404
@@ -30,7 +30,7 @@ class RegistryDashboardView(RegistryRequiredMixin, ListView):
 
         today = timezone.now().date()
 
-        context["total_files_count"] = File.objects.filter(status="active").count()
+        context["total_files_count"] = File.objects.filter(status__in=LIVE_FILE_STATUSES).count()
         context["pending_access_count"] = FileAccessRequest.objects.filter(status="pending").count()
         context["archived_files_count"] = File.objects.filter(status="archived").count()
 
@@ -38,7 +38,9 @@ class RegistryDashboardView(RegistryRequiredMixin, ListView):
             Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
         ).values_list("id", flat=True)
 
-        outgoing_files = File.objects.filter(status="active").exclude(
+        # "Out" = held by someone other than Registry, whether the folder is
+        # settled with them (active) or still travelling (in_transit).
+        outgoing_files = File.objects.filter(status__in=LIVE_FILE_STATUSES).exclude(
             Q(current_location__isnull=True) | Q(current_location__id__in=registry_staff_ids)
         )
         context["outgoing_files_count"] = outgoing_files.count()
@@ -64,6 +66,20 @@ class RegistryDashboardView(RegistryRequiredMixin, ListView):
         context["staff_without_files_count"] = (
             Staff.objects.exclude(id__in=staff_with_files).exclude(EXCLUDE_REGISTRY_Q).count()
         )
+
+        # Urgent document register — registry logs what was sent and tracks
+        # its state, but never opens contents (separation of duties) and
+        # never sees titles of staff personnel documents (personal files).
+        urgent_all = Document.objects.filter(priority__in=["urgent", "high"])
+        context["urgent_open_count"] = urgent_all.filter(status__in=["pending", "in_transit"]).count()
+        context["urgent_documents"] = (
+            urgent_all.filter(Q(file__isnull=True) | Q(file__file_type="policy"))
+            .select_related("file", "uploaded_by")
+            .order_by("-uploaded_at")[:15]
+        )
+        context["urgent_personal_open_count"] = urgent_all.filter(
+            file__file_type="personal", status__in=["pending", "in_transit"]
+        ).count()
 
         return context
 
@@ -197,7 +213,7 @@ class StaffFolderListView(RegistryRequiredMixin, ListView):
         ).values_list("id", flat=True)
 
         outgoing_qs = (
-            File.objects.filter(status="active")
+            File.objects.filter(status__in=LIVE_FILE_STATUSES)
             .exclude(Q(current_location__isnull=True) | Q(current_location__id__in=registry_staff_ids))
             .select_related("current_location", "owner", "department")
         )

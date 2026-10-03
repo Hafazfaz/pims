@@ -7,12 +7,7 @@
             <div class="text-center">
                 <h2 class="mt-6 text-3xl font-extrabold text-gray-900">Account Locked Out</h2>
                 <p class="mt-2 text-sm text-gray-600">
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="mt-2 p-3 text-sm text-red-700 bg-red-100 rounded-lg"
-                                 role="alert">{{ message }}</div>
-                        {% endfor %}
-                    {% else %}
+                    {% if not messages %}
                         Your account has been locked out due to too many failed login attempts.
                         Please contact support or try again later.
                     {% endif %}

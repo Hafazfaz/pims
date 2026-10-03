@@ -10,12 +10,14 @@ from .document_views import (  # noqa: F401
     DocumentCreateView,
     DocumentDeleteView,
     DocumentDetailView,
+    DocumentEditView,
     DocumentDownloadView,
-    DocumentNewVersionView,
     DocumentShareEmailView,
     DocumentShareView,
     FileDocumentsView,
+    StandaloneUrgentDocumentActionView,
     StandaloneUrgentDocumentCreateView,
+    StandaloneUrgentDocumentDetailView,
 )
 from .file_views import (  # noqa: F401
     DirectorAdminDashboardView,

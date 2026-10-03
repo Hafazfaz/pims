@@ -44,9 +44,7 @@
             {% if user.is_superuser or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor or file_obj.owner_id == user.staff.id or file_obj.current_location_id == user.staff.id or doc.uploaded_by_id == user.id or can_browse_subordinates %}
                 {% if doc.has_files %}
                     <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}"
-                       class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest mr-3">View</a>
-                    <a href="{% url 'document_management:document_download' doc.pk %}"
-                       class="text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">Download{% if doc.attachment_count > 1 %} ({{ doc.attachment_count }}){% endif %}</a>
+                       class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">View</a>
                 {% else %}
                     <span class="text-slate-300 font-bold text-[10px] uppercase tracking-widest italic">Digital Entry</span>
                 {% endif %}

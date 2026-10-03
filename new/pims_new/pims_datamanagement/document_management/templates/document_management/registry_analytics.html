@@ -129,5 +129,109 @@
                 </div>
             </div>
         </div>
+        <!-- Urgent Document Register -->
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 class="text-lg font-black text-slate-900 uppercase tracking-widest">Urgent Document Register</h3>
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
+                        Logged here so Registry can see what was sent — contents stay with the custodians
+                    </p>
+                </div>
+                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest
+                    {% if urgent_open_count > 0 %}bg-red-50 text-red-600 border border-red-100{% else %}bg-slate-50 text-slate-500 border border-slate-100{% endif %}">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ urgent_open_count }} open
+                </span>
+            </div>
+
+            {% if urgent_documents %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em]">
+                            <th class="px-6 py-4">Priority</th>
+                            <th class="px-6 py-4">Document</th>
+                            <th class="px-6 py-4">Folder</th>
+                            <th class="px-6 py-4">Filed By</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4 text-right">Record</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium">
+                        {% for doc in urgent_documents %}
+                        <tr class="hover:bg-slate-50/60 transition-colors">
+                            <td class="px-6 py-4">
+                                {% include 'document_management/partials/_priority_badge.html' with priority=doc.priority %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-slate-800">{{ doc.title|default:"Untitled Document" }}</div>
+                                {% if not doc.file %}
+                                <div class="text-[10px] text-slate-400 italic mt-0.5">Standalone urgent document</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if doc.file %}
+                                <div class="font-bold text-slate-800 text-xs">{{ doc.file.file_number }}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{{ doc.file.title }}</div>
+                                {% else %}
+                                <div class="text-[10px] text-slate-400 italic">No folder</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-xs font-semibold text-slate-800">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-[9px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-tighter
+                                    {% if doc.status == 'pending' %}bg-amber-50 text-amber-600 border-amber-100
+                                    {% elif doc.status == 'in_transit' %}bg-blue-50 text-blue-600 border-blue-100
+                                    {% elif doc.status == 'approved' %}bg-green-50 text-green-600 border-green-100
+                                    {% elif doc.status == 'rejected' %}bg-red-50 text-red-600 border-red-100
+                                    {% else %}bg-slate-50 text-slate-600 border-slate-100{% endif %}">
+                                    {{ doc.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-[10px] text-slate-400 font-semibold uppercase">{{ doc.uploaded_at|date:"M d, Y" }}</div>
+                            </td>
+                            <td class="px-6 py-4 text-right whitespace-nowrap">
+                                {% if doc.file %}
+                                <a href="{% url 'document_management:registry_file_view' pk=doc.file_id %}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all">
+                                    View file
+                                    <i class="fas fa-arrow-right"></i>
+                                </a>
+                                {% else %}
+                                <a href="{% url 'document_management:urgent_document_detail' pk=doc.pk %}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all">
+                                    View record
+                                    <i class="fas fa-arrow-right"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="px-8 py-12 text-center">
+                <i class="fas fa-check-circle text-3xl text-slate-200 mb-3"></i>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">No urgent documents on record.</p>
+            </div>
+            {% endif %}
+
+            <div class="px-8 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 font-medium">
+                <i class="fas fa-lock text-slate-400"></i>
+                <span>
+                    Registry sees metadata only — document contents are never shown here.
+                    {% if urgent_personal_open_count > 0 %}
+                    <strong class="text-slate-700">{{ urgent_personal_open_count }} urgent item{{ urgent_personal_open_count|pluralize }}</strong>
+                    {% if urgent_personal_open_count == 1 %}sits{% else %}sit{% endif %} inside staff personal files — titles and contents withheld from Registry.
+                    {% endif %}
+                </span>
+            </div>
+        </div>
     </div>
 {% endblock %}

@@ -1,0 +1,318 @@
+{% if hx_request %}{% include 'partials/messages.html' %}{% endif %}
+
+<!-- Tabs + Filter -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+  <nav class="inline-flex items-center gap-1.5 bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 w-fit max-w-full overflow-x-auto"
+       aria-label="Inbox tabs">
+    <a href="{% url 'document_management:inbox' %}?filter={{ current_filter }}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all
+              {% if current_tab == 'untreated' %}bg-slate-900 text-white shadow-sm{% else %}text-slate-500 hover:text-slate-900 hover:bg-slate-50{% endif %}">
+      Untreated
+      <span class="min-w-[1.4rem] px-1.5 py-0.5 text-[10px] font-black rounded-full text-center leading-none
+           {% if current_tab == 'untreated' %}bg-white/20 text-white{% else %}bg-amber-50 text-amber-600{% endif %}">
+        {{ untreated_count }}
+      </span>
+    </a>
+    <a href="{% url 'document_management:inbox' %}?tab=treated&filter={{ current_filter }}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all
+              {% if current_tab == 'treated' %}bg-slate-900 text-white shadow-sm{% else %}text-slate-500 hover:text-slate-900 hover:bg-slate-50{% endif %}">
+      Treated
+      <span class="min-w-[1.4rem] px-1.5 py-0.5 text-[10px] font-black rounded-full text-center leading-none
+           {% if current_tab == 'treated' %}bg-white/20 text-white{% else %}bg-green-50 text-green-600{% endif %}">
+        {{ treated_count }}
+      </span>
+    </a>
+  </nav>
+
+  <div class="inline-flex items-center gap-1.5 bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 w-fit max-w-full overflow-x-auto"
+       role="group" aria-label="Filter by priority">
+    <a href="{% url 'document_management:inbox' %}?tab={{ current_tab }}&filter=all"
+       class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all
+              {% if current_filter == 'all' %}bg-nigeria-green text-white shadow-sm{% else %}text-slate-500 hover:text-slate-900 hover:bg-slate-50{% endif %}">
+      All
+      <span class="min-w-[1.4rem] px-1.5 py-0.5 text-[10px] font-black rounded-full text-center leading-none
+           {% if current_filter == 'all' %}bg-white/25 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ tab_all_count }}
+      </span>
+    </a>
+    <a href="{% url 'document_management:inbox' %}?tab={{ current_tab }}&filter=urgent"
+       class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all
+              {% if current_filter == 'urgent' %}bg-red-600 text-white shadow-md ring-1 ring-red-700/30{% else %}text-slate-500 hover:text-red-600 hover:bg-red-50{% endif %}">
+      <svg class="w-4 h-4 {% if current_filter == 'urgent' %}opacity-100{% else %}text-red-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      Urgent
+      <span class="min-w-[1.4rem] px-1.5 py-0.5 text-[10px] font-black rounded-full text-center leading-none
+           {% if current_filter == 'urgent' %}bg-white text-red-600{% else %}bg-red-600 text-white shadow-sm shadow-red-300{% endif %}">
+        {{ tab_urgent_count }}
+      </span>
+    </a>
+  </div>
+</div>
+
+<section class="space-y-4">
+  {% if movements %}
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    {% if current_filter == 'urgent' %}
+    <div class="bg-red-600 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/20 ring-1 ring-white/30 shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </span>
+        <div>
+          <p class="text-sm font-black text-white uppercase tracking-wide">
+            {{ tab_urgent_count }} urgent item{{ tab_urgent_count|pluralize }} in {{ current_tab }}
+          </p>
+          <p class="text-xs text-red-100 font-medium mt-0.5">Urgent &amp; high priority documents across your active files.</p>
+        </div>
+      </div>
+      {% if perms.user_management.can_set_urgent_priority %}
+      <a href="{% url 'document_management:my_files' %}"
+         class="inline-flex items-center gap-2 px-4 py-2 bg-white text-red-600 rounded-lg text-[11px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors whitespace-nowrap">
+        Create urgent doc
+        <span aria-hidden="true">→</span>
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-slate-800">
+            <th class="px-6 py-5 whitespace-nowrap">Priority</th>
+            <th class="px-6 py-5">Document</th>
+            <th class="px-6 py-5 whitespace-nowrap">Folder</th>
+            <th class="px-6 py-5 whitespace-nowrap">From</th>
+            <th class="px-6 py-5 text-center whitespace-nowrap">Status</th>
+            <th class="px-6 py-5 whitespace-nowrap">Received</th>
+            <th class="px-6 py-5 text-right whitespace-nowrap min-w-[130px]">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 font-medium">
+          {% for row in movements %}
+          {% if row.kind == 'movement' %}
+          {% with movement=row.obj %}
+          <tr class="hover:bg-amber-50/20 transition-colors
+              {% if row.priority == 'urgent' %}bg-red-50/40 shadow-[inset_4px_0_0_0_#dc2626]
+              {% elif row.priority == 'high' %}shadow-[inset_4px_0_0_0_#f59e0b]{% endif %}">
+            <td class="px-6 py-6">
+              {% include 'document_management/partials/_priority_badge.html' with priority=row.priority %}
+            </td>
+            <td class="px-6 py-6">
+              {% if movement.document %}
+              <a href="{% url 'document_management:inbox_document_detail' pk=movement.pk %}"
+                 class="font-bold text-nigeria-green hover:underline">
+                {{ movement.document.title|default:"Untitled Document" }}
+              </a>
+              {% else %}
+              <span class="text-slate-400 italic text-xs">No document attached</span>
+              {% endif %}
+              {% if movement.note %}<div class="text-[10px] text-slate-400 mt-1 italic">Note: {{ movement.note }}</div>{% endif %}
+            </td>
+            <td class="px-6 py-6">
+              <div class="font-bold text-slate-800 text-xs">{{ movement.file.file_number }}</div>
+              <div class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{{ movement.file.title }}</div>
+            </td>
+            <td class="px-6 py-6">
+              <div class="text-xs font-semibold text-slate-800">{{ movement.sent_by.get_full_name|default:movement.sent_by.username }}</div>
+            </td>
+            <td class="px-6 py-6 text-center">
+              {% if movement.status == 'pending' %}
+              <span class="text-[9px] font-bold px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 uppercase tracking-tighter">Pending</span>
+              {% elif movement.status == 'approved' %}
+              <span class="text-[9px] font-bold px-3 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 uppercase tracking-tighter">Approved</span>
+              {% elif movement.status == 'rejected' %}
+              <span class="text-[9px] font-bold px-3 py-1 bg-red-50 text-red-600 rounded-full border border-red-100 uppercase tracking-tighter">Rejected</span>
+              {% elif movement.status == 'forwarded' %}
+              <span class="text-[9px] font-bold px-3 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100 uppercase tracking-tighter">Forwarded</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-6">
+              <div class="text-[10px] text-slate-400 font-semibold uppercase">{{ movement.moved_at|date:"M d, Y @ P" }}</div>
+            </td>
+            <td class="px-6 py-6 text-right whitespace-nowrap">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% url 'document_management:inbox_document_detail' pk=movement.pk %}"
+                   class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap">
+                  View Doc
+                </a>
+                {% if movement.status == 'pending' and movement.sent_to == request.user.staff %}
+                  <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit"
+                            hx-post="{% url 'document_management:document_action' pk=movement.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
+                            hx-target="#inbox-panel"
+                            hx-swap="innerHTML"
+                            hx-disabled-elt="this"
+                            class="px-3 py-2 bg-green-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 whitespace-nowrap">
+                      <span class="htmx-indicator inline-flex items-center gap-1">
+                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                      </span>
+                      {% if is_hod_or_supervisor %}Approve{% else %}Forward{% endif %}
+                    </button>
+                  </form>
+                  <button type="button" onclick="document.getElementById('reject-modal-{{ movement.pk }}').classList.remove('hidden')"
+                          class="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">
+                    Reject
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Reject inline row -->
+          <tr id="reject-modal-{{ movement.pk }}" class="hidden bg-red-50">
+            <td colspan="7" class="px-6 py-4">
+              <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="flex items-center gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <input type="text" name="note" placeholder="Reason for rejection (required)"
+                       class="flex-1 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-red-400"
+                       required>
+                <button type="submit"
+                        hx-post="{% url 'document_management:document_action' pk=movement.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
+                        hx-target="#inbox-panel"
+                        hx-swap="innerHTML"
+                        hx-disabled-elt="this"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">Confirm Reject</button>
+                <button type="button" onclick="document.getElementById('reject-modal-{{ movement.pk }}').classList.add('hidden')"
+                        class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-300">Cancel</button>
+              </form>
+            </td>
+          </tr>
+          {% endwith %}
+
+          {% else %}
+          {% with doc=row.obj %}
+          <tr class="hover:bg-red-50/40 transition-colors
+              {% if row.priority == 'urgent' %}bg-red-50/40 shadow-[inset_4px_0_0_0_#dc2626]
+              {% elif row.priority == 'high' %}shadow-[inset_4px_0_0_0_#f59e0b]{% endif %}">
+            <td class="px-6 py-6">
+              {% include 'document_management/partials/_priority_badge.html' with priority=row.priority %}
+            </td>
+            <td class="px-6 py-6">
+              {% if doc.file %}
+              <a href="{% url 'document_management:document_detail' pk=doc.pk %}"
+                 class="font-bold text-nigeria-green hover:underline">
+                {{ doc.title|default:"Untitled Document" }}
+              </a>
+              {% else %}
+              <a href="{% url 'document_management:urgent_document_detail' pk=doc.pk %}"
+                 class="font-bold text-nigeria-green hover:underline">
+                {{ doc.title|default:"Untitled Document" }}
+              </a>
+              <div class="text-[10px] text-slate-400 italic mt-0.5">Standalone urgent document</div>
+              {% endif %}
+            </td>
+            <td class="px-6 py-6">
+              {% if doc.file %}
+                <div class="font-bold text-slate-800 text-xs">{{ doc.file.file_number }}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{{ doc.file.title }}</div>
+              {% else %}
+                <div class="text-[10px] text-slate-400 italic">No folder</div>
+              {% endif %}
+            </td>
+            <td class="px-6 py-6">
+              <div class="text-xs font-semibold text-slate-800">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}</div>
+            </td>
+            <td class="px-6 py-6 text-center">
+              <span class="text-[9px] font-bold px-3 py-1 rounded-full border uppercase tracking-tighter
+                  {% if doc.status == 'pending' %}bg-amber-50 text-amber-600 border-amber-100
+                  {% elif doc.status == 'in_transit' %}bg-blue-50 text-blue-600 border-blue-100
+                  {% elif doc.status == 'approved' %}bg-green-50 text-green-600 border-green-100
+                  {% elif doc.status == 'rejected' %}bg-red-50 text-red-600 border-red-100
+                  {% else %}bg-slate-50 text-slate-600 border-slate-100{% endif %}">
+                {{ doc.get_status_display }}
+              </span>
+            </td>
+            <td class="px-6 py-6">
+              <div class="text-[10px] text-slate-400 font-semibold uppercase">{{ doc.uploaded_at|date:"M d, Y @ P" }}</div>
+            </td>
+            <td class="px-6 py-6 text-right whitespace-nowrap">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% if doc.file %}{% url 'document_management:document_detail' pk=doc.pk %}{% else %}{% url 'document_management:urgent_document_detail' pk=doc.pk %}{% endif %}"
+                   class="inline-flex items-center gap-1.5 px-4 py-2 {% if row.priority == 'urgent' %}bg-red-600 hover:bg-red-700{% else %}bg-slate-900 hover:bg-black{% endif %} text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap">
+                  Open
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {% if row.can_action %}
+                <form method="post" action="{% url 'document_management:urgent_document_action' pk=doc.pk %}" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="approve">
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button type="submit"
+                          hx-post="{% url 'document_management:urgent_document_action' pk=doc.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
+                          hx-target="#inbox-panel"
+                          hx-swap="innerHTML"
+                          hx-disabled-elt="this"
+                          class="px-3 py-2 bg-green-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 whitespace-nowrap">
+                    Approve
+                  </button>
+                </form>
+                <button type="button"
+                        onclick="document.getElementById('urgent-reject-{{ doc.pk }}').classList.toggle('hidden')"
+                        class="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">
+                  Reject
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+
+          {% if row.can_action %}
+          <!-- Standalone urgent document: send back to filer -->
+          <tr id="urgent-reject-{{ doc.pk }}" class="hidden bg-red-50">
+            <td colspan="7" class="px-6 py-4">
+              <form method="post" action="{% url 'document_management:urgent_document_action' pk=doc.pk %}" class="flex items-center gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="text" name="note" placeholder="Reason for sending back (required)"
+                       class="flex-1 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-red-400"
+                       required>
+                <button type="submit"
+                        hx-post="{% url 'document_management:urgent_document_action' pk=doc.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
+                        hx-target="#inbox-panel"
+                        hx-swap="innerHTML"
+                        hx-disabled-elt="this"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">Send back</button>
+                <button type="button" onclick="document.getElementById('urgent-reject-{{ doc.pk }}').classList.add('hidden')"
+                        class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-300">Cancel</button>
+              </form>
+            </td>
+          </tr>
+          {% endif %}
+          {% endwith %}
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'document_management/partials/_pagination.html' with page_obj=page_obj page_param='page' %}
+  </div>
+  {% else %}
+  <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-24 text-center">
+    <svg class="w-16 h-16 {% if current_filter == 'urgent' %}text-red-200{% elif current_tab == 'treated' %}text-green-200{% else %}text-slate-200{% endif %} mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {% if current_filter == 'urgent' %}
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      {% elif current_tab == 'treated' %}
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      {% else %}
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      {% endif %}
+    </svg>
+    {% if current_filter == 'urgent' %}
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">No urgent documents requiring attention.</p>
+    <p class="text-[11px] text-slate-400 font-medium italic mt-2">You're all caught up.</p>
+    <a href="{% url 'document_management:inbox' %}?tab={{ current_tab }}&filter=all"
+       class="inline-block mt-4 text-[11px] font-bold text-slate-500 hover:text-slate-800 underline">
+      Show all items instead
+    </a>
+    {% elif current_tab == 'treated' %}
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">Nothing treated yet.</p>
+    <p class="text-[11px] text-slate-400 font-medium italic mt-2">Approved, rejected, and forwarded items will appear here.</p>
+    {% else %}
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] italic">No documents in your inbox.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
