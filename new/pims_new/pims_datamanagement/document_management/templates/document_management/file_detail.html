@@ -716,10 +716,10 @@
                                         </button>
                                     </div>
                                     <div class="mt-2 h-[75vh] w-full bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                        <embed :src="previewUrl + '#toolbar=0'"
-                                               type="application/pdf"
-                                               width="100%"
-                                               height="100%" />
+                                        <iframe :src="previewUrl + '?inline=1'"
+                                                class="w-full h-full border-0"
+                                                title="Document preview"
+                                                sandbox="allow-same-origin allow-scripts"></iframe>
                                     </div>
                                 </div>
                             </div>
