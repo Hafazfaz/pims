@@ -38,13 +38,27 @@ class FileAccessRequestApproveView(RegistryRequiredMixin, View):
     def post(self, request, pk):
         access_req = get_object_or_404(FileAccessRequest, pk=pk)
 
-        # Defence-in-depth: R&W access can only be approved for users with the
-        # supervisor-level permission. Read-only requests are open to normal staff.
+        # Defence-in-depth, mirroring the request form:
+        #  - Read-Only is reserved for supervisor roles.
+        #  - Read & Write requires the Read & Write request permission.
+        requester_staff = getattr(access_req.requested_by, "staff", None)
+        requester_is_supervisor = bool(
+            requester_staff and requester_staff.is_effective_supervisor
+        )
+        if access_req.access_type == "read_only" and not requester_is_supervisor:
+            messages.error(
+                request, "Read-Only access can only be approved for supervisor roles."
+            )
+            return redirect("document_management:access_request_list")
+
         if (
             access_req.access_type == "read_write"
             and not access_req.requested_by.has_perm("user_management.can_request_file_access_rw")
         ):
-            messages.error(request, "Read & Write access can only be approved for users in the Supervisor group.")
+            messages.error(
+                request,
+                "Read & Write access cannot be approved — the requester lacks the required permission.",
+            )
             return redirect("document_management:access_request_list")
 
         access_req.status = "approved"

@@ -779,24 +779,31 @@
                                     <input type="hidden" name="action" value="request_access">
                                     <div class="space-y-4">
                                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-widest">Requested Access Type</label>
-                                        <div class="grid grid-cols-2 gap-4">
+                                        <div class="grid {% if can_request_ro_access and can_request_rw_access %}grid-cols-2{% else %}grid-cols-1{% endif %} gap-4">
+                                            {% if can_request_ro_access %}
                                             <label class="relative flex flex-col p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-blue-200 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                                                 <input type="radio"
                                                        name="access_type"
                                                        value="read_only"
                                                        class="hidden"
-                                                       checked>
+                                                       {% if not can_request_rw_access %}checked{% endif %}>
                                                 <span class="text-xs font-bold text-slate-900">Read-Only</span>
                                                 <span class="text-[10px] text-slate-500 mt-1 leading-tight">View folders and documents without editing permissions.</span>
                                             </label>
+                                            {% endif %}
                                             {% if can_request_rw_access %}
                                             <label class="relative flex flex-col p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-red-200 transition-all has-[:checked]:border-red-500 has-[:checked]:bg-red-50">
-                                                <input type="radio" name="access_type" value="read_write" class="hidden">
+                                                <input type="radio" name="access_type" value="read_write" class="hidden" {% if not can_request_ro_access %}checked{% endif %}>
                                                 <span class="text-xs font-bold text-slate-900">Read &amp; Write</span>
                                                 <span class="text-[10px] text-slate-500 mt-1 leading-tight">Full administrative access to add or remove minutes/files.</span>
                                             </label>
                                             {% endif %}
                                         </div>
+                                        {% if not can_request_ro_access %}
+                                        <p class="text-[10px] text-slate-400 italic">
+                                            Read-Only access is reserved for supervisor roles. Staff can request Read &amp; Write access only.
+                                        </p>
+                                        {% endif %}
                                     </div>
                                     <div class="space-y-2">
                                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-widest">Reason for Access</label>

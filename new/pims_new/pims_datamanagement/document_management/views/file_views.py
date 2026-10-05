@@ -916,7 +916,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         pending_access_request = FileAccessRequest.objects.filter(
             file=file_obj, requested_by=user, status="pending"
         ).exists()
-        can_request_ro = user.has_perm("user_management.can_request_file_access")
+        # Access levels are role-restricted: normal staff may only request
+        # Read & Write, while Read-Only is reserved for supervisor roles.
+        is_supervisor_viewer = bool(staff and staff.is_effective_supervisor)
+        can_request_ro = bool(
+            is_supervisor_viewer and user.has_perm("user_management.can_request_file_access")
+        )
         can_request_rw = user.has_perm("user_management.can_request_file_access_rw")
         can_request_access = bool(
             not has_approved_access
@@ -931,6 +936,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["has_approved_access"] = has_approved_access
         context["has_rw_access"] = has_rw_access
         context["access_type"] = "read_write" if has_rw_access else ("read_only" if has_approved_access else None)
+        context["can_request_ro_access"] = can_request_ro
         context["can_request_rw_access"] = can_request_rw
         context["is_registry"] = is_registry
         context["can_view_original"] = self.can_view_original(file_obj, user)
@@ -1061,7 +1067,15 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             ).exists()
             holder = file_obj.current_location
             holder_is_registry = bool(holder and holder.is_registry)
-            access_type = request.POST.get("access_type", "read_only")
+            requester_staff = getattr(request.user, "staff", None)
+            requester_is_supervisor = bool(
+                requester_staff and requester_staff.is_effective_supervisor
+            )
+            access_type = (request.POST.get("access_type") or "").strip().lower()
+            if access_type not in ("read_only", "read_write"):
+                # Anything unexpected falls back to the level the requester is
+                # actually entitled to (staff -> Read & Write only).
+                access_type = "read_write" if not requester_is_supervisor else "read_only"
             if already_pending:
                 messages.warning(request, "You already have a pending access request for this file.")
             elif file_obj.status == "in_transit" or (holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry):
@@ -1070,8 +1084,11 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.error(request, "Access can only be requested when the file is at rest with Registry.")
             elif access_type == "read_write" and not request.user.has_perm("user_management.can_request_file_access_rw"):
                 messages.error(request, "You do not have permission to request Read & Write access.")
-            elif access_type == "read_only" and not request.user.has_perm("user_management.can_request_file_access"):
-                messages.error(request, "You do not have permission to request file access.")
+            elif access_type == "read_only" and not (
+                requester_is_supervisor
+                and request.user.has_perm("user_management.can_request_file_access")
+            ):
+                messages.error(request, "Read-Only access requests are reserved for supervisors.")
             else:
                 FileAccessRequest.objects.create(
                     file=file_obj,

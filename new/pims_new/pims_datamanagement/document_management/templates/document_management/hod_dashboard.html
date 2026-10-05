@@ -162,8 +162,12 @@
                                                             {% csrf_token %}
                                                             <input type="hidden" name="action" value="request_access">
                                                             <select name="access_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                                                                {% if can_request_ro_access %}
                                                                 <option value="read_only">Read Only</option>
+                                                                {% endif %}
+                                                                {% if can_request_rw_access or not can_request_ro_access %}
                                                                 <option value="read_write">Read &amp; Write</option>
+                                                                {% endif %}
                                                             </select>
                                                             <textarea name="reason" rows="3" required placeholder="Reason for requesting this file..."
                                                                       class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-400 resize-none"></textarea>

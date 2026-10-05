@@ -443,5 +443,8 @@ class FileAccessRequestForm(forms.ModelForm):
             "reason": "Reason for Access",
         }
         help_texts = {
-            "access_type": "Read-Only: View and download only | Read-Write: Add/remove documents",
+            "access_type": (
+                "Read-Only (supervisor roles only): view and download only | "
+                "Read & Write: add/remove documents"
+            ),
         }
