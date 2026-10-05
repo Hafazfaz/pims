@@ -768,7 +768,12 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
                 signature.image = uploaded_image
             elif sig_data and "," in sig_data:
                 format, imgstr = sig_data.split(";base64,")
-                ext = format.split("/")[-1]
+                ext = format.split("/")[-1].lower()
+                if ext == "jpeg":
+                    ext = "jpg"
+                if ext not in ("jpg", "png"):
+                    messages.error(request, "Only JPG and PNG signature images are accepted.")
+                    return redirect("user_management:profile")
                 data = ContentFile(
                     base64.b64decode(imgstr),
                     name=f"{staff.user.username}_sig_{uuid.uuid4().hex[:8]}.{ext}",

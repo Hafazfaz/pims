@@ -1,3 +1,5 @@
+import os
+
 from django import forms
 from django.contrib.auth import get_user_model
 from organization.models import Department, Designation, Division, Section, StaffSignature, Unit
@@ -7,11 +9,25 @@ CustomUser = get_user_model()
 
 class SignatureUploadForm(forms.ModelForm):
     signature_data = forms.CharField(required=False, widget=forms.HiddenInput())
-    image = forms.ImageField(required=False, label="Upload Signature Image")
+    image = forms.ImageField(
+        required=False,
+        label="Upload Signature Image",
+        widget=forms.FileInput(attrs={"accept": ".jpg,.jpeg,.png"}),
+    )
 
     class Meta:
         model = StaffSignature
         fields = []
+
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        if image:
+            ext = os.path.splitext(image.name or "")[1].lower().lstrip(".")
+            if ext == "jpeg":
+                ext = "jpg"
+            if ext not in ("jpg", "png"):
+                raise forms.ValidationError("Only JPG and PNG signature images are accepted.")
+        return image
 
 
 class UserCreateForm(forms.ModelForm):
