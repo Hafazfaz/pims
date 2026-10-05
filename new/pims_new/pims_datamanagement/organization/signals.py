@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from .models import designation_implies_hod
+from .models import designation_implies_final_approver, designation_implies_hod
 
 
 def _get_hod_group():
@@ -60,6 +60,17 @@ def _sync_head_permissions(staff):
     _set_user_perm(user, "can_head_unit", Unit.objects.filter(head=staff).exists())
 
 
+def _sync_approve_permission(staff):
+    """Keep ``can_approve_document`` tied to the Medical Director role only.
+
+    Nothing else — no head appointment, no Supervisor/HOD group — carries
+    final approval; everyone else routes their approval to an approver.
+    """
+    if not staff.user_id:
+        return
+    _set_user_perm(staff.user, "can_approve_document", designation_implies_final_approver(staff.designation))
+
+
 def _is_still_head(staff):
     """Return True if staff is still head of any dept or unit."""
     from .models import Department, Unit
@@ -98,6 +109,7 @@ def staff_supervisor_flag_post_save(sender, instance, **kwargs):
     the ``is_supervisor`` flag, the designation, and head appointments."""
     _sync_supervisor_group(instance)
     _sync_head_permissions(instance)
+    _sync_approve_permission(instance)
 
 
 @receiver(pre_save, sender="organization.Department")

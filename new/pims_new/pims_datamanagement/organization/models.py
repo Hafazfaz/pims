@@ -16,6 +16,20 @@ def designation_implies_hod(designation):
     return any(role in lowered for role in HOD_DESIGNATION_ROLES)
 
 
+# Designation names that hold the single document-approval right
+# (``user_management.can_approve_document``). Nothing else — no other
+# designation, group or head appointment — grants final approval.
+FINAL_APPROVER_DESIGNATION_ROLES = ("medical director",)
+
+
+def designation_implies_final_approver(designation):
+    """True when a designation lets the holder give the final approval."""
+    if designation is None or not designation.name:
+        return False
+    lowered = designation.name.lower()
+    return any(role in lowered for role in FINAL_APPROVER_DESIGNATION_ROLES)
+
+
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=10, unique=True)
@@ -196,6 +210,16 @@ class Staff(models.Model):
     def is_mayor(self):
         """Custom Mayor role — via the executive permission bundle."""
         return self.user.has_perm("user_management.can_executive")
+
+    @property
+    def can_final_approve(self):
+        """Holds the one document-approval right (Medical Director role).
+
+        Superusers pass implicitly. HODs, unit heads and supervisors do NOT
+        get it from their head appointment or group — their approval routes
+        the document to an approver instead of settling it.
+        """
+        return self.user.has_perm("user_management.can_approve_document")
 
     @property
     def role_label(self):
