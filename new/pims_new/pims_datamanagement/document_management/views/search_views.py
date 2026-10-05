@@ -91,7 +91,6 @@ class RecipientSearchView(LoginRequiredMixin, View):
             for staff in recipients:
                 name = staff.user.get_full_name() or staff.user.username
                 email = staff.user.email or ""
-                designation = staff.designation.name if staff.designation else ""
                 dept = staff.department.name if staff.department else ""
                 unit = staff.unit.name if staff.unit else ""
                 role_badge = ""
@@ -120,7 +119,7 @@ class RecipientSearchView(LoginRequiredMixin, View):
                 location = " · ".join(location_parts)
 
                 safe_name = name.replace("'", "\\'")
-                meta = " — ".join(p for p in [designation, dept] if p)
+                meta = staff.role_label
                 safe_meta = meta.replace("'", "\\'")
                 html += f"""
                 <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer
@@ -132,7 +131,7 @@ class RecipientSearchView(LoginRequiredMixin, View):
                                 <p class="text-xs font-bold text-slate-900">{name}</p>
                                 {role_badge}
                             </div>
-                            <p class="text-[10px] text-slate-500 font-medium truncate">{designation} — {dept}</p>
+                            <p class="text-[10px] text-slate-500 font-medium truncate">{meta}</p>
                             <p class="text-[10px] text-slate-400 truncate">{email}</p>
                         </div>
                         <div class="text-right shrink-0">
@@ -257,7 +256,6 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
             for staff in recipients:
                 name = staff.user.get_full_name() or staff.user.username
                 email = staff.user.email or ""
-                designation = staff.designation.name if staff.designation else ""
                 unit = staff.unit.name if staff.unit else ""
                 dept = staff.department.name if staff.department else ""
                 location = " · ".join(p for p in [unit, dept] if p)
@@ -278,7 +276,7 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
                         'px-1.5 py-0.5 rounded font-bold uppercase">Supervisor</span>'
                     )
 
-                meta = " — ".join(p for p in [designation, dept] if p)
+                meta = staff.role_label
                 html += f"""
                 <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer
                             border-b border-slate-100 last:border-0
@@ -290,7 +288,7 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
                                 <p class="text-xs font-bold text-slate-900">{name}</p>
                                 {role_badge}
                             </div>
-                            <p class="text-[10px] text-slate-500 font-medium truncate">{designation} — {dept}</p>
+                            <p class="text-[10px] text-slate-500 font-medium truncate">{meta}</p>
                             <p class="text-[10px] text-slate-400 truncate">{email}</p>
                         </div>
                         <div class="text-right shrink-0">

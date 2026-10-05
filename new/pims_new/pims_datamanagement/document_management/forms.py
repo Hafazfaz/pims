@@ -6,15 +6,18 @@ from .models import Document, DocumentType, File, FileAccessRequest
 
 
 def staff_rich_label(staff):
-    """Full name — Designation, Department for dispatch/forward selects."""
+    """Full name — role (HOD (Dept) / HOU (Unit) / designation) for selects."""
     try:
-        name = staff.user.get_full_name() or staff.user.username
+        return staff.dispatch_label
     except Exception:
-        name = str(staff)
-    desig = getattr(getattr(staff, "designation", None), "name", "") or ""
-    dept = getattr(getattr(staff, "department", None), "name", "") or ""
-    meta = " · ".join(p for p in [desig, dept] if p)
-    return f"{name} — {meta}" if meta else name
+        try:
+            name = staff.user.get_full_name() or staff.user.username
+        except Exception:
+            name = str(staff)
+        desig = getattr(getattr(staff, "designation", None), "name", "") or ""
+        dept = getattr(getattr(staff, "department", None), "name", "") or ""
+        meta = " · ".join(p for p in [desig, dept] if p)
+        return f"{name} — {meta}" if meta else name
 
 
 class FileForm(forms.ModelForm):

@@ -887,9 +887,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         for staff in eligible:
             name = staff.user.get_full_name() or staff.user.username
             safe = name.replace("'", "\\'")
-            desig = staff.designation.name if staff.designation else ""
-            dept = staff.department.name if staff.department else ""
-            meta = " — ".join(p for p in [desig, dept] if p)
+            meta = staff.role_label
             safe_meta = meta.replace("'", "\\'")
             is_selected = bool(selected) and str(staff.pk) == str(selected)
             row_cls = (

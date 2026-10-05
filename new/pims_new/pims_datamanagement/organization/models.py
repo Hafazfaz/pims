@@ -197,6 +197,33 @@ class Staff(models.Model):
         """Custom Mayor role — via the executive permission bundle."""
         return self.user.has_perm("user_management.can_executive")
 
+    @property
+    def role_label(self):
+        """Role-first meta shown wherever a recipient is picked.
+
+        Executives show their designation ("Medical Director", "Executive
+        Director"); department heads show ``HOD (<department>)``; unit heads
+        show ``HOU (<unit>)``; everyone else falls back to
+        ``Designation · Department``.
+        """
+        designation = getattr(getattr(self, "designation", None), "name", "") or ""
+        department = getattr(getattr(self, "department", None), "name", "") or ""
+        unit = getattr(getattr(self, "unit", None), "name", "") or ""
+        if self.is_md or self.is_mayor or self.is_executive:
+            return designation or "Executive"
+        if self.is_hod:
+            return f"HOD ({department})" if department else "HOD"
+        if self.is_head_of_unit:
+            return f"HOU ({unit})" if unit else "HOU"
+        return " · ".join(part for part in [designation, department] if part)
+
+    @property
+    def dispatch_label(self):
+        """``Full name — <role_label>`` for dispatch/forward selects and rows."""
+        name = self.user.get_full_name() or self.user.username
+        role = self.role_label
+        return f"{name} — {role}" if role else name
+
 
 class StaffSignature(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name="signatures")
