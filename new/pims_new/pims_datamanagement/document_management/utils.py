@@ -108,6 +108,70 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Upload whitelist: PDF + JPEG/PNG images only
+# ---------------------------------------------------------------------------
+#
+# Plain downloads are disabled system-wide (inline preview only), so an
+# upload is only useful when the browser can display it directly. Anything
+# else (DOCX/XLSX/TXT/ZIP/videos/...) is rejected on the client, in forms,
+# and in the views that read request.FILES.
+
+from django.core.exceptions import ValidationError
+
+# The only extensions we accept.
+ALLOWED_UPLOAD_EXTS = {
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+}
+
+# MIME types browsers report for those extensions (plus common aliases).
+ALLOWED_UPLOAD_MIME_TYPES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/pjpeg",
+    "image/png",
+    "image/x-png",
+}
+
+# Value for the file inputs' accept attribute / picker hint text.
+UPLOAD_ACCEPT = ".pdf,.jpg,.jpeg,.png"
+UPLOAD_HINT = "PDF or image files only (JPG, JPEG, PNG) up to 10MB each"
+
+
+def upload_rejection_reason(filename, content_type=None):
+    """Return why a file is not allowed, or None when it is accepted."""
+    name = os.path.basename(filename or "") or "untitled file"
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext not in ALLOWED_UPLOAD_EXTS:
+        return f"'{name}' is not a supported type. Only PDF, JPG, JPEG and PNG files can be uploaded."
+    mime = (content_type or "").split(";")[0].strip().lower()
+    if mime and mime != "application/octet-stream" and mime not in ALLOWED_UPLOAD_MIME_TYPES:
+        return f"'{name}' does not look like a PDF, JPG or PNG file."
+    return None
+
+
+def rejected_upload_reasons(files):
+    """List of rejection reasons for a batch of uploads ([] when all fine)."""
+    reasons = []
+    for f in files or []:
+        if not f:
+            continue
+        reason = upload_rejection_reason(getattr(f, "name", ""), getattr(f, "content_type", None))
+        if reason:
+            reasons.append(reason)
+    return reasons
+
+
+def validate_allowed_uploads(files):
+    """Raise ``ValidationError`` unless every file is a browser-renderable PDF/image."""
+    reasons = rejected_upload_reasons(files)
+    if reasons:
+        raise ValidationError(reasons)
+
+
 # MIME types / extensions we can convert to PDF for in-browser preview.
 CONVERTIBLE_TO_PREVIEW = {
     ".doc": "application/msword",

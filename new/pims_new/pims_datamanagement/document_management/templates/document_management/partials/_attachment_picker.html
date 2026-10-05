@@ -11,9 +11,9 @@
         </button>
         <span class="text-xs text-slate-400 font-medium">or drag &amp; drop here — you can add more after</span>
       </div>
-      <p class="text-xs text-slate-500">PDF, DOCX, or JPEG up to 10MB each</p>
+      <p class="text-xs text-slate-500">PDF or image files only (JPG, JPEG, PNG) up to 10MB each</p>
       {# Real input kept in DOM for form submission; visually hidden but functional #}
-      <input type="file" name="{{ field.name }}" id="{{ field.id_for_label }}" multiple class="sr-only" aria-label="{{ field.label }}" />
+      <input type="file" name="{{ field.name }}" id="{{ field.id_for_label }}" multiple accept=".pdf,.jpg,.jpeg,.png" class="sr-only" aria-label="{{ field.label }}" />
       {% if field.help_text %}<p class="text-[10px] text-slate-400 font-medium italic">{{ field.help_text }}</p>{% endif %}
     </div>
   </div>

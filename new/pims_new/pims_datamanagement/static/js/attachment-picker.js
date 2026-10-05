@@ -15,6 +15,23 @@
     return f.name + "|" + f.size + "|" + f.lastModified;
   }
 
+  // Mirror of the server-side whitelist: only PDF and JPEG/PNG images are
+  // accepted (downloads are disabled, so the browser must render the file).
+  var ALLOWED_EXTS = [".pdf", ".jpg", ".jpeg", ".png"];
+  var ALLOWED_MIME = ["application/pdf", "image/jpeg", "image/pjpeg", "image/png", "image/x-png"];
+
+  function extOf(name) {
+    var i = (name || "").lastIndexOf(".");
+    return i < 0 ? "" : (name || "").slice(i).toLowerCase();
+  }
+
+  function isAllowedFile(f) {
+    if (ALLOWED_EXTS.indexOf(extOf(f.name)) === -1) return false;
+    var mime = (f.type || "").split(";")[0].trim().toLowerCase();
+    if (mime && mime !== "application/octet-stream" && ALLOWED_MIME.indexOf(mime) === -1) return false;
+    return true;
+  }
+
   function initPicker(root) {
     if (root._pickerInit) return;
     root._pickerInit = true;
@@ -30,6 +47,25 @@
 
     var store = new DataTransfer();
     var seen = new Set();
+    var errorEl = null;
+
+    function showRejected(names) {
+      if (!names.length) return;
+      if (!errorEl) {
+        errorEl = document.createElement("p");
+        errorEl.setAttribute("data-picker-error", "");
+        errorEl.className =
+          "text-[11px] font-bold text-red-600 border border-red-200 bg-red-50 rounded-xl px-4 py-3 text-center";
+        list.parentNode.insertBefore(errorEl, list);
+      }
+      errorEl.textContent =
+        "Only PDF, JPG, JPEG and PNG files are allowed — skipped: " + names.join(", ");
+      errorEl.style.display = "";
+    }
+
+    function clearRejected() {
+      if (errorEl) errorEl.style.display = "none";
+    }
 
     function syncInput() {
       input.files = store.files;
@@ -88,13 +124,20 @@
 
     function addFiles(fileList) {
       var added = 0;
+      var rejected = [];
+      clearRejected();
       Array.from(fileList).forEach(function (f) {
+        if (!isAllowedFile(f)) {
+          if (rejected.indexOf(f.name) === -1) rejected.push(f.name);
+          return;
+        }
         var k = fileKey(f);
         if (seen.has(k)) return;
         seen.add(k);
         store.items.add(f);
         added++;
       });
+      showRejected(rejected);
       if (added) {
         syncInput();
         render();
@@ -123,6 +166,7 @@
       seen = new Set();
       syncInput();
       input.value = "";
+      clearRejected();
       render();
     }
 

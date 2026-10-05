@@ -323,7 +323,13 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         self.object = form.save()
 
+        from document_management.utils import rejected_upload_reasons
+
         for f in self.request.FILES.getlist("attachments"):
+            rejected = rejected_upload_reasons([f])
+            if rejected:
+                messages.error(self.request, rejected[0])
+                continue
             # File creators are always registry: their uploads are official
             # records, so documents start out approved. The file itself stays
             # active (it only leaves active when dispatched for review).

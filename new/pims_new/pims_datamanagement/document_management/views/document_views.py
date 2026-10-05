@@ -473,11 +473,20 @@ class DocumentEditView(LoginRequiredMixin, View):
             messages.error(request, "You do not have permission to edit this document.")
             return redirect(self._detail_url(document))
 
+        uploads = request.FILES.getlist("attachment")
+        if uploads:
+            from document_management.utils import rejected_upload_reasons
+
+            rejected = rejected_upload_reasons(uploads)
+            if rejected:
+                for reason in rejected:
+                    messages.error(request, reason)
+                return redirect(self._detail_url(document))
+
         document.title = request.POST.get("title", "").strip() or document.title
         if "minute_content" in request.POST:
             document.minute_content = request.POST.get("minute_content", "").strip()
 
-        uploads = request.FILES.getlist("attachment")
         replacing_files = bool(uploads)
         if replacing_files:
             document.attachment = uploads[0]

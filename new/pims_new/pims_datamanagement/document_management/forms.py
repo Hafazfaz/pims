@@ -3,6 +3,7 @@ from organization.models import Division, Section, Staff, Unit
 from user_management.models import CustomUser
 
 from .models import Document, DocumentType, File, FileAccessRequest
+from .utils import UPLOAD_ACCEPT, rejected_upload_reasons
 
 
 def staff_rich_label(staff):
@@ -261,7 +262,8 @@ class DocumentForm(forms.ModelForm):
     attachment = MultipleFileField(
         required=False,
         label="Upload Attachment(s) — you may select multiple files",
-        widget=MultipleFileInput(attrs={"class": "form-control"}),
+        help_text="PDF, JPG, JPEG or PNG files only.",
+        widget=MultipleFileInput(attrs={"class": "form-control", "accept": UPLOAD_ACCEPT}),
     )
 
     class Meta:
@@ -338,6 +340,13 @@ class DocumentForm(forms.ModelForm):
         minute_content = cleaned_data.get("minute_content")
         attachment = cleaned_data.get("attachment")
 
+        # Only browser-renderable files are accepted (PDF/JPG/JPEG/PNG); every
+        # file in the multi-select is checked, not just the first one.
+        files = self.files.getlist("attachment") if getattr(self.files, "getlist", None) else []
+        reasons = rejected_upload_reasons(files)
+        if reasons:
+            raise forms.ValidationError({"attachment": reasons})
+
         if not minute_content and not attachment:
             raise forms.ValidationError("Please provide either minute content or an attachment.")
 
@@ -359,7 +368,8 @@ class SendFileForm(forms.Form):
     movement_attachment = forms.FileField(
         required=False,
         label="Covering Memo / Dispatch Note",
-        widget=forms.FileInput(attrs={"class": "form-control"}),
+        help_text="PDF, JPG, JPEG or PNG files only.",
+        widget=forms.FileInput(attrs={"class": "form-control", "accept": UPLOAD_ACCEPT}),
     )
     reference_documents = forms.ModelMultipleChoiceField(
         queryset=Document.objects.none(),
@@ -404,6 +414,13 @@ class SendFileForm(forms.Form):
             self.fields["reference_documents"].queryset = file_obj.documents.exclude(pk=document.pk).order_by(
                 "-uploaded_at"
             )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reasons = rejected_upload_reasons([cleaned_data.get("movement_attachment")])
+        if reasons:
+            raise forms.ValidationError({"movement_attachment": reasons})
+        return cleaned_data
 
 
 class FileUpdateForm(forms.ModelForm):
