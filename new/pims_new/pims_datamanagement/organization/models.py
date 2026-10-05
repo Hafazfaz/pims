@@ -5,7 +5,7 @@ from django.db.models import Q
 
 # Designation names that make a staff member a department head even when
 # they were never wired up as ``Department.head``.
-HOD_DESIGNATION_ROLES = ("head of department", "hod", "director")
+HOD_DESIGNATION_ROLES = ("head of department", "head of nursing", "hod", "director")
 
 
 def designation_implies_hod(designation):
