@@ -180,7 +180,15 @@ class UrgentCountView(LoginRequiredMixin, View):
 
 
 class InboxRecipientSearchView(LoginRequiredMixin, View):
-    """Recipient search for inbox forward — applies same routing rules as send file."""
+    """Recipient search for inbox forward/approve.
+
+    Normal requests follow the same routing rules as send-file.
+    ``approvers_only=1`` instead returns just the staff who hold
+    ``can_approve_document`` (the Medical Director role) — the only people a
+    reviewer without approval rights can route their approval to — and skips
+    the routing rules, because the approver may sit outside the sender's
+    usual scope.
+    """
 
     def get(self, request, *args, **kwargs):
         from document_management.permissions import can_manual_dispatch
@@ -201,8 +209,15 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
             .select_related("user", "designation", "department", "unit")
         )
 
+        # Approver search: only holders of can_approve_document are pickable
+        # as the final approver, and they are never hidden behind the normal
+        # routing rules.
+        if request.GET.get("approvers_only"):
+            from document_management.permissions import get_final_approvers
+
+            eligible_qs = get_final_approvers(exclude_staff=sender_staff)
         # Same routing rules as send handler
-        if sender_staff:
+        elif sender_staff:
             if sender_staff.is_md or sender_staff.is_executive:
                 eligible_qs = base_qs
             elif sender_staff.is_hod or (sender_staff.is_head_of_unit and sender_staff.is_privileged_head):

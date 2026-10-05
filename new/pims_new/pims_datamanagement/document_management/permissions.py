@@ -517,3 +517,38 @@ def can_share_document(user):
     if user.is_superuser:
         return True
     return user.has_perm("user_management.can_share_documents")
+
+
+# ---------------------------------------------------------------------------
+# Final approval (the single document-approval right)
+# ---------------------------------------------------------------------------
+
+
+def can_final_approve_document(user):
+    """Holder of ``can_approve_document`` — the Medical Director role.
+
+    Nobody else settles a document: HODs, unit heads and supervisors route
+    their approval to an approver instead.
+    """
+    if user.is_superuser:
+        return True
+    return user.has_perm("user_management.can_approve_document")
+
+
+def get_final_approvers(exclude_staff=None):
+    """Staff who can give the final document approval."""
+    from django.contrib.auth.models import Permission
+
+    from organization.models import Staff
+
+    perm = Permission.objects.get(codename="can_approve_document", content_type__app_label="user_management")
+    qs = (
+        Staff.objects.filter(
+            Q(user__user_permissions=perm) | Q(user__groups__permissions=perm) | Q(user__is_superuser=True)
+        )
+        .select_related("user", "designation", "department", "unit")
+        .distinct()
+    )
+    if exclude_staff is not None:
+        qs = qs.exclude(pk=exclude_staff.pk)
+    return qs
