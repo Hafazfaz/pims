@@ -1694,27 +1694,10 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
             self._urgent_doc_qs(staff, tab).exclude(pk__in=seen_doc_ids)[: self.ROW_LIMIT]
         )
 
-        # Standalone urgent documents have no movement, so they only get an
-        # inline approve/reject if this viewer may decide on them. Registry
-        # tracks them but never decides (separation of duties).
-        can_decide = bool(
-            staff and staff.is_effective_supervisor and not staff.is_registry
-        )
-        viewer_pk = self.request.user.pk
-
+        # Standalone urgent documents have no movement — decisions happen on
+        # their detail page, never inline in the list.
         rows = [self._movement_row(m) for m in movements]
-        rows.extend(
-            {
-                **self._document_row(d),
-                "can_action": bool(
-                    can_decide
-                    and d.file_id is None
-                    and d.uploaded_by_id != viewer_pk
-                    and d.status in ("pending", "in_transit")
-                ),
-            }
-            for d in documents
-        )
+        rows.extend(self._document_row(d) for d in documents)
         if urgent_only:
             rows = [r for r in rows if r["is_urgent"]]
         rows.sort(key=lambda r: r["date"], reverse=True)
@@ -1734,8 +1717,6 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         staff = getattr(self.request.user, "staff", None)
-        context["can_approve"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
-        context["is_hod_or_supervisor"] = bool(staff and (staff.is_hod or staff.is_effective_supervisor))
         context["current_tab"] = self.get_current_tab()
         context["current_filter"] = self.get_current_filter()
         # Legacy template/links key — 'urgent' while the urgent filter is on.
@@ -1788,14 +1769,6 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         # An htmx swap renders only the panel, so flash messages must be drawn
         # there. A full page load already shows them above the block content.
         context["hx_request"] = bool(self.request.headers.get("HX-Request"))
-
-        # For unit managers: pre-fill their HOD as the only forward recipient
-        prefilled_recipient = None
-        if staff and staff.is_head_of_unit and not (staff.is_hod or staff.is_md or staff.is_executive):
-            dept = staff.department
-            if dept and dept.head:
-                prefilled_recipient = dept.head
-        context["prefilled_recipient"] = prefilled_recipient
 
         return context
 

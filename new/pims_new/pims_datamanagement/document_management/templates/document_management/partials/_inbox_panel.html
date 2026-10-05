@@ -134,51 +134,10 @@
                    class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap">
                   View Doc
                 </a>
-                {% if movement.status == 'pending' and movement.sent_to == request.user.staff %}
-                  <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="approve">
-                    <button type="submit"
-                            hx-post="{% url 'document_management:document_action' pk=movement.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
-                            hx-target="#inbox-panel"
-                            hx-swap="innerHTML"
-                            hx-disabled-elt="this"
-                            class="px-3 py-2 bg-green-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 whitespace-nowrap">
-                      <span class="htmx-indicator inline-flex items-center gap-1">
-                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
-                      </span>
-                      {% if is_hod_or_supervisor %}Approve{% else %}Forward{% endif %}
-                    </button>
-                  </form>
-                  <button type="button" onclick="document.getElementById('reject-modal-{{ movement.pk }}').classList.remove('hidden')"
-                          class="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">
-                    Reject
-                  </button>
-                {% endif %}
               </div>
             </td>
           </tr>
 
-          <!-- Reject inline row -->
-          <tr id="reject-modal-{{ movement.pk }}" class="hidden bg-red-50">
-            <td colspan="7" class="px-6 py-4">
-              <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="flex items-center gap-3">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="reject">
-                <input type="text" name="note" placeholder="Reason for rejection (required)"
-                       class="flex-1 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-red-400"
-                       required>
-                <button type="submit"
-                        hx-post="{% url 'document_management:document_action' pk=movement.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
-                        hx-target="#inbox-panel"
-                        hx-swap="innerHTML"
-                        hx-disabled-elt="this"
-                        class="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">Confirm Reject</button>
-                <button type="button" onclick="document.getElementById('reject-modal-{{ movement.pk }}').classList.add('hidden')"
-                        class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-300">Cancel</button>
-              </form>
-            </td>
-          </tr>
           {% endwith %}
 
           {% else %}
@@ -234,53 +193,10 @@
                   Open
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                {% if row.can_action %}
-                <form method="post" action="{% url 'document_management:urgent_document_action' pk=doc.pk %}" class="inline">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="approve">
-                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                  <button type="submit"
-                          hx-post="{% url 'document_management:urgent_document_action' pk=doc.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
-                          hx-target="#inbox-panel"
-                          hx-swap="innerHTML"
-                          hx-disabled-elt="this"
-                          class="px-3 py-2 bg-green-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 whitespace-nowrap">
-                    Approve
-                  </button>
-                </form>
-                <button type="button"
-                        onclick="document.getElementById('urgent-reject-{{ doc.pk }}').classList.toggle('hidden')"
-                        class="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">
-                  Reject
-                </button>
-                {% endif %}
               </div>
             </td>
           </tr>
 
-          {% if row.can_action %}
-          <!-- Standalone urgent document: send back to filer -->
-          <tr id="urgent-reject-{{ doc.pk }}" class="hidden bg-red-50">
-            <td colspan="7" class="px-6 py-4">
-              <form method="post" action="{% url 'document_management:urgent_document_action' pk=doc.pk %}" class="flex items-center gap-3">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="reject">
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <input type="text" name="note" placeholder="Reason for sending back (required)"
-                       class="flex-1 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-red-400"
-                       required>
-                <button type="submit"
-                        hx-post="{% url 'document_management:urgent_document_action' pk=doc.pk %}?tab={{ current_tab }}&filter={{ current_filter }}"
-                        hx-target="#inbox-panel"
-                        hx-swap="innerHTML"
-                        hx-disabled-elt="this"
-                        class="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-700 whitespace-nowrap">Send back</button>
-                <button type="button" onclick="document.getElementById('urgent-reject-{{ doc.pk }}').classList.add('hidden')"
-                        class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-300">Cancel</button>
-              </form>
-            </td>
-          </tr>
-          {% endif %}
           {% endwith %}
           {% endif %}
           {% endfor %}
