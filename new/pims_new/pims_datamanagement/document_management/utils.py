@@ -117,8 +117,6 @@ logger = logging.getLogger(__name__)
 # else (DOCX/XLSX/TXT/ZIP/videos/...) is rejected on the client, in forms,
 # and in the views that read request.FILES.
 
-from django.core.exceptions import ValidationError
-
 # The only extensions we accept.
 ALLOWED_UPLOAD_EXTS = {
     ".pdf",
@@ -136,9 +134,8 @@ ALLOWED_UPLOAD_MIME_TYPES = {
     "image/x-png",
 }
 
-# Value for the file inputs' accept attribute / picker hint text.
+# Value for the file inputs' accept attribute.
 UPLOAD_ACCEPT = ".pdf,.jpg,.jpeg,.png"
-UPLOAD_HINT = "PDF or image files only (JPG, JPEG, PNG) up to 10MB each"
 
 
 def upload_rejection_reason(filename, content_type=None):
@@ -163,13 +160,6 @@ def rejected_upload_reasons(files):
         if reason:
             reasons.append(reason)
     return reasons
-
-
-def validate_allowed_uploads(files):
-    """Raise ``ValidationError`` unless every file is a browser-renderable PDF/image."""
-    reasons = rejected_upload_reasons(files)
-    if reasons:
-        raise ValidationError(reasons)
 
 
 # MIME types / extensions we can convert to PDF for in-browser preview.
