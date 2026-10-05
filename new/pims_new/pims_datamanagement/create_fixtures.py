@@ -15,7 +15,14 @@ from django.contrib.contenttypes.models import ContentType  # noqa: E402
 from django.utils import timezone  # noqa: E402
 from document_management.models import Document, File, FileAccessRequest  # noqa: E402
 from notifications.models import Notification  # noqa: E402
-from organization.models import Department, Designation, Staff, StaffSignature, Unit  # noqa: E402
+from organization.models import (  # noqa: E402
+    Department,
+    Designation,
+    Staff,
+    StaffSignature,
+    Unit,
+    designation_implies_final_approver,
+)
 from user_management.models import CustomUser  # noqa: E402
 
 # --- Helpers ---
@@ -26,6 +33,7 @@ DEPARTMENTS_DATA = [
     {"name": "Finance", "code": "FIN"},
     {"name": "Operations", "code": "OPS"},
     {"name": "Legal", "code": "LEG"},
+    {"name": "Nursing Services", "code": "NUR"},
 ]
 
 UNITS_DATA = {
@@ -50,6 +58,7 @@ DESIGNATIONS_DATA = [
     {"name": "Senior Officer", "level": 6},
     {"name": "Officer I", "level": 7},
     {"name": "Officer II", "level": 8},
+    {"name": "Head of Nursing Services", "level": 4},
 ]
 
 # Default leadership accounts created by the fixture script.
@@ -61,6 +70,7 @@ DEFAULT_LEADERSHIP_USERS = [
     ("director_nursing", "Director", "Nursing", "Director of Nursing", "HR", "Executives"),
     ("head_clinical", "Head", "Clinical Service", "Head of Clinical Service", "OPS", "Staff"),
     ("head_accounts", "Head", "Accounts", "Head of Accounts", "FIN", "Staff"),
+    ("head_nursing", "Head", "Nursing", "Head of Nursing Services", "NUR", "Staff"),
 ]
 
 FIRST_NAMES = [
@@ -183,6 +193,34 @@ def assign_organization_heads(departments, units):
             taken_unit_heads.add(head.pk)
         else:
             print(f"  No eligible head available for unit {unit.name} (all candidates already head something)")
+
+
+def sync_document_approval_permissions():
+    """Hand ``can_approve_document`` to Medical Director holders only.
+
+    Final approval is person-based: no group (Supervisor, HOD/HOU,
+    Registry, Executives) may carry it, so re-running fixtures must not
+    resurrect a group grant that migration 0021 removed. Everyone else
+    routes their approval to an approver picked from the inbox search.
+    """
+    approve_perm = Permission.objects.filter(
+        codename="can_approve_document", content_type__app_label="user_management"
+    ).first()
+    if approve_perm is None:
+        print("Warning: permission 'can_approve_document' not found")
+        return
+
+    for group in Group.objects.filter(permissions=approve_perm):
+        group.permissions.remove(approve_perm)
+
+    for staff in Staff.objects.select_related("user", "designation"):
+        user = staff.user
+        if user.is_superuser:
+            continue
+        if designation_implies_final_approver(staff.designation):
+            user.user_permissions.add(approve_perm)
+        else:
+            user.user_permissions.remove(approve_perm)
 
 
 def create_fixtures():
@@ -408,8 +446,26 @@ def create_fixtures():
         users.append(u)
         staff_members.append(s)
 
+    # Appoint the Nursing Services head before the generic picker runs: it
+    # only considers designation levels <= 3, and "Head of Nursing Services"
+    # sits at level 4, so it would hand the department to any director instead.
+    nursing_dept = departments["NUR"]
+    if not nursing_dept.head_id:
+        nursing_head = (
+            Staff.objects.filter(department=nursing_dept, designation__name="Head of Nursing Services")
+            .order_by("pk")
+            .first()
+        )
+        if nursing_head:
+            nursing_dept.head = nursing_head
+            nursing_dept.save()
+            print(f"  Appointed {nursing_head.user.username} as head of Nursing Services")
+
     # Assign Heads
     assign_organization_heads(departments, units)
+
+    # Approval right follows the Medical Director designation, never a group.
+    sync_document_approval_permissions()
 
     # Create signatures for HODs
     for dept in departments.values():
