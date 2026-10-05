@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Transit Alert</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        .wrapper {
+            background-color: #f8fafc;
+            width: 100%;
+            padding: 40px 0;
+        }
+        .container {
+            max-width: 580px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid #e2e8f0;
+        }
+        .top-bar {
+            height: 6px;
+            background: linear-gradient(90deg, #dc3545 0%, #bd2130 100%);
+        }
+        .header {
+            padding: 32px 32px 20px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .header h2 {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+        .header-sub {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #dc3545;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .content {
+            padding: 32px;
+        }
+        .greeting {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+        .message-body {
+            font-size: 15px;
+            color: #475569;
+            margin-bottom: 24px;
+        }
+        .detail-card {
+            background-color: #fff8f8;
+            border: 1px solid #fcd3d3;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 28px;
+        }
+        .detail-row {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .detail-row:last-child {
+            margin-bottom: 0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #64748b;
+            display: inline-block;
+            width: 130px;
+        }
+        .detail-value {
+            color: #1e293b;
+            font-weight: 500;
+        }
+        .btn-wrapper {
+            margin: 28px 0;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #dc3545;
+            color: #ffffff !important;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+        .footer {
+            padding: 24px 32px;
+            background-color: #f8fafc;
+            border-top: 1px solid #f1f5f9;
+            font-size: 12px;
+            color: #64748b;
+            text-align: center;
+        }
+        .footer-logo {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            color: #334155;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="container">
+            <div class="top-bar"></div>
+            <div class="header">
+                <div class="header-sub">Personnel Information Management System</div>
+                <h2>File Transit Alert</h2>
+            </div>
+            <div class="content">
+                <p class="greeting">Dear {{ user.get_full_name|default:user.username }},</p>
+                <p class="message-body">This is an alert that the following file you dispatched is still in transit and has not been acknowledged after 48 hours:</p>
+
+                <div class="detail-card">
+                    <div class="detail-row">
+                        <span class="detail-label">File Number:</span>
+                        <span class="detail-value">{{ file.file_number }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Title:</span>
+                        <span class="detail-value">{{ file.title }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Sent To:</span>
+                        <span class="detail-value">{{ recipient|default:"—" }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Hours in Transit:</span>
+                        <span class="detail-value">{{ hours_in_transit }} hour(s)</span>
+                    </div>
+                </div>
+
+                <p class="message-body" style="font-size: 14px; color: #64748b;">Please follow up with the recipient to confirm receipt, or recall the file if it is no longer required.</p>
+
+                <div class="btn-wrapper">
+                    <a class="btn" href="{{ file_url }}">View File</a>
+                </div>
+            </div>
+            <div class="footer">
+                <div class="footer-logo">FMC Abuja • PIMS</div>
+                <p style="margin: 0;">This is an automated alert from the Personnel Information Management System.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

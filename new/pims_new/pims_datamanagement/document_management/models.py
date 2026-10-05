@@ -517,6 +517,12 @@ class FileMovement(models.Model):
         help_text="When this movement's granted access expires. Null = indefinite.",
     )
 
+    # 48-hour transit alert bookkeeping: when the sender was first warned that
+    # this dispatch has been sitting in transit, and when the last reminder went
+    # out. Null first = no alert sent yet; follow-ups go out daily after that.
+    transit_alert_first_sent_at = models.DateTimeField(null=True, blank=True)
+    transit_alert_last_sent_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["-moved_at"]
 
@@ -533,6 +539,17 @@ class FileMovement(models.Model):
         if self.expires_at and self.expires_at <= timezone.now():
             return False
         return True
+
+    @property
+    def is_stuck_in_transit(self):
+        """True when this dispatch has been awaiting receipt for over 48 hours."""
+        from django.utils import timezone
+
+        if self.action != "sent" or self.status != "pending" or self.closed_at:
+            return False
+        if not self.file_id or self.file.status != "in_transit":
+            return False
+        return timezone.now() - self.moved_at > timezone.timedelta(hours=48)
 
 
 

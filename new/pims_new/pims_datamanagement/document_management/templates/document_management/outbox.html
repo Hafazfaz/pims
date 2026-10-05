@@ -57,6 +57,11 @@
                 {{ movement.document.get_status_display|default:movement.get_status_display }}
               </span>
               <span class="text-sm font-bold text-nigeria-green">{{ movement.file.file_number }}</span>
+              {% if movement.is_stuck_in_transit %}
+              <span class="text-[9px] font-black text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                Over 48h in transit
+              </span>
+              {% endif %}
             </div>
             <h3 class="text-sm font-semibold text-slate-800 truncate">{{ movement.document.title|default:"Document" }}</h3>
             <p class="text-[10px] text-slate-400 mt-1">

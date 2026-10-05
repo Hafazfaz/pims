@@ -1,0 +1,19 @@
+Subject: PIMS: File {{ file.file_number }} still in transit ({{ hours_in_transit }}h)
+
+Dear {{ user.get_full_name|default:user.username }},
+
+This is an alert that the following file you dispatched is still in transit and
+has not been acknowledged after 48 hours:
+
+  File Number: {{ file.file_number }}
+  Title: {{ file.title }}
+  Sent To: {{ recipient|default:"—" }}
+  Hours in Transit: {{ hours_in_transit }}
+
+Please follow up with the recipient to confirm receipt, or recall the file if
+it is no longer required.
+
+You can view this file at: {{ file_url }}
+
+Thank you,
+The PIMS Team

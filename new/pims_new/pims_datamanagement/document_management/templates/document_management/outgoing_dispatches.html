@@ -80,6 +80,11 @@
                     <td class="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">
                         {{ movement.moved_at|date:"d M Y" }}<br>
                         <span class="text-[10px]">{{ movement.moved_at|date:"H:i" }}</span>
+                        {% if movement.is_stuck_in_transit %}
+                        <span class="block mt-1 text-[9px] font-black text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded uppercase tracking-widest whitespace-nowrap">
+                            Over 48h in transit
+                        </span>
+                        {% endif %}
                     </td>
                     <td class="px-5 py-3">
                         <span class="px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border

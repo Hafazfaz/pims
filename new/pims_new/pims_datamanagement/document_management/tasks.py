@@ -113,3 +113,117 @@ def send_urgent_document_reminders():
             reminded += 1
 
     return f"Sent {reminded} urgent document reminders"
+
+
+TRANSIT_ALERT_HOURS = 48
+TRANSIT_FOLLOWUP_HOURS = 24
+
+
+@shared_task
+def check_transit_alerts():
+    """
+    Alert senders when a dispatched file has been sitting in transit for more
+    than 48 hours and has not been acknowledged/actioned yet.
+
+    The first alert fires once when a movement crosses 48h in transit; after
+    that a follow-up is sent every 24 hours until the file leaves transit
+    (receipt acknowledged, approved, rejected, recalled or movement closed).
+    """
+    from notifications.utils import create_notification
+
+    from .models import FileMovement
+
+    now = timezone.now()
+    cutoff = now - timezone.timedelta(hours=TRANSIT_ALERT_HOURS)
+
+    movements = (
+        FileMovement.objects.filter(
+            action="sent",
+            status="pending",
+            closed_at__isnull=True,
+            file__status="in_transit",
+            moved_at__lte=cutoff,
+            sent_by__isnull=False,
+            sent_by__is_active=True,
+        )
+        .select_related("file", "sent_by", "sent_to__user")
+        .order_by("moved_at")
+    )
+
+    alerted = 0
+    for movement in movements:
+        first_sent = movement.transit_alert_first_sent_at
+        last_sent = movement.transit_alert_last_sent_at
+
+        if first_sent is None:
+            due = True  # first crossing of the 48h threshold
+        elif last_sent is None:
+            due = True
+        else:
+            due = last_sent <= now - timezone.timedelta(hours=TRANSIT_FOLLOWUP_HOURS)
+
+        if not due:
+            continue
+
+        # Claim the alert slot BEFORE sending so a concurrent beat run cannot
+        # deliver the same alert twice.
+        claim = FileMovement.objects.filter(pk=movement.pk)
+        if first_sent is None:
+            claim = claim.filter(transit_alert_first_sent_at__isnull=True)
+            values = {
+                "transit_alert_first_sent_at": now,
+                "transit_alert_last_sent_at": now,
+            }
+        else:
+            claim = claim.filter(
+                Q(transit_alert_last_sent_at__isnull=True)
+                | Q(
+                    transit_alert_last_sent_at__lte=(
+                        now - timezone.timedelta(hours=TRANSIT_FOLLOWUP_HOURS)
+                    )
+                )
+            )
+            values = {"transit_alert_last_sent_at": now}
+
+        if not claim.update(**values):
+            continue
+
+        file_obj = movement.file
+        hours_in_transit = max(1, int((now - movement.moved_at).total_seconds() // 3600))
+        recipient = ""
+        if movement.sent_to and movement.sent_to.user:
+            recipient = (
+                movement.sent_to.user.get_full_name()
+                or movement.sent_to.user.username
+            )
+
+        message = (
+            f"TRANSIT ALERT: File {file_obj.file_number} — {file_obj.title} has been "
+            f"in transit for {hours_in_transit} hour(s)"
+            + (f" awaiting {recipient}" if recipient else "")
+            + ". Please follow up to confirm receipt."
+        )
+
+        create_notification(
+            user=movement.sent_by,
+            message=message,
+            obj=file_obj,
+            link=file_obj.get_absolute_url(),
+            send_email=True,
+            email_template="emails/transit_alert.html",
+            email_subject=(
+                f"PIMS: File {file_obj.file_number} still in transit "
+                f"({hours_in_transit}h)"
+            ),
+            email_context={
+                "file": file_obj,
+                "recipient": recipient,
+                "hours_in_transit": hours_in_transit,
+                "file_url": f"{settings.BASE_URL}{file_obj.get_absolute_url()}",
+            },
+        )
+
+        alerted += 1
+
+    return f"Sent {alerted} transit alerts"
+

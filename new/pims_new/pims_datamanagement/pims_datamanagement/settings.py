@@ -336,6 +336,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "document_management.tasks.send_urgent_document_reminders",
         "schedule": 3600,  # every 1 hour
     },
+    "check-transit-alerts": {
+        "task": "document_management.tasks.check_transit_alerts",
+        "schedule": 3600,  # every 1 hour — fires at the 48h mark, then daily
+    },
 }
 # Summernote Configuration
 SUMMERNOTE_CONFIG = {
