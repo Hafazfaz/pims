@@ -149,11 +149,13 @@
                 </svg>
             </div>
             <h5 class="text-sm font-black text-slate-400 uppercase tracking-[0.3em] italic mb-2">
-                {% if user.staff.is_registry %}Registry Archive Empty{% else %}No Records Found{% endif %}
+                {% if user.staff.is_registry %}Registry Archive Empty{% elif is_oversight_head %}No Files Yet{% else %}No Records Found{% endif %}
             </h5>
             <p class="text-xs text-slate-400 font-medium italic">
                 {% if user.staff.is_registry %}
                     No personal records have been generated or assigned to your identity yet.
+                {% elif is_oversight_head %}
+                    You have no files assigned to you at the moment.
                 {% else %}
                     You have no files assigned or dispatched to you yet.
                 {% endif %}

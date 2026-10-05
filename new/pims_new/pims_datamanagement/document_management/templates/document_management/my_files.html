@@ -104,23 +104,15 @@
                         </svg>
                     </div>
                     <h5 class="text-sm font-black text-slate-500 uppercase tracking-[0.3em] italic mb-2">
-                        You're All Caught Up
+                        {% if is_oversight_head %}No Files Yet{% else %}You're All Caught Up{% endif %}
                     </h5>
-                    <p class="text-xs text-slate-400 font-medium italic mb-6">
-                        No pending files need your attention right now.
-                    </p>
-                    <div class="flex items-center justify-center gap-3">
-                        <a href="{% url 'document_management:inbox' %}"
-                           class="inline-flex items-center px-5 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-nigeria-green transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
-                            Go to Inbox
-                        </a>
-                        {% if personal_file %}
-                            <a href="{% url 'document_management:file_detail' pk=personal_file.pk %}?tab=chronicle"
-                               class="inline-flex items-center px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm uppercase tracking-widest gap-2 active:scale-95">
-                                View My History
-                            </a>
+                    <p class="text-xs text-slate-400 font-medium italic">
+                        {% if is_oversight_head %}
+                            You have no files assigned to you at the moment.
+                        {% else %}
+                            No pending files need your attention right now.
                         {% endif %}
-                    </div>
+                    </p>
                 </div>
             {% endif %}
         {% else %}

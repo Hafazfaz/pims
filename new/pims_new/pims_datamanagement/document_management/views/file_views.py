@@ -437,57 +437,24 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
 
         base_q = Q(owner=staff_user) | Q(created_by=self.request.user) | Q(current_location=staff_user)
 
-        # Heads see personal files of staff in their jurisdiction on My Files,
-        # so a unit/section/division head or HOD can open a subordinate's file.
+        # Heads (HOD / supervisor / unit head) only browse their OWN files on
+        # My Files — subordinate personnel files are never listed here. Only
+        # the executive tier stays org-wide.
         user = self.request.user
         if user.is_superuser or staff_user.is_executive or staff_user.is_md or getattr(staff_user, "is_mayor", False):
-            base_q |= Q()
             # org-wide: drop the filter entirely
             queryset = File.objects.all()
-        elif staff_user.is_privileged_head or staff_user.is_hod:
-            if staff_user.is_hod and staff_user.department:
-                base_q |= Q(owner__department=staff_user.department, file_type="personal")
-                base_q |= Q(department=staff_user.department, file_type="personal")
-            try:
-                headed_unit = staff_user.headed_unit
-            except Exception:
-                headed_unit = None
-            if headed_unit:
-                base_q |= Q(owner__unit=headed_unit, file_type="personal")
-            try:
-                headed_section = staff_user.headed_section
-            except Exception:
-                headed_section = None
-            if headed_section:
-                base_q |= Q(owner__section=headed_section, file_type="personal")
-            try:
-                headed_division = staff_user.headed_division
-            except Exception:
-                headed_division = None
-            if headed_division:
-                base_q |= Q(owner__division=headed_division, file_type="personal")
-            # Supervisors (flag-only) fall back to same-department visibility.
-            if staff_user.is_supervisor and staff_user.department:
-                base_q |= Q(owner__department=staff_user.department, file_type="personal")
-            queryset = File.objects.filter(base_q).distinct()
-        elif staff_user.is_head_of_unit:
-            # Unit managers see personal files of staff in their OWN unit
-            # (HOD-like oversight, unit-scoped) alongside their own files.
-            try:
-                headed_unit = staff_user.headed_unit
-            except Exception:
-                headed_unit = None
-            if headed_unit:
-                base_q |= Q(owner__unit=headed_unit, file_type="personal")
-            queryset = File.objects.filter(base_q).distinct()
         else:
             queryset = File.objects.filter(base_q).distinct()
-            if not staff_user.is_registry:
+            is_oversight = (
+                staff_user.is_privileged_head or staff_user.is_hod or staff_user.is_head_of_unit
+            )
+            if not staff_user.is_registry and not is_oversight:
                 # Lower staff: My Files shows ONLY pending work still awaiting
                 # approval — files in transit OR files with pending/in-transit
                 # documents. Once everything is approved (file back to active
-                # with no pending docs), it leaves this list. Registry keeps
-                # the wider custody list.
+                # with no pending docs), it leaves this list. Registry and
+                # oversight heads keep their full own-file list.
                 queryset = queryset.filter(
                     Q(status="in_transit")
                     | Q(documents__status__in=["pending", "in_transit"])
@@ -561,6 +528,12 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             or staff_user.is_executive
             or staff_user.is_md
             or getattr(staff_user, "is_mayor", False)
+        )
+        # Oversight heads get a head-appropriate empty state instead of the
+        # regular "caught up / no records" copy.
+        context["is_oversight_head"] = bool(
+            not staff_user.is_registry
+            and (staff_user.is_hod or staff_user.is_privileged_head or staff_user.is_head_of_unit)
         )
         # Jurisdiction browsing: oversight heads plus unit managers (own unit
         # only) get clickable View/Download links on rows in their lists.
