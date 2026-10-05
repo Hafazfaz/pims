@@ -867,15 +867,11 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
         query = request.GET.get("q", "").strip()
         selected = (request.GET.get("send_to") or request.GET.get("selected") or "").strip()
         eligible = get_dispatch_recipients(request.user, self.file_obj).select_related(
-            "user", "designation", "department"
+            "user", "designation", "department", "unit"
         )
         if query and len(query) >= 1:
             eligible = eligible.filter(
-                Q(user__username__icontains=query)
-                | Q(user__first_name__icontains=query)
-                | Q(user__last_name__icontains=query)
-                | Q(department__name__icontains=query)
-                | Q(designation__name__icontains=query)
+                Q(department__name__icontains=query) | Q(unit__name__icontains=query)
             ).distinct()[:10]
         else:
             eligible = eligible[:10]

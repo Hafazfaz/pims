@@ -76,11 +76,7 @@ class RecipientSearchView(LoginRequiredMixin, View):
             eligible_qs = base_qs
 
         recipients = eligible_qs.filter(
-            Q(user__username__icontains=query)
-            | Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-            | Q(department__name__icontains=query)
-            | Q(unit__name__icontains=query)
+            Q(department__name__icontains=query) | Q(unit__name__icontains=query)
         ).distinct()[:10]
 
         html = (
@@ -241,11 +237,7 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
             eligible_qs = base_qs
 
         recipients = eligible_qs.filter(
-            Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-            | Q(user__email__icontains=query)
-            | Q(designation__name__icontains=query)
-            | Q(unit__name__icontains=query)
+            Q(department__name__icontains=query) | Q(unit__name__icontains=query)
         ).distinct()[:10]
 
         html = (
