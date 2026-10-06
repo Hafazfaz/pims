@@ -1213,6 +1213,13 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     obj=document,
                     details={"new_status": new_status, "reason": status_reason},
                 )
+                if new_status in ("approved", "rejected"):
+                    decision = "has been approved" if new_status == "approved" else "was rejected"
+                    reason = status_reason.strip()
+                    message = f"Your document '{document.title or 'Untitled'}' in file {file_obj.file_number} {decision}."
+                    if new_status == "rejected" and reason:
+                        message += f" Reason: {reason}"
+                    _notify_document_submitter(document, file_obj, message, actor=request.user)
                 messages.success(request, f"Document status updated to {new_status.title()}.")
 
             return redirect(file_obj.get_absolute_url())
@@ -2086,6 +2093,22 @@ def _expire_actioned_movement_access(movement, actor):
     auto_grants.update(status="expired")
 
 
+def _notify_document_submitter(document, file_obj, message, actor=None, already_notified=None):
+    """Tell the person who uploaded a document how it was decided.
+
+    The movement sender already gets their own note on approve/reject; this
+    closes the loop for the original submitter (``uploaded_by``) whenever they
+    are a different user, so nobody who raised a document is left in the dark.
+    ``actor`` (the approver) and ``already_notified`` (an existing recipient)
+    are skipped so nobody is told twice or told about their own decision.
+    """
+    submitter = getattr(document, "uploaded_by", None)
+    if not submitter or submitter == actor or submitter == already_notified:
+        return
+    link = file_obj.get_absolute_url() if file_obj else None
+    create_notification(user=submitter, message=message, obj=file_obj, link=link)
+
+
 class DocumentActionView(HTMXLoginRequiredMixin, View):
     """Approve / forward / reject a document received via FileMovement.
 
@@ -2178,6 +2201,13 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                     message=f"{sender_name} approved document '{doc_ref}'.",
                     obj=movement.file,
                     link=movement.file.get_absolute_url(),
+                )
+                _notify_document_submitter(
+                    movement.document,
+                    movement.file,
+                    f"Your document '{doc_ref}' in file {movement.file.file_number} has been approved.",
+                    actor=request.user,
+                    already_notified=movement.sent_by,
                 )
                 log_action(
                     request.user,
@@ -2394,6 +2424,13 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 message=(f"{sender_name} rejected document '{doc_ref}'. Note: {note}"),
                 obj=movement.file,
                 link=movement.file.get_absolute_url(),
+            )
+            _notify_document_submitter(
+                movement.document,
+                movement.file,
+                f"Your document '{doc_ref}' in file {movement.file.file_number} was rejected. Note: {note}",
+                actor=request.user,
+                already_notified=movement.sent_by,
             )
             log_action(
                 request.user,
@@ -2860,6 +2897,13 @@ class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, Deta
                     obj=file_obj,
                     link=file_obj.get_absolute_url(),
                 )
+            _notify_document_submitter(
+                doc,
+                file_obj,
+                f"Your document '{doc.title or 'Untitled'}' in file {file_obj.file_number} has been approved.",
+                actor=request.user,
+                already_notified=active_movement.sent_by if active_movement else None,
+            )
 
             messages.success(request, "Document approved successfully. File returned to registry.")
 
@@ -2895,6 +2939,17 @@ class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, Deta
                     obj=file_obj,
                     link=file_obj.get_absolute_url(),
                 )
+
+            _notify_document_submitter(
+                doc,
+                file_obj,
+                (
+                    f"Your document '{doc.title or 'Untitled'}' in file {file_obj.file_number} was rejected. "
+                    f"Reason: {rejection_reason}"
+                ),
+                actor=request.user,
+                already_notified=active_movement.sent_by if active_movement else None,
+            )
 
             log_action(
                 request.user,
