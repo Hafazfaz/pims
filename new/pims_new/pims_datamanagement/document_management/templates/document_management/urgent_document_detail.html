@@ -42,7 +42,7 @@
   </header>
 
   {% if can_action %}
-  <!-- Decision bar: approve, or send it back to the filer -->
+  <!-- Decision bar: approvers settle it, everyone else forwards it to one -->
   <section class="bg-slate-900 text-white rounded-2xl shadow-sm overflow-hidden" aria-labelledby="urgent-decision-heading">
     <div class="p-5 sm:p-6">
       <div class="flex items-center gap-2 mb-3">
@@ -54,23 +54,96 @@
         <span class="font-medium text-slate-300">filed this {{ document.get_priority_display|lower }} document · waiting {{ document.uploaded_at|timesince }}</span>
       </p>
 
-      <div class="flex flex-wrap items-center gap-3 mt-4">
-        <form method="post" action="{% url 'document_management:urgent_document_action' pk=document.pk %}" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="approve">
-          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      {% if is_final_approver %}
+      <!-- Approver: message, then settle it here. -->
+      <form method="post" action="{% url 'document_management:urgent_document_action' pk=document.pk %}" class="mt-4 space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="approve">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <label for="urgent-approve-note" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Your message (optional)</label>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input id="urgent-approve-note" type="text" name="note"
+                 placeholder="e.g. Approved — circulate to all departments"
+                 class="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-green-400">
           <button type="submit"
                   class="px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[11px] font-black uppercase tracking-widest transition-all">
             Approve
           </button>
-        </form>
+        </div>
+      </form>
+      <div class="flex flex-wrap items-center gap-3 mt-4">
         <button type="button"
                 onclick="document.getElementById('urgent-reject-form').classList.toggle('hidden');document.getElementById('urgent-reject-note').focus();"
                 class="px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[11px] font-black uppercase tracking-widest transition-all">
           Reject &amp; send back
         </button>
-        <span class="text-[11px] text-slate-400 font-medium">Rejecting returns it to the filer with your reason.</span>
+        <span class="text-[11px] text-slate-300 font-medium">Rejecting returns it to the filer with your reason.</span>
       </div>
+      {% else %}
+      <!-- Not an approver: "Approve" hands it to one instead of settling it. -->
+      <p class="text-[11px] font-bold uppercase tracking-widest text-amber-300 mt-3">
+        You do not have approval rights — approving forwards this to an approver.
+      </p>
+      <div class="flex flex-wrap items-center gap-3 mt-4">
+        <button type="button"
+                onclick="var f=document.getElementById('urgent-forward-form');f.classList.toggle('hidden');if(!f.classList.contains('hidden')){var r=document.getElementById('urgent-forward-note');r&&r.focus();}"
+                aria-controls="urgent-forward-form"
+                class="px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[11px] font-black uppercase tracking-widest transition-all">
+          Approve
+        </button>
+        <button type="button"
+                onclick="document.getElementById('urgent-reject-form').classList.toggle('hidden');document.getElementById('urgent-reject-note').focus();"
+                class="px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[11px] font-black uppercase tracking-widest transition-all">
+          Reject &amp; send back
+        </button>
+        <span class="text-[11px] text-slate-300 font-medium">Only an approver can settle this document.</span>
+      </div>
+
+      <form id="urgent-forward-form" method="post" action="{% url 'document_management:urgent_document_action' pk=document.pk %}"
+            class="hidden mt-4 pt-4 border-t border-white/10 space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="forward">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <p class="text-[10px] font-black text-green-300 uppercase tracking-widest">Forward to an approver</p>
+        {% if approvers %}
+        <div>
+          <label for="urgent-forward-recipient" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Approver</label>
+          <select id="urgent-forward-recipient" name="recipient_staff_id" required
+                  class="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-green-400">
+            {% for approver in approvers %}
+            <option value="{{ approver.pk }}" class="text-slate-900"
+                    {% if prefilled_recipient and approver.pk == prefilled_recipient.pk %}selected{% endif %}>
+              {{ approver.user.get_full_name|default:approver.user.username }}{% if approver.role_label %} — {{ approver.role_label }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="urgent-forward-note" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Message for the approver (required)
+          </label>
+          <textarea id="urgent-forward-note" name="note" rows="2" required
+                    placeholder="Why you are passing this on, and what needs a decision"
+                    class="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-green-400 resize-none"></textarea>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit"
+                  class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
+            Confirm forward
+          </button>
+          <button type="button"
+                  onclick="document.getElementById('urgent-forward-form').classList.add('hidden')"
+                  class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
+            Cancel
+          </button>
+        </div>
+        {% else %}
+        <p class="text-xs text-amber-300">
+          No staff member currently holds approval rights — nobody can take this decision yet.
+        </p>
+        {% endif %}
+      </form>
+      {% endif %}
 
       <form id="urgent-reject-form" method="post" action="{% url 'document_management:urgent_document_action' pk=document.pk %}"
             class="hidden mt-4 pt-4 border-t border-white/10 space-y-3">
@@ -103,7 +176,7 @@
   <div class="bg-white border border-slate-200 rounded-2xl shadow-sm px-5 py-4 flex items-center gap-3">
     <span class="w-2 h-2 bg-amber-400 rounded-full animate-pulse" aria-hidden="true"></span>
     <p class="text-sm font-medium text-slate-600">
-      Waiting for a decision from a head or supervisor.
+      Waiting for approval from a staff member with approval rights.
     </p>
   </div>
   {% endif %}

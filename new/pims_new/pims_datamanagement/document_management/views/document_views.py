@@ -1151,19 +1151,15 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
         response = super().form_valid(form)
         document = self.object
 
-        # Notify HODs/supervisors of this urgent document
+        # Alert only the people who may settle it: holders of the approval
+        # permission. Heads and unit managers without it still see the document
+        # in their urgent inbox and forward it onward from the tracking page.
         if priority in ("urgent", "high"):
+            from document_management.permissions import get_final_approvers
             from document_management.views.base import EXCLUDE_REGISTRY_Q
             from notifications.utils import create_notification
-            from organization.models import Staff
 
-            recipients = [
-                staff
-                for staff in Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
-                .exclude(user=self.request.user)
-                .select_related("user")
-                if staff.is_hod or staff.is_effective_supervisor or staff.is_executive or staff.is_md
-            ]
+            recipients = get_final_approvers().exclude(user=self.request.user).exclude(EXCLUDE_REGISTRY_Q)
             for recipient in recipients:
                 if recipient.user:
                     create_notification(
@@ -1205,7 +1201,8 @@ class StandaloneUrgentDocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
     # Readable trail labels for audit actions that carry no display choice.
     ACTION_LABELS = {
-        "DOCUMENT_APPROVED": "Approved by a head / supervisor",
+        "DOCUMENT_APPROVED": "Approved by an approver",
+        "DOCUMENT_FORWARDED": "Forwarded to an approver",
         "DOCUMENT_REJECTED": "Sent back to the filer",
         "DOCUMENT_DOWNLOADED": "Attachment downloaded",
         "DOCUMENT_UPDATED": "Document updated",
@@ -1272,7 +1269,7 @@ class StandaloneUrgentDocumentDetailView(HTMXLoginRequiredMixin, DetailView):
                     "timestamp": latest_alert.timestamp,
                     "label": (
                         f"Alerts sent to {alert_total} "
-                        f"head{'s' if alert_total != 1 else ''} & supervisors"
+                        f"approver{'s' if alert_total != 1 else ''}"
                     ),
                     "user": None,
                     "detail": None,
@@ -1299,6 +1296,17 @@ class StandaloneUrgentDocumentDetailView(HTMXLoginRequiredMixin, DetailView):
             and document.uploaded_by_id != user.pk
             and context["is_pending"]
         )
+        # Only holders of the approval permission settle it; everyone else on
+        # the decision bar gets the "forward to an approver" view instead.
+        from document_management.permissions import get_final_approvers
+
+        context["is_final_approver"] = bool(
+            user.is_superuser or (staff is not None and staff.can_final_approve)
+        )
+        context["approvers"] = (
+            get_final_approvers(exclude_staff=staff) if staff is not None else get_final_approvers()
+        )
+        context["prefilled_recipient"] = context["approvers"].first()
         context["timeline"] = timeline
         context["alert_count"] = alert_total
         context["waiting_since"] = document.uploaded_at
@@ -1306,17 +1314,24 @@ class StandaloneUrgentDocumentDetailView(HTMXLoginRequiredMixin, DetailView):
 
 
 class StandaloneUrgentDocumentActionView(HTMXLoginRequiredMixin, View):
-    """Approve or reject a standalone urgent document.
+    """Approve, forward or reject a standalone urgent document.
 
     Standalone urgent documents have no FileMovement, so the movement-based
     :class:`DocumentActionView` can never reach them — the urgent list had no
     working action for those rows.
 
-    - Approve: the document is closed as approved and the filer is notified.
+    Approval follows the same single right as file documents: only holders of
+    ``can_approve_document`` may settle one. Everyone else forwards it to an
+    approver with a message, and it stays pending until an approver acts.
+
+    - Approve: closed as approved, filer notified (message carried through).
+    - Forward: the chosen approver is notified, an audit entry records the
+      hop, and the document stays pending — it is not decided yet.
     - Reject: a reason is required and the document is returned to the filer
       (status ``rejected`` + the reason stored on it, alert sent back).
 
-    Both outcomes drop the item out of everyone's untreated urgent list.
+    Approve/reject drop the item out of everyone's untreated urgent list;
+    forward leaves it there for the approver.
     """
 
     def post(self, request, pk):
@@ -1326,8 +1341,9 @@ class StandaloneUrgentDocumentActionView(HTMXLoginRequiredMixin, View):
         note = request.POST.get("note", "").strip()
 
         back_url = self._safe_next(request, document)
+        is_final_approver = bool(request.user.is_superuser or (staff and staff.can_final_approve))
 
-        if not staff or not staff.is_effective_supervisor:
+        if not staff or not (staff.is_effective_supervisor or is_final_approver):
             messages.error(request, "Only HODs, supervisors, and unit managers can action urgent documents.")
             return inbox_action_response(request, back_url)
         if staff.is_registry:
@@ -1344,6 +1360,12 @@ class StandaloneUrgentDocumentActionView(HTMXLoginRequiredMixin, View):
         title = document.title or "Untitled"
 
         if action == "approve":
+            if not is_final_approver:
+                messages.error(
+                    request,
+                    "You do not have approval rights — forward this document to an approver instead.",
+                )
+                return inbox_action_response(request, back_url)
             document.status = "approved"
             document.save(update_fields=["status"])
             log_action(
@@ -1353,13 +1375,53 @@ class StandaloneUrgentDocumentActionView(HTMXLoginRequiredMixin, View):
                 obj=document,
                 details={"document_title": title, "priority": document.priority, "note": note},
             )
+            suffix = f" Message: {note}" if note else ""
             create_notification(
                 user=document.uploaded_by,
-                message=f"{actor} approved your urgent document '{title}'.",
+                message=f"{actor} approved your urgent document '{title}'.{suffix}",
                 obj=document,
                 link=reverse("document_management:urgent_document_detail", kwargs={"pk": document.pk}),
             )
             messages.success(request, f"Urgent document '{title}' approved.")
+        elif action == "forward":
+            from document_management.permissions import get_final_approvers
+
+            recipient_staff_id = (
+                request.POST.get("recipient_staff_id") or request.POST.get("recipient") or ""
+            ).strip()
+            recipients = get_final_approvers(exclude_staff=staff)
+            recipient = None
+            if recipient_staff_id.isdigit():
+                recipient = recipients.filter(pk=recipient_staff_id).first()
+            if recipient is None:
+                messages.error(request, "Select a staff member with approval rights to forward to.")
+                return inbox_action_response(request, back_url)
+
+            log_action(
+                request.user,
+                "DOCUMENT_FORWARDED",
+                request=request,
+                obj=document,
+                details={
+                    "document_title": title,
+                    "priority": document.priority,
+                    "to": recipient.user.get_full_name() or recipient.user.username,
+                    "to_staff_id": recipient.pk,
+                    "note": note,
+                },
+            )
+            suffix = f" Note: {note}" if note else ""
+            create_notification(
+                user=recipient.user,
+                message=f"{actor} forwarded urgent document '{title}' to you for approval.{suffix}",
+                obj=document,
+                link=reverse("document_management:urgent_document_detail", kwargs={"pk": document.pk}),
+            )
+            messages.success(
+                request,
+                f"Forwarded to {recipient.user.get_full_name() or recipient.user.username} "
+                "for approval — it stays pending until they decide.",
+            )
         elif action == "reject":
             if not note:
                 messages.error(request, "A reason is required when sending a document back.")
