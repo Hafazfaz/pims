@@ -223,6 +223,13 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         context["can_add_minute"] = can_add_document(self.request.user, file_obj)
         context["document_is_approved"] = document.status == "approved"
 
+        # Edit button visibility must match DocumentEditView's gate exactly:
+        # editing is a separate, manually assigned grant — never implied by
+        # being able to view (or by executive/HOD standing).
+        from ..permissions import can_edit_document
+
+        context["can_edit_document"] = can_edit_document(self.request.user, document)
+
         # Sharing is document-only and email-only: requires the
         # can_share_documents permission (see DocumentShareEmailView).
         context["can_share_document"] = can_share_document(self.request.user)
@@ -462,14 +469,9 @@ class DocumentEditView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         document = get_object_or_404(Document, pk=pk)
-        from ..models import DocumentAttachment
-        from ..permissions import can_view_document_content, is_registry
+        from ..permissions import can_edit_document
 
-        if (
-            not can_view_document_content(request.user, file=document.file, document=document)
-            and not is_registry(request.user)
-            and document.uploaded_by != request.user
-        ):
+        if not can_edit_document(request.user, document):
             messages.error(request, "You do not have permission to edit this document.")
             return redirect(self._detail_url(document))
 

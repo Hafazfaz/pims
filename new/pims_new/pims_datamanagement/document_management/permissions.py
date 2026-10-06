@@ -292,6 +292,24 @@ def can_delete_document(user, document):
     return is_registry(user) or document.uploaded_by == user
 
 
+def can_edit_document(user, document=None):
+    """Who may edit a document's title, minute content or attachments.
+
+    Editing is NEVER implied by viewing (or by executive/HOD/MD standing) —
+    that let oversight roles rewrite other people's documents. Editing
+    someone else's document requires the explicit, manually assigned
+    ``user_management.can_edit_staff_documents`` grant. The document's own
+    uploader, Registry and superusers always keep access.
+    """
+    if user.is_superuser:
+        return True
+    if is_registry(user):
+        return True
+    if document is not None and document.uploaded_by_id == user.pk:
+        return True
+    return user.has_perm("user_management.can_edit_staff_documents")
+
+
 def has_content_scope(user, file, document=None):
     """Permission/jurisdiction scope for viewing AND downloading document contents.
 

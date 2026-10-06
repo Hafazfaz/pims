@@ -32,6 +32,10 @@ class CustomUser(AbstractUser):
             ("can_dispatch_document", "Can dispatch or forward a document to another staff member"),
             ("can_delete_document", "Can delete a document"),
             ("can_approve_document", "Can approve or reject documents"),
+            (
+                "can_edit_staff_documents",
+                "Can edit any staff member's documents regardless of ownership (assigned manually)",
+            ),
             # Oversight / leadership
             ("can_supervise", "Can supervise staff (HOD, head of unit/section/division, or flagged supervisor)"),
             ("can_executive", "Has executive/MD level access across departments"),
