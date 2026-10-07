@@ -42,6 +42,10 @@ UNITS_DATA = {
     "FIN": ["Accounts", "Budgeting", "Audit"],
     "OPS": ["Logistics", "Maintenance"],
     "LEG": ["Compliance", "Contracts"],
+    # NUR comes from migration 0013 (department + designation), so without
+    # units here the Head of Nursing Services lands on a unit-less staff row
+    # and random staff can never be placed in Nursing Services.
+    "NUR": ["Ward", "Theatre", "Outpatient"],
 }
 
 DESIGNATIONS_DATA = [
