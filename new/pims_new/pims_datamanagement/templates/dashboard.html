@@ -82,6 +82,12 @@
             <div class="min-w-0 flex-1">
               <p class="text-sm font-bold text-slate-800 truncate">{{ doc.title|default:"Minute / Signal" }}</p>
               <p class="text-[10px] text-slate-400 mt-0.5">{{ doc.file.file_number }} &middot; {{ doc.uploaded_at|timesince }} ago</p>
+              {% if doc.activity_note %}
+              <p class="text-[10px] text-slate-600 mt-1.5 border-l-2 border-nigeria-green/40 pl-2">
+                <span class="font-black uppercase tracking-widest text-slate-400">Note</span>
+                &mdash; {{ doc.activity_note|truncatechars:120 }}
+              </p>
+              {% endif %}
             </div>
             <span class="shrink-0 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest
               {% if doc.status == 'approved' %}bg-green-100 text-green-700

@@ -59,13 +59,38 @@ class HomeView(LoginRequiredMixin, TemplateView):
         context["custody_list"] = custody_files.select_related("owner__user", "department").order_by("-created_at")[:5]
 
         # Recent activity on owned files
-        context["recent_documents"] = (
-            Document.objects.filter(file__owner=staff)
-            .select_related("file", "uploaded_by")
-            .order_by("-uploaded_at")[:5]
+        recent_documents = (
+            list(
+                Document.objects.filter(file__owner=staff)
+                .select_related("file", "uploaded_by")
+                .order_by("-uploaded_at")[:5]
+            )
             if staff
             else []
         )
+
+        # What changed: the decision note (approve/reject) when there is one,
+        # otherwise the most recent routing note attached to the document.
+        if recent_documents:
+            from document_management.models import FileMovement
+
+            movement_notes = {}
+            movements = (
+                FileMovement.objects.filter(
+                    document_id__in=[d.pk for d in recent_documents]
+                )
+                .exclude(note="")
+                .order_by("-moved_at")
+                .only("pk", "document_id", "note", "moved_at")
+            )
+            for movement in movements:
+                movement_notes.setdefault(movement.document_id, movement.note.strip())
+            for doc in recent_documents:
+                doc.activity_note = (
+                    (doc.status_reason or movement_notes.get(doc.pk) or "").strip()
+                )
+
+        context["recent_documents"] = recent_documents
 
         # Personal file
         context["personal_file"] = owned_files.filter(file_type="personal").first()
