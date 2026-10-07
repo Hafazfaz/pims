@@ -2366,7 +2366,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             )
         )
         is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
-        may_decide = bool(staff and file_obj.current_location == staff)
+        may_decide = bool(staff and movement.file and movement.file.current_location == staff)
 
         if action == "approve":
             if not may_decide:
