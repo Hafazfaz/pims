@@ -1,0 +1,50 @@
+{% comment %}
+  The My Records body, also served as the HTMX response for the search box.
+
+  One permission path feeds every document row: MyFilesView sets
+  ``viewable_doc_ids`` per file from can_view_document_content, and the
+  table partials only ever check that set. The wrapper carries the single
+  ``my-files-list`` id the search box targets.
+{% endcomment %}
+<div id="my-files-list" class="space-y-8">
+    {% if user.staff.is_registry %}
+        {% include 'document_management/partials/_my_files_list.html' %}
+    {% else %}
+        {% if personal_file %}
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Documents</h3>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                {% include 'document_management/partials/_my_files_documents.html' with folder=personal_file %}
+            </div>
+        {% endif %}
+        {% if other_folders %}
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Other Files</h3>
+            </div>
+            {% include 'document_management/partials/_my_files_list.html' with owned_folders=other_folders %}
+        {% endif %}
+        {% if not personal_file and not other_folders %}
+            <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl py-20 text-center">
+                <div class="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm border border-slate-100">
+                    <svg class="w-8 h-8 text-nigeria-green"
+                         fill="none"
+                         stroke="currentColor"
+                         viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h5 class="text-sm font-black text-slate-500 uppercase tracking-[0.3em] italic mb-2">
+                    {% if is_oversight_head %}No Files Yet{% else %}You're All Caught Up{% endif %}
+                </h5>
+                <p class="text-xs text-slate-400 font-medium italic">
+                    {% if is_oversight_head %}
+                        You have no files assigned to you at the moment.
+                    {% else %}
+                        No records are assigned to you right now.
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>

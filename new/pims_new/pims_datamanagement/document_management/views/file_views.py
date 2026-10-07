@@ -433,8 +433,10 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_template_names(self):
+        # The search box targets #my-files-list, which only exists in the
+        # panel — so HTMX swaps get the panel, matching what the page shows.
         if self.request.headers.get("HX-Request"):
-            return ["document_management/partials/_my_files_list.html"]
+            return ["document_management/partials/_my_files_panel.html"]
         return [self.template_name]
 
     def get_queryset(self):
@@ -442,74 +444,40 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         if not staff_user:
             raise Http404("Staff user not found or doesn't exist.")
 
-        base_q = Q(owner=staff_user) | Q(created_by=self.request.user) | Q(current_location=staff_user)
-
-        # Heads (HOD / supervisor / unit head) only browse their OWN files on
-        # My Files — subordinate personnel files are never listed here. Only
-        # a superuser browses the whole organization from here.
         user = self.request.user
         if user.is_superuser:
             queryset = File.objects.all()
         else:
-            # My files: owned by me, created by me, or currently in my custody.
-            queryset = File.objects.filter(base_q).distinct()
-            is_oversight = (
-                staff_user.is_privileged_head or staff_user.is_hod or staff_user.is_head_of_unit
+            # Own work only: files I own, I created, or currently hold.
+            queryset = (
+                File.objects.filter(
+                    Q(owner=staff_user) | Q(created_by=user) | Q(current_location=staff_user)
+                )
+                .distinct()
             )
-            is_executive_tier = (
-                staff_user.is_executive or staff_user.is_md or getattr(staff_user, "is_mayor", False)
-            )
-            if not staff_user.is_registry and not is_oversight and not is_executive_tier:
-                # Lower staff: My Files shows ONLY pending work still awaiting
-                # approval — files in transit OR files with pending/in-transit
-                # documents. Once everything is approved (file back to active
-                # with no pending docs), it leaves this list. Registry and
-                # oversight heads keep their full own-file list.
-                queryset = queryset.filter(
-                    Q(status="in_transit")
-                    | Q(documents__status__in=["pending", "in_transit"])
-                ).distinct()
 
         if not staff_user.is_registry:
             queryset = queryset.exclude(status__in=["inactive", "closed"])
 
         search_query = self.request.GET.get("q")
-        # Lower staff see pending documents only — approved items drop off.
-        # Unit managers browsing their unit see full document lists.
-        is_lower_staff = not (
-            user.is_superuser
-            or staff_user.is_registry
-            or staff_user.is_hod
-            or staff_user.is_privileged_head
-            or staff_user.is_head_of_unit
-            or staff_user.is_executive
-            or staff_user.is_md
-            or getattr(staff_user, "is_mayor", False)
-        )
-        pending_statuses = ["pending", "in_transit"]
         if search_query:
             queryset = queryset.filter(
                 Q(title__icontains=search_query)
                 | Q(file_number__icontains=search_query)
                 | Q(documents__title__icontains=search_query)
             ).distinct()
-
             doc_qs = Document.objects.filter(title__icontains=search_query)
-            if is_lower_staff:
-                doc_qs = doc_qs.filter(status__in=pending_statuses)
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    "documents",
-                    queryset=doc_qs.order_by("-uploaded_at"),
-                )
-            )
         else:
             doc_qs = Document.objects.all()
-            if is_lower_staff:
-                doc_qs = doc_qs.filter(status__in=pending_statuses)
-            queryset = queryset.prefetch_related(
-                Prefetch("documents", queryset=doc_qs.order_by("-uploaded_at"))
+        # Kept for get_context_data: the personal file's documents must be
+        # filtered by the same search, whether it came from this page or not.
+        self._doc_qs = doc_qs
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "documents",
+                queryset=doc_qs.order_by("-uploaded_at").prefetch_related("shared_with"),
             )
+        )
 
         return queryset.select_related(
             "owner__user", "current_location__user", "department"
@@ -521,42 +489,94 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             raise Http404("Staff user not found or doesn't exist.")
         context = super().get_context_data(**kwargs)
 
-        personal_folder = File.objects.filter(owner=staff_user, file_type="personal").first()
+        # Pull the user's personal file from the already-prefetched page so
+        # its documents are available without a second query. If the page does
+        # not carry it (search filtered it out, closed file), refetch it with
+        # the SAME document search applied so the panel and search agree.
+        page_folders = list(context.get("owned_folders") or [])
+        personal_folder = next(
+            (f for f in page_folders if f.file_type == "personal" and f.owner_id == staff_user.pk),
+            None,
+        )
+        if personal_folder is None:
+            doc_qs = getattr(self, "_doc_qs", None) or Document.objects.all()
+            personal_folder = (
+                File.objects.filter(owner=staff_user, file_type="personal")
+                .prefetch_related(
+                    Prefetch(
+                        "documents",
+                        queryset=doc_qs.order_by("-uploaded_at").prefetch_related("shared_with"),
+                    )
+                )
+                .first()
+            )
         context["staff_file_number"] = personal_folder.file_number if personal_folder else "NOT ASSIGNED"
         context["personal_file"] = personal_folder
 
         context["selected_search_query"] = self.request.GET.get("q", "")
-        # Lower staff (including pure heads-of-unit) must never see contents
-        # of their OWN personal file. Oversight heads / supervisors /
-        # executives / MD / Mayor / registry / superuser keep access.
+        # ONE permission path for every document row on this hub: the same
+        # helper the file page, the download gate and the document detail all
+        # consult. With no grant open (personal files are grant-based, the
+        # owner included), the row renders as a title with no link.
+        from ..permissions import can_view_document_content, can_view_staff_documents
+
+        from django.utils import timezone as tz
+        from ..models import FileAccessRequest as FAR, FileMovement
+
         user = self.request.user
-        context["can_view_own_docs"] = bool(
-            user.is_superuser
-            or staff_user.is_registry
-            or staff_user.is_hod
-            or staff_user.is_privileged_head
-            or staff_user.is_executive
-            or staff_user.is_md
-            or getattr(staff_user, "is_mayor", False)
-        )
+        if user.is_superuser:
+            granted_file_ids = {f.pk for f in page_folders}
+        else:
+            folder_pks = [f.pk for f in page_folders]
+            access_request_ids = set(
+                FAR.objects.filter(
+                    file__in=folder_pks,
+                    requested_by=user,
+                    status="approved",
+                )
+                .filter(Q(expires_at__gt=tz.now()) | Q(expires_at__isnull=True))
+                .values_list("file_id", flat=True)
+            )
+            movement_ids = set(
+                FileMovement.objects.filter(
+                    file__in=folder_pks,
+                    sent_to=staff_user,
+                    action="sent",
+                    status="pending",
+                )
+                .filter(Q(expires_at__gt=tz.now()) | Q(expires_at__isnull=True))
+                .values_list("file_id", flat=True)
+            )
+            granted_file_ids = access_request_ids | movement_ids
+
+        for folder in page_folders:
+            folder.show_documents = folder.pk in granted_file_ids
+            folder.viewable_doc_ids = {
+                doc.pk
+                for doc in folder.documents.all()
+                if folder.show_documents and can_view_document_content(user, file=folder, document=doc)
+            }
+        if personal_folder is not None and not hasattr(personal_folder, "viewable_doc_ids"):
+            personal_folder.show_documents = personal_folder.pk in granted_file_ids
+            personal_folder.viewable_doc_ids = {
+                doc.pk
+                for doc in personal_folder.documents.all()
+                if personal_folder.show_documents and can_view_document_content(user, file=personal_folder, document=doc)
+            }
+        # Files of theirs that are not the personnel file (created by them or
+        # sitting in their custody) still belong on the hub, listed after it.
+        context["other_folders"] = [
+            f for f in page_folders if personal_folder is None or f.pk != personal_folder.pk
+        ]
         # Oversight heads get a head-appropriate empty state instead of the
         # regular "caught up / no records" copy.
         context["is_oversight_head"] = bool(
             not staff_user.is_registry
             and (staff_user.is_hod or staff_user.is_privileged_head or staff_user.is_head_of_unit)
         )
-        # Jurisdiction browsing: oversight heads plus unit managers (own unit
-        # only) get clickable View/Download links on rows in their lists.
-        context["can_browse_subordinates"] = bool(
-            staff_user.is_hod
-            or staff_user.is_privileged_head
-            or staff_user.is_head_of_unit
-        )
         # Staff-document metadata gate (titles/lists). Registry lacks the
         # view_staff_documents permission, so registry sees file custody info
         # only — never what documents a staff member has.
-        from ..permissions import can_view_staff_documents
-
         context["can_view_staff_docs"] = can_view_staff_documents(user)
         return context
 
