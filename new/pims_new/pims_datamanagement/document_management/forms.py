@@ -265,6 +265,17 @@ class DocumentForm(forms.ModelForm):
         help_text="PDF, JPG, JPEG or PNG files only.",
         widget=MultipleFileInput(attrs={"class": "form-control", "accept": UPLOAD_ACCEPT}),
     )
+    note = forms.CharField(
+        required=False,
+        label="Note to reviewer",
+        help_text="Optional — travels with the document to whoever reviews it next.",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Add a note for the reviewer…",
+            }
+        ),
+    )
 
     class Meta:
         model = Document

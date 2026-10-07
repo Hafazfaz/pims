@@ -1137,7 +1137,15 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                             messages.error(request, "You can only send this file to your direct head (Unit Manager or HOD).")
                         return redirect(file_obj.get_absolute_url())
                 old_location = file_obj.current_location
-                note = request.POST.get("movement_note", "")
+                note = request.POST.get("movement_note", "").strip()
+                # HODs and Unit Managers must say why the file is moving — the
+                # note travels on the movement and is what the recipient reads.
+                if (staff_user.is_hod or staff_user.is_unit_manager) and not note:
+                    messages.error(
+                        request,
+                        "Add a note — it is required when you send a file.",
+                    )
+                    return redirect(file_obj.get_absolute_url())
                 file_obj.current_location = recipient
                 file_obj.status = "in_transit"
                 file_obj.save()
@@ -2177,13 +2185,29 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 messages.error(request, "Only HODs, supervisors, unit managers, and staff with approval rights can act on documents.")
                 return self._respond(request)
 
+            # Approve-and-route (HOD / HOU / supervisor) must say why they are
+            # passing it on; the final approver (Medical Director) may settle
+            # the document without a note.
+            if not is_final_approver and not note:
+                messages.error(
+                    request,
+                    "Add a note explaining your approval before sending it on.",
+                )
+                return self._respond(request)
+
             if is_final_approver:
                 # Approver (Medical Director): final approval
                 movement.status = "approved"
                 movement.save(update_fields=["status"])
                 if movement.document:
                     movement.document.status = "approved"
-                    movement.document.save(update_fields=["status"])
+                    if note:
+                        # Keep the approver's note on the document so the
+                        # chronicle / dashboards can show what changed.
+                        movement.document.status_reason = note
+                        movement.document.save(update_fields=["status", "status_reason"])
+                    else:
+                        movement.document.save(update_fields=["status"])
                 # Transfer custody back to registry and mark file active
                 from django.db.models import Q as DQ
                 from organization.models import Staff as StaffModel
@@ -2196,16 +2220,22 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 movement.file.save(update_fields=["current_location", "status"])
                 sender_name = request.user.get_full_name() or request.user.username
                 doc_ref = movement.document or movement.file.file_number
+                decision_line = f"{sender_name} approved document '{doc_ref}'."
+                if note:
+                    decision_line = f"{decision_line} Note: {note}"
                 create_notification(
                     user=movement.sent_by,
-                    message=f"{sender_name} approved document '{doc_ref}'.",
+                    message=decision_line,
                     obj=movement.file,
                     link=movement.file.get_absolute_url(),
                 )
                 _notify_document_submitter(
                     movement.document,
                     movement.file,
-                    f"Your document '{doc_ref}' in file {movement.file.file_number} has been approved.",
+                    (
+                        f"Your document '{doc_ref}' in file {movement.file.file_number} has been approved."
+                        + (f" Note: {note}" if note else "")
+                    ),
                     actor=request.user,
                     already_notified=movement.sent_by,
                 )
@@ -2324,6 +2354,12 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 messages.error(request, "Only HODs and supervisors can forward documents.")
                 return self._respond(request)
 
+            # Forwarding is never silent below the final approver: whoever
+            # receives it needs the reason it reached them.
+            if not is_final_approver and not note:
+                messages.error(request, "Add a note explaining why you are forwarding this document.")
+                return self._respond(request)
+
             recipient_staff_id = (
                 request.POST.get("recipient_staff_id") or request.POST.get("recipient") or ""
             ).strip()
@@ -2409,7 +2445,8 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             movement.save(update_fields=["status"])
             if movement.document:
                 movement.document.status = "rejected"
-                movement.document.save(update_fields=["status"])
+                movement.document.status_reason = note
+                movement.document.save(update_fields=["status", "status_reason"])
             try:
                 sender_staff = movement.sent_by.staff
                 movement.file.current_location = sender_staff

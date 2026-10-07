@@ -641,6 +641,11 @@ class ActionExpiryTest(TestCase):
         self.unit_manager = make_staff(self.um_user, "Head of Unit", self.dept)
         self.unit = Unit.objects.create(name="ExpUnit", department=self.dept, head=self.unit_manager)
 
+        # The one final approver (Medical Director designation carries
+        # user_management.can_approve_document; everyone else routes).
+        self.approver_user = make_user("exp_approver", "Staff")
+        self.approver = make_staff(self.approver_user, "Medical Director", self.dept)
+
         self.file = File.objects.create(
             title="EXPIRY FILE",
             file_type="personal",
@@ -687,7 +692,7 @@ class ActionExpiryTest(TestCase):
         self.client.login(username="exp_sup", password="Test1234!")
         resp = self.client.post(
             reverse("document_management:document_action", kwargs={"pk": self.movement.pk}),
-            {"action": "approve"},
+            {"action": "approve", "note": "Passed up for final approval", "recipient_staff_id": self.approver.pk},
         )
         self.assertIn(resp.status_code, [200, 302])
         self.movement.refresh_from_db()
@@ -711,7 +716,7 @@ class ActionExpiryTest(TestCase):
         self.client.login(username="exp_sup", password="Test1234!")
         self.client.post(
             reverse("document_management:document_action", kwargs={"pk": self.movement.pk}),
-            {"action": "approve"},
+            {"action": "approve", "note": "Passed up for final approval", "recipient_staff_id": self.approver.pk},
         )
         real.refresh_from_db()
         self.assertEqual(real.status, "approved")

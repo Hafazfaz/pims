@@ -991,8 +991,11 @@
             </div>
 
             <div>
-                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">Note</label>
+                <label class="block text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2">
+                    Note{% if user.staff.is_hod or user.staff.is_unit_manager %} (required){% endif %}
+                </label>
                 <textarea name="movement_note" rows="4" placeholder="Write your note here…"
+                          {% if user.staff.is_hod or user.staff.is_unit_manager %}required{% endif %}
                           class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none placeholder:text-slate-400"></textarea>
             </div>
 

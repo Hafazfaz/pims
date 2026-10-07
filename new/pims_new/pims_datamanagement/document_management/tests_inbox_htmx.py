@@ -38,6 +38,14 @@ class InboxHtmxActionTest(TestCase):
         self.dept.head = self.hod_staff
         self.dept.save()
 
+        # The final approver the HOD's approval routes to (Medical Director
+        # designation carries user_management.can_approve_document).
+        self.approver_user = make_user("htmx_approver", "Staff")
+        self.approver_user.first_name = "Final"
+        self.approver_user.last_name = "Approver"
+        self.approver_user.save()
+        self.approver_staff = make_staff(self.approver_user, "Medical Director", self.dept)
+
         self.doc = Document.objects.create(
             uploaded_by=self.sender,
             title="HTMX DOC",
@@ -82,15 +90,33 @@ class InboxHtmxActionTest(TestCase):
         )
 
     def test_htmx_approve_renders_panel_without_redirect(self):
-        response = self._hx_post(self.action_url, {"action": "approve"}, f"{self.inbox_url}?tab=untreated")
+        response = self._hx_post(
+            self.action_url,
+            {"action": "approve", "note": "Routing for final approval", "recipient_staff_id": self.approver_staff.pk},
+            f"{self.inbox_url}?tab=untreated",
+        )
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("Location", response)
         self.assertNotIn("HX-Redirect", response)
         # The fragment is the panel: tabs + flash message drawn in place.
         self.assertContains(response, "Untreated")
-        self.assertContains(response, "Document approved.")
+        # The HOD's approval is recorded and the document is routed to the
+        # approver for the final decision — it does not settle it here.
+        self.assertContains(response, "Approved — sent to Final Approver for final approval.")
         self.movement.refresh_from_db()
         self.assertEqual(self.movement.status, "approved")
+
+    def test_approve_without_note_is_refused(self):
+        """Approve-and-route carries a note — nothing moves without one."""
+        response = self._hx_post(
+            self.action_url,
+            {"action": "approve", "recipient_staff_id": self.approver_staff.pk},
+            f"{self.inbox_url}?tab=untreated",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Add a note explaining your approval")
+        self.movement.refresh_from_db()
+        self.assertEqual(self.movement.status, "pending")
 
     def test_htmx_reject_renders_panel_without_redirect(self):
         response = self._hx_post(
@@ -106,7 +132,9 @@ class InboxHtmxActionTest(TestCase):
         self.assertEqual(self.movement.status, "rejected")
 
     def test_plain_post_still_redirects(self):
-        response = self.client.post(self.action_url, {"action": "approve"})
+        response = self.client.post(
+            self.action_url, {"action": "approve", "note": "Routing for final approval", "recipient_staff_id": self.approver_staff.pk}
+        )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, self.inbox_url)
         self.movement.refresh_from_db()
@@ -115,7 +143,7 @@ class InboxHtmxActionTest(TestCase):
     def test_htmx_action_from_another_page_gets_hx_redirect(self):
         response = self._hx_post(
             self.action_url,
-            {"action": "approve"},
+            {"action": "approve", "note": "Routing for final approval", "recipient_staff_id": self.approver_staff.pk},
             current_url="http://testserver/my-files/",
         )
         self.assertEqual(response.status_code, 200)
@@ -127,8 +155,13 @@ class InboxHtmxActionTest(TestCase):
         self.assertContains(response, 'id="inbox-panel"')
         self.assertContains(response, "HTMX DOC")
 
-    def test_action_buttons_carry_hx_attributes(self):
+    def test_inbox_row_has_no_inline_action_buttons(self):
+        """Decisions moved to the detail page: the row only links to it."""
         response = self.client.get(self.inbox_url)
-        self.assertContains(response, 'hx-target="#inbox-panel"')
-        self.assertContains(response, 'hx-post="%s' % self.action_url)
-        self.assertContains(response, 'hx-disabled-elt="this"')
+        self.assertContains(response, "View Doc")
+        self.assertContains(
+            response,
+            reverse("document_management:inbox_document_detail", kwargs={"pk": self.movement.pk}),
+        )
+        # No inline approve/reject posts hit the action endpoint from the list.
+        self.assertNotContains(response, self.action_url)

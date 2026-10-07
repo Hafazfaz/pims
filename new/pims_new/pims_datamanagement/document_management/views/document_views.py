@@ -964,6 +964,9 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
 
         response = super().form_valid(form)
         document = self.object
+        # Optional "Note to reviewer" typed on the create form — carried on
+        # the routing movement so the next reader sees it with the document.
+        submitter_note = (form.cleaned_data.get("note") or "").strip()
 
         # Multi-file upload: first file lives on the document, the rest land
         # on DocumentAttachment rows.
@@ -1039,6 +1042,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 sent_by=self.request.user,
                 from_location=from_location,
                 sent_to=send_to_staff,
+                note=submitter_note,
                 action="sent",
                 document=document,
             )
@@ -1052,13 +1056,14 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 "FILE_SENT",
                 request=self.request,
                 obj=self.file_obj,
-                details={"to": send_to_staff.user.get_full_name()},
+                details={"to": send_to_staff.user.get_full_name(), "note": submitter_note},
             )
             create_notification(
                 user=send_to_staff.user,
                 message=(
                     f"{self.request.user.get_full_name()} "
                     f"sent you file {self.file_obj.file_number} — {self.file_obj.title}."
+                    + (f" Note: {submitter_note}" if submitter_note else "")
                 ),
                 obj=self.file_obj,
                 link=self.file_obj.get_absolute_url(),
@@ -1098,7 +1103,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             "DOCUMENT_ADDED",
             request=self.request,
             obj=document,
-            details={"file_id": self.file_obj.pk},
+            details={"file_id": self.file_obj.pk, "note": submitter_note},
         )
         return response
 
@@ -1369,7 +1374,11 @@ class StandaloneUrgentDocumentActionView(HTMXLoginRequiredMixin, View):
                 )
                 return inbox_action_response(request, back_url)
             document.status = "approved"
-            document.save(update_fields=["status"])
+            if note:
+                document.status_reason = note
+                document.save(update_fields=["status", "status_reason"])
+            else:
+                document.save(update_fields=["status"])
             log_action(
                 request.user,
                 "DOCUMENT_APPROVED",

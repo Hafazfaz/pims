@@ -401,8 +401,9 @@
               <div id="detail-forward-results" role="listbox"></div>
             </div>
             <div>
-              <label for="hou-forward-note" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note for the approver (optional)</label>
+              <label for="hou-forward-note" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Note for the approver (required)</label>
               <textarea id="hou-forward-note" x-ref="houFwdNote" name="note" rows="3" placeholder="Add a note..."
+                     required
                      class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"></textarea>
             </div>
             {% if other_docs %}
@@ -439,42 +440,77 @@
           </div>
           {% else %}
           <!-- Approver (holds can_approve_document): Approve settles the
-               document. Binary decision side by side; Forward replaces this
-               pairing in place (never inserted between). -->
+               document. All three decisions sit on one row; each opens its
+               own panel in place. -->
           <div x-data="{ view: 'default' }">
-          <div x-show="view === 'default'" class="space-y-2">
-          <div class="grid grid-cols-2 gap-2" role="group" aria-label="Approve or reject">
-            <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}">
+          <div x-show="view === 'default'"
+               class="grid grid-cols-3 gap-2"
+               role="group" aria-label="Approve, reject or forward">
+            <button type="button"
+                    @click="view = 'approve'; $nextTick(() => { var el = document.getElementById('md-approve-note'); el && el.focus(); })"
+                    aria-controls="md-approve-form-wrap" aria-expanded="false"
+                    class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Approve
+            </button>
+            <button type="button"
+                    @click="view = 'reject'; $nextTick(() => { var el = document.getElementById('hod-reject-note'); el && el.focus(); })"
+                    aria-controls="hod-reject-form" aria-expanded="false"
+                    class="action-btn decision-btn w-full py-3 bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              Reject
+            </button>
+            <button type="button"
+                    @click="view = 'forward'; $nextTick(() => { var el = document.getElementById('detail-forward-search'); el && el.focus(); })"
+                    aria-controls="forward-form-wrap" aria-expanded="false"
+                    class="action-btn decision-btn w-full py-3 bg-white text-slate-700 border border-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Forward
+            </button>
+          </div>
+
+          <!-- Approve: optional note, then settle the document -->
+          <div x-show="view === 'approve'" x-cloak x-transition class="space-y-3" id="md-approve-form-wrap">
+            <button type="button" @click="view = 'default'" class="decision-btn text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center gap-1 px-2 py-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Back
+            </button>
+            <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3 border border-green-100 bg-green-50/40 rounded-xl p-3">
               {% csrf_token %}
               <input type="hidden" name="action" value="approve">
-              <button type="submit" class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Approve
-              </button>
-            </form>
-            <div x-data="{ open: false }" class="space-y-2">
-              <button @click="open = !open; $el.setAttribute('aria-expanded', open); if (open) $nextTick(() => $refs.hodRejectNote.focus())" aria-expanded="false" aria-controls="hod-reject-form" class="action-btn decision-btn w-full py-3 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                Reject
-              </button>
-              <div x-show="open" x-cloak x-transition class="space-y-2 animate-slideIn col-span-2" id="hod-reject-form">
-                <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-2">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="reject">
-                  <label for="hod-reject-note" class="text-[10px] font-black text-red-700 uppercase tracking-widest">Reason for rejection (required)</label>
-                  <input type="text" id="hod-reject-note" x-ref="hodRejectNote" name="note" placeholder="Reason (required)" aria-describedby="hod-reject-hint"
-                         class="w-full border border-red-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                         required>
-                  <p id="hod-reject-hint" class="text-[10px] text-slate-400">The sender sees this reason. Rejection returns the document to them.</p>
-                  <button type="submit" class="decision-btn w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Confirm Reject</button>
-                </form>
+              <div>
+                <label for="md-approve-note" class="text-[10px] font-black text-green-700 uppercase tracking-widest">Note (optional)</label>
+                <input id="md-approve-note" type="text" name="note" placeholder="Add a note with your approval…"
+                       class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
               </div>
-            </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" @click="view = 'default'; document.getElementById('md-approve-note').value = ''" class="decision-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">Cancel</button>
+                <button type="submit" class="decision-btn w-full py-2.5 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Confirm Approve</button>
+              </div>
+            </form>
           </div>
-          <!-- Secondary action: forward (outline, not filled) -->
-          <button @click="view = 'forward'; $nextTick(() => document.getElementById('detail-forward-search') && document.getElementById('detail-forward-search').focus())" class="action-btn decision-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-            Forward to supervisor / HOD
-          </button>
+
+          <!-- Reject: reason required -->
+          <div x-show="view === 'reject'" x-cloak x-transition class="space-y-3" id="hod-reject-form">
+            <button type="button" @click="view = 'default'" class="decision-btn text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center gap-1 px-2 py-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              Back
+            </button>
+            <form method="post" action="{% url 'document_management:document_action' pk=movement.pk %}" class="space-y-3 border border-red-100 bg-red-50/40 rounded-xl p-3">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="reject">
+              <div>
+                <label for="hod-reject-note" class="text-[10px] font-black text-red-700 uppercase tracking-widest">Reason for rejection (required)</label>
+                <input type="text" id="hod-reject-note" name="note" placeholder="Reason (required)" aria-describedby="hod-reject-hint"
+                       class="mt-1 w-full border border-red-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                       required>
+                <p id="hod-reject-hint" class="mt-1.5 text-[10px] text-slate-400">The sender sees this reason. Rejection returns the document to them.</p>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" @click="view = 'default'; document.getElementById('hod-reject-note').value = ''" class="decision-btn w-full py-2.5 bg-white text-slate-700 border border-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">Cancel</button>
+                <button type="submit" class="decision-btn w-full py-2.5 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Confirm Reject</button>
+              </div>
+            </form>
           </div>
           <div x-show="view === 'forward'" x-cloak class="space-y-3" id="forward-form-wrap">
             <button type="button" @click="view = 'default'; resetForwardForm('forward-form-wrap')" class="decision-btn text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 flex items-center gap-1 px-2 py-2">
@@ -570,6 +606,12 @@
                 {% if movement.status == 'rejected' and decision_entry and decision_entry.details.note %}
                 <div class="mt-2 px-3 py-2 bg-white/70 border border-red-100 rounded-lg">
                   <p class="text-[10px] font-black text-red-600 uppercase tracking-widest">Reason</p>
+                  <p class="text-sm text-slate-700 mt-0.5">“{{ decision_entry.details.note }}”</p>
+                </div>
+                {% endif %}
+                {% if movement.status == 'approved' and decision_entry and decision_entry.details.note %}
+                <div class="mt-2 px-3 py-2 bg-white/70 border border-green-100 rounded-lg">
+                  <p class="text-[10px] font-black text-green-700 uppercase tracking-widest">Approval note</p>
                   <p class="text-sm text-slate-700 mt-0.5">“{{ decision_entry.details.note }}”</p>
                 </div>
                 {% endif %}
