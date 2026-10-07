@@ -313,6 +313,19 @@ class Document(models.Model):
     def is_shared(self):
         return self.shared_with.exists()
 
+    def __str__(self):
+        """A label a human can read in a notification or audit entry.
+
+        Titles are optional — auto-routed minutes often carry none — so fall
+        back to the file the document lives in rather than letting Django
+        render ``Document object (185)`` into people's messages.
+        """
+        if self.title:
+            return self.title
+        if self.file_id and self.file:
+            return f"Untitled document in {self.file.file_number}"
+        return "Untitled document"
+
     def can_view(self, user):
         """
         Check if the user can view this specific document.

@@ -1184,3 +1184,24 @@ class DocxPreviewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         # Content-Disposition should be inline because we served the preview PDF.
         self.assertIn("inline", response.get("Content-Disposition", ""))
+
+
+class DocumentLabelTest(TestCase):
+    """Notifications and audit entries quote documents by title, never
+    Django's default ``Document object (185)``."""
+
+    def setUp(self):
+        self.user = make_user("label_user", "Staff")
+        self.dept = Department.objects.create(name="Labels", code="LBL")
+        self.staff = make_staff(self.user, "Officer", self.dept)
+        self.file = File.objects.create(
+            title="LABEL FILE", file_type="personal", owner=self.staff, department=self.dept, created_by=self.user
+        )
+
+    def test_str_is_the_title(self):
+        doc = Document.objects.create(file=self.file, uploaded_by=self.user, title="B.Sc ECONOMICS CERTIFICATE")
+        self.assertEqual(str(doc), "B.Sc ECONOMICS CERTIFICATE")
+
+    def test_str_falls_back_to_the_file_it_lives_in(self):
+        doc = Document.objects.create(file=self.file, uploaded_by=self.user)
+        self.assertEqual(str(doc), f"Untitled document in {self.file.file_number}")

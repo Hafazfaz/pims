@@ -2219,7 +2219,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 movement.file.status = "active"
                 movement.file.save(update_fields=["current_location", "status"])
                 sender_name = request.user.get_full_name() or request.user.username
-                doc_ref = movement.document or movement.file.file_number
+                doc_ref = (movement.document.title or "Untitled") if movement.document else movement.file.file_number
                 decision_line = f"{sender_name} approved document '{doc_ref}'."
                 if note:
                     decision_line = f"{decision_line} Note: {note}"
@@ -2308,7 +2308,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 movement.file.current_location = recipient
                 movement.file.save(update_fields=["current_location"])
                 sender_name = request.user.get_full_name() or request.user.username
-                doc_ref = movement.document or movement.file.file_number
+                doc_ref = (movement.document.title or "Untitled") if movement.document else movement.file.file_number
                 suffix = f" (+{len(ref_docs)} reference doc(s))" if ref_docs else ""
                 create_notification(
                     user=recipient.user,
@@ -2402,7 +2402,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             movement.file.current_location = recipient
             movement.file.save(update_fields=["current_location"])
             sender_name = request.user.get_full_name() or request.user.username
-            doc_ref = movement.document or movement.file.file_number
+            doc_ref = (movement.document.title or "Untitled") if movement.document else movement.file.file_number
             suffix = f" (+{len(ref_docs)} reference doc(s))" if ref_docs else ""
             create_notification(
                 user=recipient.user,
@@ -2455,7 +2455,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             except Exception:
                 pass
             sender_name = request.user.get_full_name() or request.user.username
-            doc_ref = movement.document or movement.file.file_number
+            doc_ref = (movement.document.title or "Untitled") if movement.document else movement.file.file_number
             create_notification(
                 user=movement.sent_by,
                 message=(f"{sender_name} rejected document '{doc_ref}'. Note: {note}"),
