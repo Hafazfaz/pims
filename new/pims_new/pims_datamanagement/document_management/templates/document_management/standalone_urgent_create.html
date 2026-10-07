@@ -103,7 +103,26 @@
                                         </div>
                                     </div>
                                 {% else %}
-                                    {% if field.name != 'send_to' %}
+                                    {% if field.name == 'send_to' %}
+                                    <label class="block text-xs font-black text-slate-900 uppercase tracking-widest">
+                                        {{ field.label }} <span class="text-slate-400 font-bold normal-case tracking-normal">(optional)</span>
+                                    </label>
+                                    <div class="hidden">{{ field }}</div>
+                                    <div class="flex gap-2">
+                                        <input type="text"
+                                               id="urgent_dispatch_display"
+                                               class="block w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed"
+                                               readonly
+                                               placeholder="No recipient — save without routing">
+                                        <button type="button"
+                                                class="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 whitespace-nowrap"
+                                                onclick="openUrgentDispatchSearch()">Choose</button>
+                                        <button type="button"
+                                                id="urgent_dispatch_clear"
+                                                class="hidden px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 whitespace-nowrap"
+                                                onclick="clearUrgentDispatch()">Clear</button>
+                                    </div>
+                                    {% else %}
                                     <label for="{{ field.id_for_label }}" class="block text-xs font-black text-slate-900 uppercase tracking-widest">
                                         {{ field.label }}
                                     </label>
@@ -235,5 +254,69 @@
       },
     });
   });
+</script>
+<div id="urgentDispatchSearchModal"
+     class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 class="text-lg font-bold text-slate-800">Choose Recipient</h3>
+            <button type="button" onclick="closeUrgentDispatchSearch()" class="text-slate-400 hover:text-slate-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="p-6">
+            <input type="search"
+                   id="urgent-dispatch-search-input"
+                   name="q"
+                   class="block w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-red-500 mb-3"
+                   placeholder="Search by name, designation, department, unit..."
+                   hx-get="{% url 'document_management:inbox_recipient_search' %}"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#urgent-dispatch-results"
+                   hx-include="[name='q']">
+            <div id="urgent-dispatch-results"
+                 class="max-h-64 overflow-y-auto border border-slate-100 rounded-lg">
+                <div class="p-4 text-center text-sm text-slate-400">Start typing to search...</div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function openUrgentDispatchSearch() {
+    document.getElementById('urgentDispatchSearchModal').classList.remove('hidden');
+    document.getElementById('urgent-dispatch-search-input').focus();
+}
+function closeUrgentDispatchSearch() {
+    document.getElementById('urgentDispatchSearchModal').classList.add('hidden');
+}
+function selectDocDispatchStaff(id, name, meta) {
+    const label = meta ? `${name} — ${meta}` : name;
+    const hidden = document.querySelector('input[name="send_to"]');
+    if (hidden) hidden.value = id;
+    const display = document.getElementById('urgent_dispatch_display');
+    if (display) display.value = label;
+    document.getElementById('urgent_dispatch_clear').classList.remove('hidden');
+    closeUrgentDispatchSearch();
+}
+function clearUrgentDispatch() {
+    const hidden = document.querySelector('input[name="send_to"]');
+    if (hidden) hidden.value = '';
+    document.getElementById('urgent_dispatch_display').value = '';
+    document.getElementById('urgent_dispatch_clear').classList.add('hidden');
+}
+document.addEventListener('click', function(e) {
+    const row = e.target.closest('.inbox-recipient-option');
+    if (row) {
+        selectDocDispatchStaff(row.dataset.id, row.dataset.name, row.dataset.meta);
+    }
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeUrgentDispatchSearch();
+});
+document.getElementById('urgentDispatchSearchModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUrgentDispatchSearch();
+});
 </script>
 {% endblock %}

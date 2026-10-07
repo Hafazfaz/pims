@@ -1120,11 +1120,7 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
         return kwargs
 
     def get_form(self, form_class=None):
-        # Standalone documents are not tied to a file, so there is no
-        # dispatch target — drop the routing field entirely.
-        form = super().get_form(form_class)
-        form.fields.pop("send_to", None)
-        return form
+        return super().get_form(form_class)
 
     def get_initial(self):
         initial = super().get_initial()
@@ -1139,17 +1135,36 @@ class StandaloneUrgentDocumentCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.uploaded_by = self.request.user
-        form.instance.file = None  # Standalone document
+        form.instance.file = None
         priority = form.cleaned_data.get("priority", "urgent")
         form.instance.priority = priority
         form.instance.status = "pending"
         response = super().form_valid(form)
         document = self.object
 
-        # Alert only the people who may settle it: holders of the approval
-        # permission. Heads and unit managers without it still see the document
-        # in their urgent inbox and forward it onward from the tracking page.
-        if priority in ("urgent", "high"):
+        send_to = form.cleaned_data.get("send_to")
+        if send_to:
+            from document_management.models import FileMovement
+            from notifications.utils import create_notification
+
+            FileMovement.objects.create(
+                file=None,
+                document=document,
+                sent_by=self.request.user,
+                from_location=getattr(self.request.user, "staff", None),
+                sent_to=send_to,
+                action="sent",
+            )
+            create_notification(
+                user=send_to.user,
+                message=(
+                    f"{self.request.user.get_full_name() or self.request.user.username} "
+                    f"sent you an urgent document: '{document.title or 'Untitled'}'."
+                ),
+                obj=document,
+                link=reverse_lazy("document_management:inbox") + "?mode=urgent",
+            )
+        elif priority in ("urgent", "high"):
             from document_management.permissions import get_final_approvers
             from document_management.views.base import EXCLUDE_REGISTRY_Q
             from notifications.utils import create_notification
