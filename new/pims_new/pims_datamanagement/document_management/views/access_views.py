@@ -9,6 +9,7 @@ from django.views.generic import ListView, View
 from notifications.utils import create_notification
 
 from ..models import FileAccessRequest
+from ..permissions import revoke_approved_access
 from .base import RegistryRequiredMixin
 
 DENY_REASONS = [
@@ -37,10 +38,13 @@ class FileAccessRequestListView(RegistryRequiredMixin, ListView):
 class FileAccessRequestApproveView(RegistryRequiredMixin, View):
     def post(self, request, pk):
         access_req = get_object_or_404(FileAccessRequest, pk=pk)
+        file_obj = access_req.file
 
         # Defence-in-depth, mirroring the request form:
         #  - Read-Only is reserved for supervisor roles.
-        #  - Read & Write requires the Read & Write request permission.
+        #  - Read & Write requires the Read & Write request permission —
+        #    or being the owner of your own personnel file, since personal
+        #    files are grant-based and the owner must be able to ask for one.
         requester_staff = getattr(access_req.requested_by, "staff", None)
         requester_is_supervisor = bool(
             requester_staff and requester_staff.is_effective_supervisor
@@ -51,9 +55,14 @@ class FileAccessRequestApproveView(RegistryRequiredMixin, View):
             )
             return redirect("document_management:access_request_list")
 
-        if (
-            access_req.access_type == "read_write"
-            and not access_req.requested_by.has_perm("user_management.can_request_file_access_rw")
+        requester_owns_personal_file = bool(
+            file_obj.file_type == "personal"
+            and file_obj.owner
+            and file_obj.owner.user_id == access_req.requested_by.pk
+        )
+        if access_req.access_type == "read_write" and not (
+            access_req.requested_by.has_perm("user_management.can_request_file_access_rw")
+            or requester_owns_personal_file
         ):
             messages.error(
                 request,
@@ -67,12 +76,15 @@ class FileAccessRequestApproveView(RegistryRequiredMixin, View):
         access_req.save()
 
         # Transfer custody to the requesting user
-        file_obj = access_req.file
         try:
             file_obj.current_location = access_req.requested_by.staff
             file_obj.save()
         except Exception:
             pass
+        else:
+            # Custody changed hands: every other holder's approved grants
+            # die with it — only this freshly approved request stays alive.
+            revoke_approved_access(file_obj, keep=access_req)
 
         log_action(
             request.user,

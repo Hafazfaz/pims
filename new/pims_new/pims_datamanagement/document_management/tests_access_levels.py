@@ -29,12 +29,12 @@ def make_staff(user, designation_name="Officer", dept=None):
 class AccessLevelPermissionTest(TestCase):
     """Group-level permission matrix for Read-Only vs Read & Write."""
 
-    def test_staff_group_only_has_read_write(self):
+    def test_staff_group_has_both_access_levels(self):
         perms = set(
             Group.objects.get(name="Staff").permissions.values_list("codename", flat=True)
         )
+        self.assertIn("can_request_file_access", perms)
         self.assertIn("can_request_file_access_rw", perms)
-        self.assertNotIn("can_request_file_access", perms)
 
     def test_supervisor_group_has_both_levels(self):
         perms = set(
@@ -45,8 +45,8 @@ class AccessLevelPermissionTest(TestCase):
 
     def test_staff_user_effective_permissions(self):
         user = make_user("perm_staff", "Staff")
+        self.assertTrue(user.has_perm("user_management.can_request_file_access"))
         self.assertTrue(user.has_perm("user_management.can_request_file_access_rw"))
-        self.assertFalse(user.has_perm("user_management.can_request_file_access"))
 
 
 class AccessRequestLevelTest(TestCase):

@@ -195,6 +195,88 @@ def assign_organization_heads(departments, units):
             print(f"  No eligible head available for unit {unit.name} (all candidates already head something)")
 
 
+# Role codenames from user_management/0018_permission_based_groups. The base
+# .set() below installs model CRUD plus the file flags, but registry custody,
+# supervisory gates and executive oversight live on separate user_management
+# codenames — without them every permission-based gate (is_registry,
+# is_supervise, can_executive, can_head_*) reads False on a fixture-built
+# database. can_approve_document is deliberately absent: migration 0021 made
+# it person-based (Medical Director only) and no group may carry it.
+GROUP_ROLE_PERMISSIONS = {
+    "Registry": [
+        "can_manage_registry",
+        "can_create_file",
+        "can_manage_file_lifecycle",
+        "can_approve_file_access",
+        "can_view_file",
+        "can_view_file_content",
+        "can_add_document",
+        "can_dispatch_document",
+        "can_delete_document",
+    ],
+    "Staff": [
+        "can_request_file_access",
+        "can_view_file",
+        "can_view_file_content",
+        "can_add_document",
+        "can_delete_document",
+    ],
+    "Executives": [
+        "can_executive",
+        "can_view_all_staff_files",
+        "can_request_file_access",
+        "can_request_file_access_rw",
+        "can_view_file",
+        "can_view_file_content",
+        "can_add_document",
+        "can_dispatch_document",
+        "can_delete_document",
+        "can_share_documents",
+        "can_set_urgent_priority",
+    ],
+    "Supervisor": [
+        "can_request_file_access",
+        "can_request_file_access_rw",
+        "can_view_file",
+        "can_add_document",
+        "can_dispatch_document",
+        "can_delete_document",
+        "can_supervise",
+        "can_share_documents",
+        "can_set_urgent_priority",
+    ],
+    "HOD/HOU": [
+        "can_request_file_access",
+        "can_request_file_access_rw",
+        "can_view_file",
+        "can_add_document",
+        "can_dispatch_document",
+        "can_delete_document",
+        "can_supervise",
+        "can_share_documents",
+        "can_set_urgent_priority",
+    ],
+}
+GROUP_ROLE_PERMISSIONS["MD"] = GROUP_ROLE_PERMISSIONS["Executives"]
+
+
+def apply_group_role_permissions():
+    """Add the role codenames to whichever role groups exist right now."""
+    user_perms = {
+        p.codename: p for p in Permission.objects.filter(content_type__app_label="user_management")
+    }
+    for group_name, codenames in GROUP_ROLE_PERMISSIONS.items():
+        group = Group.objects.filter(name=group_name).first()
+        if group is None:
+            continue
+        for codename in codenames:
+            perm = user_perms.get(codename)
+            if perm is None:
+                print(f"Warning: Permission {codename} not found")
+                continue
+            group.permissions.add(perm)
+
+
 def sync_document_approval_permissions():
     """Hand ``can_approve_document`` to Medical Director holders only.
 
@@ -290,6 +372,9 @@ def create_fixtures():
     staff_group.permissions.set(staff_perms)
     executives_group.permissions.set(perms_list)
     md_group.permissions.set(perms_list)
+    # Role codenames (Registry custody, supervisory gates, executive oversight)
+    # ride alongside the CRUD base instead of replacing it.
+    apply_group_role_permissions()
 
     # --- Organization Structure ---
     print("Creating Organization Structure...")
@@ -463,6 +548,10 @@ def create_fixtures():
 
     # Assign Heads
     assign_organization_heads(departments, units)
+
+    # Supervisor / HOD-HOU groups only exist once the Staff rows that trigger
+    # the signals are in place — give them their role codenames now.
+    apply_group_role_permissions()
 
     # Approval right follows the Medical Director designation, never a group.
     sync_document_approval_permissions()

@@ -29,7 +29,7 @@ from organization.models import Department, Staff
 
 from ..forms import FileAccessRequestForm, FileForm, FileUpdateForm, SendFileForm
 from ..models import Document, DocumentSignature, File, FileAccessRequest, FileMovement
-from ..permissions import can_add_document, get_dispatch_recipients
+from ..permissions import can_add_document, get_dispatch_recipients, revoke_custody_access
 from .base import EXCLUDE_REGISTRY_Q, HTMXLoginRequiredMixin, inbox_action_response
 
 logger = logging.getLogger("document_management")
@@ -392,6 +392,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             note=covering_note,
             action="sent",
         )
+        revoke_custody_access(self.object, previous_custodian_user=self.request.user)
 
         log_action(
             self.request.user,
@@ -828,7 +829,27 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         # like anyone else instead of silently keeping Full Access.
         if is_custodian or (is_owner and is_custodian):
             has_approved_access = True
-            has_rw_access = True
+            has_rw_access = (
+                FileAccessRequest.objects.filter(
+                    file=file_obj,
+                    requested_by=user,
+                    status="approved",
+                    access_type="read_write",
+                )
+                .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                .exists()
+            )
+            if not has_rw_access:
+                staff = getattr(user, "staff", None)
+                if staff:
+                    latest_movement = (
+                        file_obj.movements.filter(sent_to=staff, action="sent", status="pending")
+                        .order_by("-moved_at")
+                        .first()
+                    )
+                    has_rw_access = bool(latest_movement and latest_movement.is_active_access)
+            if not has_rw_access and is_owner:
+                has_rw_access = True
         else:
             # Movement-based access: a recipient dispatched via "Send Note" is granted
             # automatic access that is tracked by FileMovement (with optional expiry).
@@ -898,7 +919,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         can_request_ro = bool(
             is_supervisor_viewer and user.has_perm("user_management.can_request_file_access")
         )
-        can_request_rw = user.has_perm("user_management.can_request_file_access_rw")
+        # Read & Write: permission-based for other people's files, but always
+        # available on your own personnel file (personal files are
+        # grant-based, so the owner must be able to ask for the grant).
+        can_request_rw = bool(
+            user.has_perm("user_management.can_request_file_access_rw") or is_own_personal_file
+        )
         can_request_access = bool(
             not has_approved_access
             and not pending_access_request
@@ -1058,7 +1084,14 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 messages.error(request, "File is in transit with another custodian. Wait until it returns to Registry before requesting access.")
             elif not (holder_is_registry and file_obj.status == "active"):
                 messages.error(request, "Access can only be requested when the file is at rest with Registry.")
-            elif access_type == "read_write" and not request.user.has_perm("user_management.can_request_file_access_rw"):
+            elif access_type == "read_write" and not (
+                request.user.has_perm("user_management.can_request_file_access_rw")
+                or (
+                    file_obj.file_type == "personal"
+                    and file_obj.owner
+                    and file_obj.owner.user_id == request.user.pk
+                )
+            ):
                 messages.error(request, "You do not have permission to request Read & Write access.")
             elif access_type == "read_only" and not (
                 requester_is_supervisor
@@ -1163,6 +1196,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     action="sent",
                     expires_at=timezone.now() + timedelta(days=7),
                 )
+                revoke_custody_access(file_obj, previous_custodian_user=request.user)
                 log_action(
                     request.user,
                     "FILE_SENT",
@@ -1970,7 +2004,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
             "sent_by", "sent_to__user", "from_location__user", "document"
         ).order_by("-moved_at")
 
-        can_view_content = can_view_document_content(request.user, file=file_obj)
+        can_view_content = can_view_document_content(request.user, file=file_obj, document=document)
 
         from document_management.views.document_views import can_download_document_file
 
@@ -2304,6 +2338,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                     note=note,
                     action="sent",
                 )
+                revoke_custody_access(movement.file, previous_custodian_user=request.user)
                 # The approver rides on the fresh movement + custody.
                 movement.file.current_location = recipient
                 movement.file.save(update_fields=["current_location"])
@@ -2399,6 +2434,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 note=note,
                 action="sent",
             )
+            revoke_custody_access(movement.file, previous_custodian_user=request.user)
             movement.file.current_location = recipient
             movement.file.save(update_fields=["current_location"])
             sender_name = request.user.get_full_name() or request.user.username

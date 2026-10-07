@@ -82,8 +82,8 @@ def is_privileged_viewer(user):
     Backed by :attr:`Staff.is_privileged_head`: HOD, section/division heads,
     flagged/group-granted supervisors, executives, MD, Mayor (and
     superusers). Pure heads-of-unit are NOT included — they get the same
-    lower-staff treatment: no own-file contents, in-transit-only My Files,
-    no subordinate browsing.
+    lower-staff treatment: their own pending documents open on their own
+    file while approved ones stay closed, and no subordinate browsing.
     """
     staff = get_staff(user)
     if not staff:
@@ -170,14 +170,8 @@ def can_view_file(user, file):
                 headed_unit = None
             if headed_unit is not None and owner.unit_id and owner.unit_id == headed_unit.pk:
                 return True
-    # Approved access request
-    from document_management.models import FileAccessRequest
-
-    return (
-        FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved")
-        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-        .exists()
-    )
+    # Approved access request — only while its holder still has custody.
+    return active_access_request(file, user) is not None
 
 
 def can_activate_file(user, file):
@@ -202,6 +196,51 @@ def can_send_file(user, file):
 
 
 # ---------------------------------------------------------------------------
+# Access-request grants (tied to custody)
+# ---------------------------------------------------------------------------
+
+
+def active_access_request(file, user, *, access_type=None):
+    """The user's approved, unexpired FileAccessRequest — but ONLY while they
+    still hold custody of the file.
+
+    Approving a request transfers custody to the requester
+    (``FileAccessRequestApproveView``), so a grant is valid exactly as long
+    as its holder's custody. Every custody change expires grants through
+    :func:`revoke_approved_access`; this check is the belt-and-braces half of
+    the same rule, so a stale row can never reopen a file whose custody has
+    moved on. Returns the ``FileAccessRequest`` or ``None``.
+    """
+    from document_management.models import FileAccessRequest
+
+    staff = get_staff(user)
+    if staff is None or file is None or file.current_location_id != staff.pk:
+        return None
+    qs = FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved")
+    if access_type:
+        qs = qs.filter(access_type=access_type)
+    return qs.filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True)).first()
+
+
+def revoke_approved_access(file, *, keep=None):
+    """Expire every approved grant on ``file`` — all but ``keep`` if given.
+
+    Called at EVERY custody change (recall, send/dispatch, document
+    auto-route, inbox approve/forward/reject, final approval, signature
+    approvals, custody reclaim, and approval of a newer access request) so a
+    grant lives exactly as long as its holder's custody: once the file moves
+    out of someone's hands their grant is expired and they must request
+    access again. Returns the number of grants revoked.
+    """
+    from document_management.models import FileAccessRequest
+
+    qs = FileAccessRequest.objects.filter(file=file, status="approved")
+    if keep is not None:
+        qs = qs.exclude(pk=keep.pk)
+    return qs.update(status="expired")
+
+
+# ---------------------------------------------------------------------------
 # Document permissions
 # ---------------------------------------------------------------------------
 
@@ -216,30 +255,42 @@ def can_add_document(user, file, *, require_active=True):
     Rules (in order):
     - the file must be active (unless ``require_active=False``, used by the
       endpoint so it can show an accurate "file is not active" message);
-    - Registry / superuser / Executives — always;
-    - an approved, unexpired ``read_write`` FileAccessRequest;
-    - movement-based RW — dispatched recipient still holding active access;
-    - the file owner (any file type);
-    - Supervisor of the file's department, on non-personal files.
+    - personal files — the owner (only while they hold custody) and Registry only;
+    - Registry / superuser / Executives — always (other file types);
+    - non-registry staff MUST be the current custodian to write;
+    - an approved, unexpired ``read_write`` FileAccessRequest (read_only never
+      permits writing) — valid ONLY while its holder still has custody; every
+      custody change expires grants (``revoke_approved_access``), so once the
+      file moves out of their hands they must request access again;
+    - movement-based RW — dispatched recipient whose pending movement is still active;
+    - the file owner while they hold custody;
+    - Supervisor of the file's department, on non-personal files, while holding custody.
     """
     if require_active and file.status != "active":
         return False
+    if file.file_type == "personal":
+        if is_registry(user) or user.is_superuser:
+            return True
+        staff = get_staff(user)
+        return bool(
+            staff
+            and file.owner_id == staff.pk
+            and file.current_location_id == staff.pk
+        )
     if is_registry(user) or user.is_superuser or is_executive(user):
         return True
     staff = get_staff(user)
     if not staff:
         return False
-    from document_management.models import FileAccessRequest
-
-    if (
-        FileAccessRequest.objects.filter(
-            file=file, requested_by=user, status="approved", access_type="read_write"
-        )
-        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-        .exists()
-    ):
+    if file.current_location_id != staff.pk:
+        return False
+    if active_access_request(file, user, access_type="read_write") is not None:
         return True
-    latest = file.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
+    latest = (
+        file.movements.filter(sent_to=staff, action="sent", status="pending")
+        .order_by("-moved_at")
+        .first()
+    )
     if latest and latest.is_active_access:
         return True
     if file.owner == staff:
@@ -382,6 +433,9 @@ def can_view_document_content(user, file=None, document=None):
     Custody rule: supervisors see contents ONLY while they hold custody
     (current_location) or hold an explicit grant — an approved (unexpired)
     FileAccessRequest, an active FileMovement, or a direct document share.
+    Approved grants are custody-tied: they are valid only while the holder
+    still has custody, and every custody change expires them
+    (``revoke_approved_access``), so a former holder must request again.
     Browsing a file from the inbox/sent lists without custody shows metadata only.
     Standing access (no custody needed): holders of the explicit
     ``user_management.can_view_all_staff_files`` grant (MD / Executives /
@@ -391,6 +445,15 @@ def can_view_document_content(user, file=None, document=None):
     approved request opens them.
     Registry can NEVER view contents (separation-of-duties), even as custodian.
     Sensitive files follow the same rule — no role bypasses it.
+
+    Personal files are grant-based and nothing else: the contents open only
+    while the viewer holds an approved, unexpired access request on that file
+    (Read or Read & Write) or a direct share on that document. Ownership,
+    custody, uploads, approved requests on other files, movements and
+    supervisory standing never open someone's personnel file — those callers
+    keep the file page with titles and metadata only. That includes the file
+    owner: they must request access like anyone else. Executives need the
+    global grant for personal files too.
     """
     if user.is_superuser:
         return True
@@ -403,6 +466,16 @@ def can_view_document_content(user, file=None, document=None):
     if is_global_viewer(user):
         return True
     if not staff:
+        return False
+    if file is not None and file.file_type == "personal":
+        # Grant-based: the approved request must also still hold custody.
+        if active_access_request(file, user) is not None:
+            return True
+        if document is not None and document.shared_with.filter(pk=user.pk).exists():
+            return True
+        latest_movement = file.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
+        if latest_movement and latest_movement.is_active_access:
+            return True
         return False
     # Top leadership retains oversight access without custody.
     if is_executive(user):
@@ -421,14 +494,7 @@ def can_view_document_content(user, file=None, document=None):
     # explicit grant. No silent role-based viewing.
     if file.current_location == staff:
         return True
-    from document_management.models import FileAccessRequest
-
-    has_approved = (
-        FileAccessRequest.objects.filter(file=file, requested_by=user, status="approved")
-        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-        .exists()
-    )
-    if has_approved:
+    if active_access_request(file, user) is not None:
         return True
     latest_movement = file.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
     if latest_movement and latest_movement.is_active_access:
@@ -528,6 +594,16 @@ def get_dispatch_recipients(user, file):
         if head and head.pk != staff.pk:
             return base_qs.filter(pk=head.pk)
     return base_qs.none()
+
+
+def revoke_custody_access(file, previous_custodian_user=None):
+    """Expire approved FileAccessRequests on ``file`` when custody changes.
+
+    Deprecated alias of :func:`revoke_approved_access`: every holder's
+    approved grants are revoked (``previous_custodian_user`` is ignored) —
+    an approved grant is valid exactly as long as its holder has custody.
+    """
+    return revoke_approved_access(file)
 
 
 def can_share_document(user):

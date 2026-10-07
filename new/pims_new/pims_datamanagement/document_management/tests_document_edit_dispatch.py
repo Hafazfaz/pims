@@ -5,7 +5,7 @@ from django.urls import NoReverseMatch, reverse
 from organization.models import Department, Designation, Staff
 from user_management.models import CustomUser
 
-from document_management.models import Document, File
+from document_management.models import Document, File, FileAccessRequest
 
 
 def make_user(username, group_name=None):
@@ -117,6 +117,15 @@ class DocumentShareActionRowTest(TestCase):
             title="Shareable Doc",
             minute_content="Body of the document",
             status="pending",
+        )
+        # Document detail now requires an approved access request for personal
+        # files; give the HOD viewer one so the page renders.
+        FileAccessRequest.objects.create(
+            file=self.file,
+            requested_by=self.hod_user,
+            access_type="read_only",
+            status="approved",
+            reason="Test access",
         )
 
     def _url(self):

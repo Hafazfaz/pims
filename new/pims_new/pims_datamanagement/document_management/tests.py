@@ -545,21 +545,41 @@ class ContentScopeTest(TestCase):
         self.file.current_location = staff
         self.file.save(update_fields=["current_location"])
 
-    def test_owner_can_view_and_download_without_custody(self):
+    def _grant_access(self, user, access_type="read_only"):
+        # A grant is only active while its holder has custody.
+        from document_management.models import FileAccessRequest
+
+        req = FileAccessRequest.objects.create(
+            file=self.file,
+            requested_by=user,
+            access_type=access_type,
+            status="approved",
+            reason="Test access grant",
+        )
+        staff = getattr(user, "staff", None)
+        if staff is not None:
+            self.file.current_location = staff
+            self.file.save(update_fields=["current_location"])
+        return req
+
+    def test_owner_allowed_with_explicit_grant(self):
+        self._grant_access(self.owner_user)
         self.assertEqual(self._gates(self.owner_user), (True, True))
 
     def test_hod_denied_without_custody(self):
         self.assertEqual(self._gates(self.hod_user), (False, False))
 
-    def test_hod_allowed_with_custody(self):
+    def test_hod_allowed_with_custody_and_grant(self):
         self._give_custody(self.hod)
+        self._grant_access(self.hod_user)
         self.assertEqual(self._gates(self.hod_user), (True, True))
 
     def test_unit_head_denied_without_custody(self):
         self.assertEqual(self._gates(self.um_user), (False, False))
 
-    def test_unit_head_allowed_with_custody(self):
+    def test_unit_head_allowed_with_custody_and_grant(self):
         self._give_custody(self.unit_manager)
+        self._grant_access(self.um_user)
         self.assertEqual(self._gates(self.um_user), (True, True))
 
     def test_supervisor_denied_without_custody(self):
@@ -574,11 +594,12 @@ class ContentScopeTest(TestCase):
     def test_registry_cannot_view_or_download(self):
         self.assertEqual(self._gates(self.reg_user), (False, False))
 
-    def test_uploader_can_download_own_document(self):
+    def test_uploader_can_download_own_document_with_grant(self):
         from document_management.views.document_views import can_download_document_file
 
         self.doc.uploaded_by = self.out_user
         self.doc.save()
+        self._grant_access(self.out_user)
         self.assertTrue(can_download_document_file(self.out_user, self.doc))
 
     def test_owner_denied_for_approved_document(self):
@@ -600,13 +621,7 @@ class ContentScopeTest(TestCase):
         self.assertEqual(self._gates(self.exec_user), (True, True))
 
     def test_approved_request_opens_approved_document(self):
-        FileAccessRequest.objects.create(
-            file=self.file,
-            requested_by=self.sup_user,
-            reason="Need access for audit review",
-            access_type="read_only",
-            status="approved",
-        )
+        self._grant_access(self.sup_user)
         self.doc.status = "approved"
         self.doc.save(update_fields=["status"])
         self.assertEqual(self._gates(self.sup_user), (True, True))
@@ -679,6 +694,7 @@ class ActionExpiryTest(TestCase):
         )
 
     def test_recipient_has_access_before_action(self):
+        # The pending movement gives the recipient active access to the file.
         self.assertEqual(self._gates(self.sup_user), (True, True))
 
     def test_approve_expires_movement_and_auto_grants(self):
@@ -705,7 +721,7 @@ class ActionExpiryTest(TestCase):
         # Back to the sent/inbox item: no more viewing or downloading.
         self.assertEqual(self._gates(self.sup_user), (False, False))
 
-    def test_real_approved_request_survives_approval(self):
+    def test_real_approved_request_expires_on_custody_change(self):
         real = FileAccessRequest.objects.create(
             file=self.file,
             requested_by=self.sup_user,
@@ -719,37 +735,57 @@ class ActionExpiryTest(TestCase):
             {"action": "approve", "note": "Passed up for final approval", "recipient_staff_id": self.approver.pk},
         )
         real.refresh_from_db()
-        self.assertEqual(real.status, "approved")
-        # Requesting access remains the way back in.
-        self.assertEqual(self._gates(self.sup_user), (True, True))
+        # Custody moves to the final approver; every grant on the file expires.
+        self.assertEqual(real.status, "expired")
+        self.assertEqual(self._gates(self.sup_user), (False, False))
 
     def test_forward_expires_forwarder_only(self):
-        # HOU approves -> auto-forwarded to their HOD.
-        fwd_movement = FileMovement.objects.create(
+        # Forwarding revokes only the forwarder's dispatch-time auto-grant;
+        # everyone else's survives, and the next holder rides on the fresh
+        # movement + custody.
+        sup_auto = FileAccessRequest.objects.create(
             file=self.file,
-            document=self.doc,
-            sent_by=self.owner_user,
-            from_location=self.owner,
-            sent_to=self.unit_manager,
-            note="For HOD via HOU",
-            action="sent",
-            status="pending",
-            expires_at=timezone.now() + timedelta(days=7),
+            requested_by=self.sup_user,
+            reason="Auto-granted: file sent by owner",
+            access_type="read_only",
+            status="approved",
         )
-        self.file.current_location = self.unit_manager
-        self.file.save(update_fields=["current_location"])
-        self.client.login(username="exp_um", password="Test1234!")
+        owner_auto = FileAccessRequest.objects.create(
+            file=self.file,
+            requested_by=self.owner_user,
+            reason="Auto-granted: file sent by owner",
+            access_type="read_only",
+            status="approved",
+        )
+        # The HOD holds a real, human-approved request — these survive
+        # forwarding untouched.
+        hod_request = FileAccessRequest.objects.create(
+            file=self.file,
+            requested_by=self.hod_user,
+            reason="Need access for audit review",
+            access_type="read_only",
+            status="approved",
+        )
+        self.client.login(username="exp_sup", password="Test1234!")
         self.client.post(
-            reverse("document_management:document_action", kwargs={"pk": fwd_movement.pk}),
-            {"action": "approve", "note": "Passing up"},
+            reverse("document_management:document_action", kwargs={"pk": self.movement.pk}),
+            {"action": "forward", "recipient_staff_id": self.hod.pk, "note": "Passing up"},
         )
-        fwd_movement.refresh_from_db()
+        self.movement.refresh_from_db()
+        sup_auto.refresh_from_db()
+        owner_auto.refresh_from_db()
+        hod_request.refresh_from_db()
         self.file.refresh_from_db()
-        self.assertEqual(fwd_movement.status, "forwarded")
-        self.assertFalse(fwd_movement.is_active_access)
+        self.assertEqual(self.movement.status, "forwarded")
+        self.assertFalse(self.movement.is_active_access)
+        # Forwarding expires the forwarder's auto-grants; the custody change
+        # also expires every other approved grant on the file.
+        self.assertEqual(sup_auto.status, "expired")
+        self.assertEqual(owner_auto.status, "expired")
+        self.assertEqual(hod_request.status, "expired")
         from document_management.permissions import can_view_document_content
 
-        self.assertFalse(can_view_document_content(self.um_user, file=self.file))
+        self.assertFalse(can_view_document_content(self.sup_user, file=self.file))
         # The HOD rides on the fresh movement + custody.
         self.assertTrue(can_view_document_content(self.hod_user, file=self.file))
 
@@ -782,7 +818,7 @@ class AddDocumentPermissionTest(TestCase):
             title="ADD PERM FILE",
             file_type="personal",
             owner=self.owner_staff,
-            current_location=self.registry_staff,
+            current_location=self.owner_staff,
             created_by=self.registry_user,
             status="active",
         )

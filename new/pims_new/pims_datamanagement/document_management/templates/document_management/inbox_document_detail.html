@@ -150,10 +150,14 @@
               </div>
             </div>
 
-            {% if document.minute_content %}
+            {% if document.minute_content and can_view_content %}
             <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-4 prose prose-sm prose-slate max-w-none prose-content">
               <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Content</h3>
               {{ document.minute_content|safe }}
+            </div>
+            {% elif document.minute_content and not can_view_content %}
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-center">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Content locked — request access to view</p>
             </div>
             {% endif %}
 

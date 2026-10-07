@@ -5,7 +5,6 @@ from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -16,9 +15,9 @@ from notifications.utils import create_notification
 from organization.models import Staff
 
 from ..forms import DocumentForm
-from ..models import Document, File, FileAccessRequest, FileMovement
+from ..models import Document, File, FileMovement
 from .base import HTMXLoginRequiredMixin, inbox_action_response
-from ..permissions import can_add_document, can_share_document
+from ..permissions import active_access_request, can_add_document, can_share_document, revoke_custody_access
 
 
 logger = logging.getLogger(__name__)
@@ -106,11 +105,9 @@ class DocumentDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
         file_obj = document.file
         user = self.request.user
 
-        active_access = FileAccessRequest.objects.filter(
-            file=file_obj, requested_by=user, status="approved", access_type="read_write"
-        ).first()
-
-        if active_access and active_access.is_active:
+        # Custody-tied Read-Write grant: valid only while the holder has
+        # custody; every custody change expires grants.
+        if active_access_request(file_obj, user, access_type="read_write") is not None:
             return True
 
         return document.uploaded_by == user
@@ -167,21 +164,12 @@ class DocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         if can_view_document(user, document):
             return True
 
-        if staff_user == file_obj.current_location:
+        if document.status != "approved" and staff_user == file_obj.current_location:
             return True
 
         # Registry content restriction is already enforced above
 
-        active_request = (
-            FileAccessRequest.objects.filter(
-                file=file_obj,
-                requested_by=user,
-                status="approved",
-            )
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
-        if active_request:
+        if active_access_request(file_obj, user) is not None:
             return True
 
         if document.shared_with.filter(id=user.id).exists():
@@ -256,7 +244,7 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
     def get_queryset(self):
         from django.http import Http404
 
-        from ..permissions import can_view_staff_documents, has_content_scope
+        from ..permissions import can_view_staff_documents
 
         # Registry (and anyone lacking view_staff_documents) must not page
         # through staff document titles either.
@@ -264,36 +252,38 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
             return Document.objects.none()
 
         file_pk = self.kwargs.get("pk")
-        # Enforce the same content-scope rule as My Files: viewers without
-        # scope (owner, unit head, HOD/supervisor, custodian, grant, share)
-        # get no rows. Owners paging their own personal file are allowed —
-        # titles alone no longer leak beyond what they may view.
+        # Rows are metadata; which of them carry a link is decided by the one
+        # permission path the hub uses — can_view_document_content, applied in
+        # get_context_data. Owners paging their own personal file get their
+        # pending documents linked, everyone else gets titles only.
         try:
-            file_obj = File.objects.select_related("owner").get(pk=file_pk)
+            file_obj = File.objects.select_related("owner", "current_location").get(pk=file_pk)
         except File.DoesNotExist:
             raise Http404
         self._file_obj = file_obj
-        staff = getattr(self.request.user, "staff", None)
-        if staff and file_obj.file_type == "personal" and file_obj.owner_id == staff.pk:
-            if not has_content_scope(self.request.user, file_obj):
-                return Document.objects.none()
         queryset = Document.objects.filter(file_id=file_pk)
 
         search_query = self.request.GET.get("q")
         if search_query:
             queryset = queryset.filter(title__icontains=search_query)
 
-        return queryset.order_by("-uploaded_at")
+        return queryset.order_by("-uploaded_at").prefetch_related("shared_with")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["file_id"] = self.kwargs.get("pk")
         context["file_obj"] = getattr(self, "_file_obj", None)
         context["selected_search_query"] = self.request.GET.get("q", "")
-        staff = getattr(self.request.user, "staff", None)
-        context["can_browse_subordinates"] = bool(
-            staff and (staff.is_hod or staff.is_privileged_head or staff.is_head_of_unit)
-        )
+        file_obj = getattr(self, "_file_obj", None)
+        if file_obj is not None:
+            from ..permissions import can_view_document_content
+
+            user = self.request.user
+            file_obj.viewable_doc_ids = {
+                doc.pk
+                for doc in context.get("documents") or []
+                if can_view_document_content(user, file=file_obj, document=doc)
+            }
         return context
 
 
@@ -589,11 +579,7 @@ def can_download_document_file(user, document):
         allowed = True
 
     if not allowed:
-        allowed = (
-            FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
-            .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-            .exists()
-        )
+        allowed = active_access_request(file_obj, user) is not None
 
     if not allowed:
         allowed = document.shared_with.filter(pk=user.pk).exists()
@@ -1046,11 +1032,7 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
                 action="sent",
                 document=document,
             )
-            # Sender hands off custody — expire their approved grants like send_file does,
-            # so they don't keep Full Access while the file is in transit with someone else.
-            FileAccessRequest.objects.filter(
-                file=self.file_obj, requested_by=self.request.user, status="approved"
-            ).update(status="expired")
+            revoke_custody_access(self.file_obj, previous_custodian_user=self.request.user)
             log_action(
                 self.request.user,
                 "FILE_SENT",

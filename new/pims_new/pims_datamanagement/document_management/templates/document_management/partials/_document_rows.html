@@ -41,7 +41,7 @@
             <span class="text-xs text-slate-400 font-medium">{{ doc.uploaded_at|date:"M d, Y" }}</span>
         </td>
         <td class="px-8 py-5 text-right">
-            {% if user.is_superuser or user.staff.is_executive or user.staff.is_md or user.staff.is_mayor or file_obj.owner_id == user.staff.id or file_obj.current_location_id == user.staff.id or doc.uploaded_by_id == user.id or can_browse_subordinates %}
+            {% if doc.pk in file_obj.viewable_doc_ids %}
                 {% if doc.has_files %}
                     <a href="{% url 'document_management:attachment_view' doc_pk=doc.pk att_key='main' %}"
                        class="text-slate-500 hover:text-nigeria-green hover:underline font-black text-[10px] uppercase tracking-widest">View</a>
