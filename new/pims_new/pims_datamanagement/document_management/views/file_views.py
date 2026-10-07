@@ -445,17 +445,20 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
 
         # Heads (HOD / supervisor / unit head) only browse their OWN files on
         # My Files — subordinate personnel files are never listed here. Only
-        # the executive tier stays org-wide.
+        # a superuser browses the whole organization from here.
         user = self.request.user
-        if user.is_superuser or staff_user.is_executive or staff_user.is_md or getattr(staff_user, "is_mayor", False):
-            # org-wide: drop the filter entirely
+        if user.is_superuser:
             queryset = File.objects.all()
         else:
+            # My files: owned by me, created by me, or currently in my custody.
             queryset = File.objects.filter(base_q).distinct()
             is_oversight = (
                 staff_user.is_privileged_head or staff_user.is_hod or staff_user.is_head_of_unit
             )
-            if not staff_user.is_registry and not is_oversight:
+            is_executive_tier = (
+                staff_user.is_executive or staff_user.is_md or getattr(staff_user, "is_mayor", False)
+            )
+            if not staff_user.is_registry and not is_oversight and not is_executive_tier:
                 # Lower staff: My Files shows ONLY pending work still awaiting
                 # approval — files in transit OR files with pending/in-transit
                 # documents. Once everything is approved (file back to active
