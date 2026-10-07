@@ -1997,13 +1997,10 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
         is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
         is_final_approver = bool(staff and staff.can_final_approve)
 
-        # Prefill the approver search for anyone who cannot settle the
-        # document themselves (everyone but the Medical Director role).
+        # Never pre-select an approver: the panel used to auto-fill the first
+        # final approver (the Medical Director), so routing went out without
+        # anyone choosing the recipient. Whoever approves picks them now.
         prefilled_recipient = None
-        if staff is not None and not is_final_approver:
-            from document_management.permissions import get_final_approvers
-
-            prefilled_recipient = get_final_approvers(exclude_staff=staff).first()
 
         # Next hop after this movement — forwards create a follow-up
         # movement that carries the decision note + timestamp.

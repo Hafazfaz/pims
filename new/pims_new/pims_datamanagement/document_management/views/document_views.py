@@ -1313,7 +1313,9 @@ class StandaloneUrgentDocumentDetailView(HTMXLoginRequiredMixin, DetailView):
         context["approvers"] = (
             get_final_approvers(exclude_staff=staff) if staff is not None else get_final_approvers()
         )
-        context["prefilled_recipient"] = context["approvers"].first()
+        # No pre-selected approver — the doctor chooses who gives final
+        # approval instead of the panel auto-filling the first one (the MD).
+        context["prefilled_recipient"] = None
         context["timeline"] = timeline
         context["alert_count"] = alert_total
         context["waiting_since"] = document.uploaded_at
