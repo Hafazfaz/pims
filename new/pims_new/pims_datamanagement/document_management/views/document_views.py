@@ -584,6 +584,15 @@ def can_download_document_file(user, document):
     if not allowed:
         allowed = document.shared_with.filter(pk=user.pk).exists()
 
+    if not allowed and staff:
+        from ..models import FileMovement
+        latest = (
+            FileMovement.objects.filter(file=file_obj, sent_to=staff, action="sent")
+            .order_by("-moved_at")
+            .first()
+        )
+        allowed = bool(latest and latest.is_active_access)
+
     return allowed
 
 
