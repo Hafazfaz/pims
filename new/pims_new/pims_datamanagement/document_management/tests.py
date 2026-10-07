@@ -165,8 +165,8 @@ class DocumentUploadTest(TestCase):
     def test_upload_document(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
-        # Use a non-PDF to avoid watermark processing
-        f = SimpleUploadedFile("test.txt", b"plain text content", content_type="text/plain")
+        # PNG: allowed by the upload whitelist, still skips PDF watermarking
+        f = SimpleUploadedFile("test.png", b"png bytes", content_type="image/png")
         r = self.client.post(
             reverse("document_management:document_add", kwargs={"file_pk": self.file.pk}),
             {"file": self.file.pk, "title": "Test Doc", "document_type": self.doc_type.pk, "attachment": f},
