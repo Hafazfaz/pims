@@ -980,7 +980,16 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["send_file_form"] = SendFileForm(user=user, staff=sender_staff, file_obj=file_obj)
         context["access_request_form"] = FileAccessRequestForm()
         context["pending_access_request"] = pending_access_request
-        context["movements"] = file_obj.movements.select_related("sent_by", "from_location__user", "sent_to__user")[:20]
+        context["movements"] = file_obj.movements.select_related(
+            "sent_by",
+            "from_location__user",
+            "from_location__designation",
+            "from_location__department",
+            "sent_to__user",
+            "sent_to__designation",
+            "sent_to__department",
+            "document",
+        ).order_by("-moved_at")
 
         # Build recipient list using central permission function
         from document_management.permissions import get_dispatch_recipients
@@ -998,7 +1007,14 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["status_choices"] = STATUS_CHOICES
 
         # Build unified chronicle
-        documents = list(file_obj.documents.select_related("uploaded_by").all())
+        documents = list(
+            file_obj.documents.select_related("uploaded_by", "document_type")
+            .prefetch_related(
+                "signatures__signatory__staff__designation",
+                "signatures__signature_record",
+            )
+            .all()
+        )
         context["documents"] = documents
         # Approved documents are locked per-document: titles/status stay
         # visible, but contents + buttons hide unless the viewer is top
@@ -1030,7 +1046,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         audit_entries = list(
             AuditLogEntry.objects.filter(object_id=file_obj.pk, content_type__model="file")
             .select_related("user")
-            .order_by("timestamp")
+            .order_by("-timestamp")
         )
 
         chronicle = []
@@ -1038,7 +1054,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             chronicle.append({"type": "document", "item": doc, "timestamp": doc.uploaded_at})
         for entry in audit_entries:
             chronicle.append({"type": "audit", "item": entry, "timestamp": entry.timestamp})
-        chronicle.sort(key=lambda x: x["timestamp"])
+        chronicle.sort(key=lambda x: x["timestamp"], reverse=True)
         context["chronicle"] = chronicle
 
         return context
