@@ -11,7 +11,7 @@ from django.contrib.auth.mixins import (
     UserPassesTestMixin,
 )
 from django.core.exceptions import PermissionDenied
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -1475,6 +1475,20 @@ class FileDeleteView(HTMXLoginRequiredMixin, UserPassesTestMixin, View):
 
 
 class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
+    """Browse record containers, scoped to the viewer's jurisdiction.
+
+    Everyone gets the same explorer UI; only the width of the list changes:
+
+    * ``all``       — superuser, Registry and the executive tier: every file.
+    * ``department``— a HOD: their department's policy files plus the personal
+      files of every member of that department (their own excluded).
+    * ``unit``      — a head of unit: the personal files of their unit's
+      members (their own excluded).
+
+    ``?staff=<pk>`` then narrows the list to one member's files *inside* that
+    scope, so the URL can only ever shrink what the viewer may already see.
+    """
+
     model = File
     template_name = "document_management/record_explorer.html"
     context_object_name = "files"
@@ -1485,7 +1499,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         if user.is_superuser:
             return True
         staff = getattr(user, "staff", None)
-        return staff and (staff.is_registry or staff.is_hod or staff.is_unit_manager or staff.is_md)
+        return bool(staff and (staff.is_registry or staff.is_hod or staff.is_unit_manager or staff.is_md))
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -1493,40 +1507,122 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         messages.error(self.request, "You do not have permission to access the Record Explorer.")
         return redirect("document_management:my_files")
 
-    def get_queryset(self):
-        staff = getattr(self.request.user, "staff", None)
-        queryset = File.objects.filter(status="active").order_by("file_number")
+    # ------------------------------------------------------------------ scope
+    def get_staff_user(self):
+        try:
+            return Staff.objects.get(user=self.request.user)
+        except Staff.DoesNotExist:
+            return None
 
-        # HODs see only their department's files (policy + personal), excluding their own
-        # Unit managers see only their unit's personal files, excluding their own
-        # MD sees everything
-        if staff and staff.is_hod and not staff.is_md and not staff.is_registry and not self.request.user.is_superuser:
+    @staticmethod
+    def _headed_unit(staff):
+        if staff is None:
+            return None
+        try:
+            return staff.headed_unit
+        except Exception:
+            return None
+
+    def get_scope_kind(self):
+        """One of ``all`` / ``department`` / ``unit`` / ``none``."""
+        user = self.request.user
+        staff = self.get_staff_user()
+        if user.is_superuser or staff is None:
+            return "all"
+        if staff.is_registry or staff.is_md:
+            return "all"
+        if staff.is_hod:
+            return "department"
+        if staff.is_head_of_unit:
+            return "unit"
+        return "none"
+
+    def get_scoped_files(self):
+        """Active files this viewer may browse, before any GET filters."""
+        kind = self.get_scope_kind()
+        files = File.objects.filter(status="active")
+        if kind == "all":
+            return files
+        if kind == "none":
+            return files.none()
+
+        staff = self.get_staff_user()
+        if staff is None:
+            return files.none()
+
+        if kind == "department":
             dept = staff.department
-            queryset = (
-                queryset.filter(Q(department=dept) | Q(file_type="personal", owner__department=dept))
+            if dept is None:
+                return files.none()
+            return (
+                files.filter(
+                    Q(department=dept)
+                    | Q(file_type="personal", owner__department=dept)
+                    | Q(file_type="personal", owner__unit__department=dept)
+                )
                 .exclude(file_type="personal", owner=staff)
                 .distinct()
             )
-        elif (
-            staff
-            and staff.is_head_of_unit
-            and not staff.is_hod
-            and not staff.is_md
-            and not staff.is_registry
-            and not self.request.user.is_superuser
-        ):
-            try:
-                headed_unit = staff.headed_unit
-            except Exception:
-                headed_unit = None
-            if headed_unit:
-                queryset = (
-                    queryset.filter(Q(file_type="personal", owner__unit=headed_unit))
-                    .exclude(file_type="personal", owner=staff)
-                    .distinct()
-                )
-            else:
-                queryset = queryset.none()
+
+        headed_unit = self._headed_unit(staff)
+        if headed_unit is None:
+            return files.none()
+        return files.filter(file_type="personal", owner__unit=headed_unit).exclude(owner=staff)
+
+    def get_scope_members(self):
+        """Staff whose files this viewer may browse, with a live file count.
+
+        Drives the "view files of the staff under me" dropdown: department
+        members for a HOD, unit members for a head of unit, everybody for the
+        executive tier. The viewer themselves is dropped — their own file is
+        reached from My Files, not from here.
+        """
+        kind = self.get_scope_kind()
+        staff = self.get_staff_user()
+        if kind == "none":
+            return Staff.objects.none()
+
+        members = Staff.objects.select_related("user", "designation")
+        if kind == "department":
+            members = members.filter(department=staff.department) if staff and staff.department_id else members.none()
+        elif kind == "unit":
+            headed_unit = self._headed_unit(staff)
+            members = members.filter(unit=headed_unit) if headed_unit else members.none()
+
+        if staff is not None:
+            members = members.exclude(pk=staff.pk)
+
+        return (
+            members.annotate(
+                active_file_count=Count("owned_files", filter=Q(owned_files__status="active"), distinct=True)
+            )
+            .filter(active_file_count__gt=0)
+            .order_by("user__last_name", "user__first_name", "user__username")
+        )
+
+    def get_selected_member(self):
+        """The in-scope staff member named by ``?staff=``, or None.
+
+        A pk that is not in this viewer's scope resolves to None, so a
+        hand-edited URL falls back to the whole scope instead of leaking.
+        """
+        if hasattr(self, "_selected_member"):
+            return self._selected_member
+        raw = self.request.GET.get("staff") or ""
+        member = None
+        if raw.isdigit():
+            wanted = int(raw)
+            member = next((m for m in self.get_scope_members() if m.pk == wanted), None)
+        self._selected_member = member
+        return member
+
+    # --------------------------------------------------------------- query
+    def get_queryset(self):
+        queryset = self.get_scoped_files().order_by("file_number")
+
+        member = self.get_selected_member()
+        if member is not None:
+            queryset = queryset.filter(owner_id=member.pk)
 
         q = self.request.GET.get("q")
         if q:
@@ -1554,6 +1650,36 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        staff = self.get_staff_user()
+        kind = self.get_scope_kind()
+        department = getattr(staff, "department", None) if staff else None
+        headed_unit = self._headed_unit(staff)
+
+        if kind == "department":
+            context["scope_label"] = "HOD ACCESS"
+            context["scope_title"] = "Department Files"
+            context["scope_hint"] = (
+                f"Policy files and every staff file in {department.name}" if department else "Files in your department"
+            )
+        elif kind == "unit":
+            context["scope_label"] = "UNIT MANAGER ACCESS"
+            context["scope_title"] = "Unit Files"
+            context["scope_hint"] = (
+                f"Personal files of every staff member in {headed_unit.name} Unit"
+                if headed_unit
+                else "Personal files of your unit's staff"
+            )
+        else:
+            context["scope_label"] = "REGISTRY ACCESS" if staff and staff.is_registry else "EXECUTIVE ACCESS"
+            context["scope_title"] = "All Files"
+            context["scope_hint"] = "Every active file in the system"
+
+        context["scope_kind"] = kind
+        context["staff_options"] = self.get_scope_members()
+        member = self.get_selected_member()
+        context["selected_staff"] = member.pk if member else ""
+        context["selected_staff_name"] = str(member) if member else ""
+
         context["departments"] = Department.objects.all().order_by("name")
         context["selected_dept"] = self.request.GET.get("department", "")
         context["selected_file_type"] = self.request.GET.get("file_type", "")
@@ -1561,24 +1687,17 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
         context["q"] = self.request.GET.get("q", "")
 
         file_pk = self.request.GET.get("file_pk")
-        if file_pk:
-            try:
-                selected_file = File.objects.get(pk=file_pk)
+        if file_pk and str(file_pk).isdigit():
+            # Scoped lookup: a file outside this viewer's jurisdiction 404s
+            # instead of opening just because the pk was typed into the URL.
+            selected_file = self.get_scoped_files().filter(pk=int(file_pk)).first()
+            if selected_file is not None:
                 latest_docs = selected_file.documents.order_by("-uploaded_at")
-                documents = latest_docs[:10]
                 context["selected_file"] = selected_file
-                context["documents"] = documents
+                context["documents"] = latest_docs[:10]
                 context["has_more_documents"] = latest_docs.count() > 10
-            except File.DoesNotExist:
-                pass
 
         return context
-
-    def get_staff_user(self):
-        try:
-            return Staff.objects.get(user=self.request.user)
-        except Staff.DoesNotExist:
-            return None
 
 
 def _get_allowed_forward_pks(staff):

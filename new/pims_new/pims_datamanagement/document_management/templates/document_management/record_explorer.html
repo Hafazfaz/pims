@@ -6,18 +6,12 @@
         <!-- Header -->
         <div class="flex items-center justify-between mb-4 flex-shrink-0">
             <div>
-                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Search Files</h2>
-                <p class="text-sm text-slate-500 font-medium italic">Browse and view all files</p>
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ scope_title|default:"Search Files" }}</h2>
+                <p class="text-sm text-slate-500 font-medium italic">{{ scope_hint|default:"Browse and view all files" }}</p>
             </div>
             <div class="flex gap-3">
                 <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-widest border border-slate-200">
-                    {% if user.staff.is_registry %}
-                        REGISTRY ACCESS
-                    {% elif user.staff.is_hod %}
-                        HOD ACCESS
-                    {% else %}
-                        UNIT MANAGER ACCESS
-                    {% endif %}
+                    {{ scope_label }}
                 </span>
             </div>
         </div>
@@ -26,13 +20,13 @@
             <!-- Sidebar: File List -->
             <div class="w-80 md:w-96 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
                 <!-- Search Side Header -->
-                <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                <div class="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
                     <div class="relative group">
                         <input type="text"
                                name="q"
                                value="{{ selected_search_query }}"
                                placeholder="Search Folders..."
-                               hx-get="{% url 'document_management:record_explorer' %}?department={{ selected_dept }}&file_type={{ selected_file_type }}"
+                               hx-get="{% url 'document_management:record_explorer' %}?department={{ selected_dept }}&file_type={{ selected_file_type }}&staff={{ selected_staff }}"
                                hx-trigger="keyup changed delay:300ms, q"
                                hx-target="#file-sidebar-list"
                                hx-indicator="#sidebar-indicator"
@@ -47,6 +41,28 @@
                             </svg>
                         </div>
                     </div>
+                    {% if staff_options %}
+                        <div>
+                            <label for="explorer-staff-filter"
+                                   class="block mb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                Staff member
+                            </label>
+                            <select id="explorer-staff-filter"
+                                    name="staff"
+                                    hx-get="{% url 'document_management:record_explorer' %}?q={{ selected_search_query|urlencode }}&department={{ selected_dept }}&file_type={{ selected_file_type }}"
+                                    hx-trigger="change"
+                                    hx-target="#file-sidebar-list"
+                                    hx-indicator="#sidebar-indicator"
+                                    class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:ring-1 focus:ring-nigeria-green focus:border-nigeria-green transition-all">
+                                <option value="">All staff in scope</option>
+                                {% for member in staff_options %}
+                                    <option value="{{ member.pk }}" {% if member.pk == selected_staff %}selected{% endif %}>
+                                        {{ member.user.get_full_name|default:member.user.username }} ({{ member.active_file_count }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
                 </div>
                 <!-- List -->
                 <div id="file-sidebar-list" class="flex-grow overflow-y-auto">

@@ -129,15 +129,19 @@
             </div>
             {% endif %}
 
-            <!-- MD -->
-            {% if user.staff.is_md %}
+            <!-- BROWSE (record explorer — MD sees everything, HODs their department, unit heads their unit) -->
+            {% if user.staff.is_md or user.staff.is_hod or user.staff.is_unit_manager %}
             <div>
-                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">MD Office</p>
+                <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                    {% if user.staff.is_md %}MD Office{% elif user.staff.is_hod %}Department{% else %}Unit{% endif %}
+                </p>
                 <div class="space-y-0.5">
                     <a href="{% url 'document_management:record_explorer' %}"
                        class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'explorer' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-search w-4 text-center"></i>
-                        <span class="text-xs font-bold uppercase tracking-wider">All Files</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">
+                            {% if user.staff.is_md %}All Files{% elif user.staff.is_hod %}Department Files{% else %}Unit Files{% endif %}
+                        </span>
                     </a>
                 </div>
             </div>
