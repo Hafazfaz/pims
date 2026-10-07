@@ -1,29 +1,18 @@
-from datetime import timedelta
 import logging
+from datetime import timedelta
 
 from audit_log.models import AuditLogEntry
 from audit_log.utils import log_action
 from core.constants import LIVE_FILE_STATUSES
 from django.contrib import messages
-from django.contrib.auth.mixins import (
-    LoginRequiredMixin,
-    PermissionRequiredMixin,
-    UserPassesTestMixin,
-)
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Prefetch, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import (
-    CreateView,
-    DetailView,
-    ListView,
-    TemplateView,
-    UpdateView,
-    View,
-)
+from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView, View
 from notifications.utils import create_notification
 from organization.models import Department, Staff
 
@@ -178,9 +167,11 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         # calling selectDispatchStaff(staff_pk, name).
         if request.headers.get("HX-Request") and request.GET.get("dispatch_search"):
             return self._dispatch_recipient_options(request)
-        if request.headers.get("HX-Request") and (
-            request.GET.get("file_type") or request.GET.get("owner") or request.GET.get("department")
-        ) and not request.GET.get("q"):
+        if (
+            request.headers.get("HX-Request")
+            and (request.GET.get("file_type") or request.GET.get("owner") or request.GET.get("department"))
+            and not request.GET.get("q")
+        ):
             # Legacy auto-preview hook — no longer used (dispatch is now
             # optional via modal). Return empty so old HTMX triggers no-op.
             return HttpResponse("")
@@ -194,14 +185,14 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         eligible = get_dispatch_recipients(request.user, File(file_type="personal", title="TEMP"))
         if query and len(query) >= 1:
             eligible = eligible.filter(
-                            Q(user__first_name__icontains=query)
-                            | Q(user__last_name__icontains=query)
-                            | Q(designation__name__icontains=query)
-                            | Q(department__name__icontains=query)
-                            | Q(unit__name__icontains=query)
-                            | Q(section__name__icontains=query)
-                            | Q(division__name__icontains=query)
-                        ).distinct()[:10]
+                Q(user__first_name__icontains=query)
+                | Q(user__last_name__icontains=query)
+                | Q(designation__name__icontains=query)
+                | Q(department__name__icontains=query)
+                | Q(unit__name__icontains=query)
+                | Q(section__name__icontains=query)
+                | Q(division__name__icontains=query)
+            ).distinct()[:10]
         else:
             eligible = eligible[:10]
         if not eligible:
@@ -218,9 +209,8 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             meta = staff.role_label
             safe_meta = meta.replace("'", "\\'")
             is_selected = bool(selected) and str(staff.pk) == str(selected)
-            row_cls = (
-                "flex items-center justify-between px-4 py-3 cursor-pointer "
-                + ("bg-nigeria-green/10 border-l-4 border-nigeria-green" if is_selected else "hover:bg-slate-50")
+            row_cls = "flex items-center justify-between px-4 py-3 cursor-pointer " + (
+                "bg-nigeria-green/10 border-l-4 border-nigeria-green" if is_selected else "hover:bg-slate-50"
             )
             btn = (
                 '<span class="ml-3 inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-200 '
@@ -228,7 +218,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 if is_selected
                 else f'<button type="button" class="ml-3 px-3 py-1.5 bg-nigeria-green text-white '
                 f'text-[10px] font-black uppercase rounded-lg" '
-                f'onclick="selectDispatchStaff(\'{staff.pk}\', \'{safe}\', \'{safe_meta}\')">Select</button>'
+                f"onclick=\"selectDispatchStaff('{staff.pk}', '{safe}', '{safe_meta}')\">Select</button>"
             )
             html += (
                 f'<div class="{row_cls}">'
@@ -287,7 +277,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             f"<div>"
             f'<p class="text-sm font-bold text-slate-800">{full_name}</p>'
             f'<p class="text-xs text-slate-500">{designation}'
-            f'{f" — {department}" if department else ""}</p>'
+            f"{f' — {department}' if department else ''}</p>"
             f"</div>"
             f"</div>"
         )
@@ -339,9 +329,7 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             # File creators are always registry: their uploads are official
             # records, so documents start out approved. The file itself stays
             # active (it only leaves active when dispatched for review).
-            Document.objects.create(
-                file=self.object, attachment=f, uploaded_by=self.request.user, status="approved"
-            )
+            Document.objects.create(file=self.object, attachment=f, uploaded_by=self.request.user, status="approved")
 
         log_action(self.request.user, "FILE_CREATED", request=self.request, obj=self.object)
 
@@ -353,7 +341,12 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 obj=self.object,
                 link=self.object.get_absolute_url(),
             )
-        elif self.object.file_type == "policy" and self.object.department and self.object.department.head and self.object.department.head.user:
+        elif (
+            self.object.file_type == "policy"
+            and self.object.department
+            and self.object.department.head
+            and self.object.department.head.user
+        ):
             create_notification(
                 user=self.object.department.head.user,
                 message=f"A policy file has been created in your department: {self.object.file_number} — {self.object.title}.",
@@ -455,12 +448,9 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             queryset = File.objects.all()
         else:
             # Own work only: files I own, I created, or currently hold.
-            queryset = (
-                File.objects.filter(
-                    Q(owner=staff_user) | Q(created_by=user) | Q(current_location=staff_user)
-                )
-                .distinct()
-            )
+            queryset = File.objects.filter(
+                Q(owner=staff_user) | Q(created_by=user) | Q(current_location=staff_user)
+            ).distinct()
 
         if not staff_user.is_registry:
             queryset = queryset.exclude(status__in=["inactive", "closed"])
@@ -485,9 +475,7 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             )
         )
 
-        return queryset.select_related(
-            "owner__user", "current_location__user", "department"
-        ).order_by("-created_at")
+        return queryset.select_related("owner__user", "current_location__user", "department").order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         staff_user = self.get_staff_user()
@@ -524,10 +512,11 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         # helper the file page, the download gate and the document detail all
         # consult. With no grant open (personal files are grant-based, the
         # owner included), the row renders as a title with no link.
-        from ..permissions import can_view_document_content, can_view_staff_documents
-
         from django.utils import timezone as tz
-        from ..models import FileAccessRequest as FAR, FileMovement
+
+        from ..models import FileAccessRequest as FAR
+        from ..models import FileMovement
+        from ..permissions import can_view_document_content, can_view_staff_documents
 
         user = self.request.user
         if user.is_superuser:
@@ -567,13 +556,12 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             personal_folder.viewable_doc_ids = {
                 doc.pk
                 for doc in personal_folder.documents.all()
-                if personal_folder.show_documents and can_view_document_content(user, file=personal_folder, document=doc)
+                if personal_folder.show_documents
+                and can_view_document_content(user, file=personal_folder, document=doc)
             }
         # Files of theirs that are not the personnel file (created by them or
         # sitting in their custody) still belong on the hub, listed after it.
-        context["other_folders"] = [
-            f for f in page_folders if personal_folder is None or f.pk != personal_folder.pk
-        ]
+        context["other_folders"] = [f for f in page_folders if personal_folder is None or f.pk != personal_folder.pk]
         # Oversight heads get a head-appropriate empty state instead of the
         # regular "caught up / no records" copy.
         context["is_oversight_head"] = bool(
@@ -635,9 +623,8 @@ class FileRecallView(HTMXLoginRequiredMixin, PermissionRequiredMixin, View):
         elif file_obj.owner and staff_user and file_obj.owner == staff_user:
             recall_target = staff_user
         else:
-            from organization.models import Staff as StaffModel
-
             from django.db.models import Q
+            from organization.models import Staff as StaffModel
 
             recall_target = StaffModel.objects.filter(
                 Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
@@ -743,11 +730,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                     headed_division = None
                 if headed_division and owner.division_id and owner.division_id == headed_division.pk:
                     return True
-                if (
-                    owner.department_id
-                    and staff_user.department_id
-                    and owner.department_id == staff_user.department_id
-                ):
+                if owner.department_id and staff_user.department_id and owner.department_id == staff_user.department_id:
                     return True
             if owner.pk != staff_user.pk and staff_user.is_head_of_unit:
                 try:
@@ -795,9 +778,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             .exists()
         )
         # Active via a movement dispatched to this holder (the new source of truth)
-        latest_movement = file_obj.movements.filter(
-            sent_to=holder, action="sent"
-        ).order_by("-moved_at").first()
+        latest_movement = file_obj.movements.filter(sent_to=holder, action="sent").order_by("-moved_at").first()
         has_active_movement = bool(latest_movement and latest_movement.is_active_access)
         if not (has_active_request or has_active_movement):
             # Find any registry staff to return to
@@ -841,8 +822,17 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         staff = getattr(user, "staff", None)
         is_privileged_viewer = bool(
             user.is_superuser
-            or (staff and (staff.is_registry or staff.is_hod or staff.is_privileged_head
-                           or staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False)))
+            or (
+                staff
+                and (
+                    staff.is_registry
+                    or staff.is_hod
+                    or staff.is_privileged_head
+                    or staff.is_executive
+                    or staff.is_md
+                    or getattr(staff, "is_mayor", False)
+                )
+            )
         )
         is_own_personal_file = bool(
             staff and file_obj.file_type == "personal" and file_obj.owner_id and file_obj.owner_id == staff.pk
@@ -882,9 +872,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             staff = getattr(user, "staff", None)
             latest_movement = None
             if staff:
-                latest_movement = (
-                    file_obj.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
-                )
+                latest_movement = file_obj.movements.filter(sent_to=staff, action="sent").order_by("-moved_at").first()
             if latest_movement and latest_movement.is_active_access:
                 has_approved_access = True
                 has_rw_access = True
@@ -923,9 +911,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         from document_management.permissions import can_manual_dispatch
 
         context["can_send_file"] = (
-            (is_custodian or is_registry or is_mayor)
-            and file_obj.status == "active"
-            and can_manual_dispatch(user)
+            (is_custodian or is_registry or is_mayor) and file_obj.status == "active" and can_manual_dispatch(user)
         )
         # Custody-derived gating: at rest with Registry vs in transit with third party.
         # At rest (active + holder is Registry)  -> request access FROM Registry.
@@ -935,22 +921,20 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         holder_is_registry = bool(holder and holder.is_registry)
         is_at_rest_with_registry = bool(holder_is_registry and file_obj.status == "active")
         is_in_transit = file_obj.status == "in_transit"
-        custodian_is_third_party = bool(holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry)
+        custodian_is_third_party = bool(
+            holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry
+        )
         pending_access_request = FileAccessRequest.objects.filter(
             file=file_obj, requested_by=user, status="pending"
         ).exists()
         # Access levels are role-restricted: normal staff may only request
         # Read & Write, while Read-Only is reserved for supervisor roles.
         is_supervisor_viewer = bool(staff and staff.is_effective_supervisor)
-        can_request_ro = bool(
-            is_supervisor_viewer and user.has_perm("user_management.can_request_file_access")
-        )
+        can_request_ro = bool(is_supervisor_viewer and user.has_perm("user_management.can_request_file_access"))
         # Read & Write: permission-based for other people's files, but always
         # available on your own personnel file (personal files are
         # grant-based, so the owner must be able to ask for the grant).
-        can_request_rw = bool(
-            user.has_perm("user_management.can_request_file_access_rw") or is_own_personal_file
-        )
+        can_request_rw = bool(user.has_perm("user_management.can_request_file_access_rw") or is_own_personal_file)
         can_request_access = bool(
             not has_approved_access
             and not pending_access_request
@@ -1030,19 +1014,12 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             user.is_superuser
             or is_custodian
             or has_approved_access
-            or (
-                staff
-                and (
-                    staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False)
-                )
-            )
+            or (staff and (staff.is_executive or staff.is_md or getattr(staff, "is_mayor", False)))
         )
         _shared_ids = set()
         if not _can_open_approved and staff:
             _shared_ids = set(
-                file_obj.documents.filter(shared_with=user, status="approved").values_list(
-                    "pk", flat=True
-                )
+                file_obj.documents.filter(shared_with=user, status="approved").values_list("pk", flat=True)
             )
         context["locked_doc_ids"] = {
             doc.pk
@@ -1071,9 +1048,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
 
         if action == "change_status":
             staff_user = getattr(request.user, "staff", None)
-            is_registry = bool(
-                request.user.is_superuser or (staff_user and staff_user.is_registry)
-            )
+            is_registry = bool(request.user.is_superuser or (staff_user and staff_user.is_registry))
             if not is_registry:
                 messages.error(request, "Only Registry can change a file's status.")
                 return redirect(file_obj.get_absolute_url())
@@ -1100,9 +1075,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 obj=file_obj,
                 details={"from": old_display, "to": file_obj.get_status_display()},
             )
-            messages.success(
-                request, f"File status changed from {old_display} to {file_obj.get_status_display()}."
-            )
+            messages.success(request, f"File status changed from {old_display} to {file_obj.get_status_display()}.")
             return redirect(file_obj.get_absolute_url())
 
         if action == "request_access":
@@ -1112,9 +1085,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             holder = file_obj.current_location
             holder_is_registry = bool(holder and holder.is_registry)
             requester_staff = getattr(request.user, "staff", None)
-            requester_is_supervisor = bool(
-                requester_staff and requester_staff.is_effective_supervisor
-            )
+            requester_is_supervisor = bool(requester_staff and requester_staff.is_effective_supervisor)
             access_type = (request.POST.get("access_type") or "").strip().lower()
             if access_type not in ("read_only", "read_write"):
                 # Anything unexpected falls back to the level the requester is
@@ -1122,22 +1093,22 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 access_type = "read_write" if not requester_is_supervisor else "read_only"
             if already_pending:
                 messages.warning(request, "You already have a pending access request for this file.")
-            elif file_obj.status == "in_transit" or (holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry):
-                messages.error(request, "File is in transit with another custodian. Wait until it returns to Registry before requesting access.")
+            elif file_obj.status == "in_transit" or (
+                holder and file_obj.owner and holder != file_obj.owner and not holder_is_registry
+            ):
+                messages.error(
+                    request,
+                    "File is in transit with another custodian. Wait until it returns to Registry before requesting access.",
+                )
             elif not (holder_is_registry and file_obj.status == "active"):
                 messages.error(request, "Access can only be requested when the file is at rest with Registry.")
             elif access_type == "read_write" and not (
                 request.user.has_perm("user_management.can_request_file_access_rw")
-                or (
-                    file_obj.file_type == "personal"
-                    and file_obj.owner
-                    and file_obj.owner.user_id == request.user.pk
-                )
+                or (file_obj.file_type == "personal" and file_obj.owner and file_obj.owner.user_id == request.user.pk)
             ):
                 messages.error(request, "You do not have permission to request Read & Write access.")
             elif access_type == "read_only" and not (
-                requester_is_supervisor
-                and request.user.has_perm("user_management.can_request_file_access")
+                requester_is_supervisor and request.user.has_perm("user_management.can_request_file_access")
             ):
                 messages.error(request, "Read-Only access requests are reserved for supervisors.")
             else:
@@ -1206,9 +1177,13 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                         if staff_user.is_hod or staff_user.is_md or staff_user.is_executive:
                             messages.error(request, "Invalid recipient selection.")
                         elif staff_user.is_effective_supervisor:
-                            messages.error(request, "Supervisors can only send files to other supervisors or their direct heads.")
+                            messages.error(
+                                request, "Supervisors can only send files to other supervisors or their direct heads."
+                            )
                         else:
-                            messages.error(request, "You can only send this file to your direct head (Unit Manager or HOD).")
+                            messages.error(
+                                request, "You can only send this file to your direct head (Unit Manager or HOD)."
+                            )
                         return redirect(file_obj.get_absolute_url())
                 old_location = file_obj.current_location
                 note = request.POST.get("movement_note", "").strip()
@@ -1299,7 +1274,9 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 if new_status in ("approved", "rejected"):
                     decision = "has been approved" if new_status == "approved" else "was rejected"
                     reason = status_reason.strip()
-                    message = f"Your document '{document.title or 'Untitled'}' in file {file_obj.file_number} {decision}."
+                    message = (
+                        f"Your document '{document.title or 'Untitled'}' in file {file_obj.file_number} {decision}."
+                    )
                     if new_status == "rejected" and reason:
                         message += f" Reason: {reason}"
                     _notify_document_submitter(document, file_obj, message, actor=request.user)
@@ -1820,9 +1797,7 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
     # ------------------------------------------------------------------ sources
     def _user_files(self, staff):
         return File.objects.filter(
-            Q(current_location=staff)
-            | Q(owner=staff)
-            | (Q(department=staff.department) if staff.department else Q()),
+            Q(current_location=staff) | Q(owner=staff) | (Q(department=staff.department) if staff.department else Q()),
             status="active",
         ).distinct()
 
@@ -1878,9 +1853,7 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         movements = list(self._tab_movements(staff, tab)[: self.ROW_LIMIT])
         # A document already shown as a movement row must not appear twice.
         seen_doc_ids = [m.document_id for m in movements if m.document_id]
-        documents = list(
-            self._urgent_doc_qs(staff, tab).exclude(pk__in=seen_doc_ids)[: self.ROW_LIMIT]
-        )
+        documents = list(self._urgent_doc_qs(staff, tab).exclude(pk__in=seen_doc_ids)[: self.ROW_LIMIT])
 
         # Standalone urgent documents have no movement — decisions happen on
         # their detail page, never inline in the list.
@@ -1939,9 +1912,7 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
 
         # Counts for the filter chips follow the active tab.
         context["tab_all_count"] = (
-            context["treated_count"]
-            if context["current_tab"] == "treated"
-            else context["untreated_count"]
+            context["treated_count"] if context["current_tab"] == "treated" else context["untreated_count"]
         )
         context["tab_urgent_count"] = (
             context["urgent_treated_count"]
@@ -1950,9 +1921,7 @@ class InboxView(HTMXLoginRequiredMixin, ListView):
         )
 
         # Keeps ?tab= / ?filter= across pagination links.
-        context["pagination_extra"] = (
-            f"&tab={context['current_tab']}&filter={context['current_filter']}"
-        )
+        context["pagination_extra"] = f"&tab={context['current_tab']}&filter={context['current_filter']}"
 
         # An htmx swap renders only the panel, so flash messages must be drawn
         # there. A full page load already shows them above the block content.
@@ -1975,7 +1944,9 @@ class OutboxView(HTMXLoginRequiredMixin, ListView):
             return FileMovement.objects.none()
         qs = (
             FileMovement.objects.filter(sent_by=self.request.user, action="sent")
-            .select_related("file", "document", "sent_to__user", "sent_to__designation", "sent_to__department", "sent_to__unit")
+            .select_related(
+                "file", "document", "sent_to__user", "sent_to__designation", "sent_to__department", "sent_to__unit"
+            )
             .order_by("-moved_at")
         )
 
@@ -2069,9 +2040,7 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
         query = request.GET.get("q", "").strip()
         all_documents = file_obj.documents.select_related("uploaded_by").order_by("-uploaded_at")
         if query:
-            all_documents = all_documents.filter(
-                Q(title__icontains=query) | Q(minute_content__icontains=query)
-            )
+            all_documents = all_documents.filter(Q(title__icontains=query) | Q(minute_content__icontains=query))
 
         # Reference documents shared with this user for this movement
         reference_docs = (
@@ -2165,9 +2134,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
 
         from document_management.views.document_views import can_download_document_file
 
-        can_download_file = bool(
-            document is not None and can_download_document_file(request.user, document)
-        )
+        can_download_file = bool(document is not None and can_download_document_file(request.user, document))
 
         # Per-document buttons: only show View/Download where the gate passes,
         # so unauthorized viewers never even see the buttons.
@@ -2183,10 +2150,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
                 continue
 
         is_top_approver = bool(
-            staff
-            and (
-                staff.is_hod or staff.is_md or staff.is_executive or getattr(staff, "is_mayor", False)
-            )
+            staff and (staff.is_hod or staff.is_md or staff.is_executive or getattr(staff, "is_mayor", False))
         )
         is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
         is_final_approver = bool(staff and staff.can_final_approve)
@@ -2252,12 +2216,7 @@ class InboxDocumentDetailView(HTMXLoginRequiredMixin, View):
                 "downloadable_doc_ids": downloadable_doc_ids,
                 "can_approve": bool(
                     staff
-                    and (
-                        is_final_approver
-                        or staff.is_hod
-                        or staff.is_effective_supervisor
-                        or staff.is_unit_manager
-                    )
+                    and (is_final_approver or staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager)
                 ),
                 "is_final_approver": is_final_approver,
                 "is_hou_forwarder": is_hou_forwarder,
@@ -2357,13 +2316,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
         # approval shows in the history while the document stays pending.
         is_final_approver = bool(staff and staff.can_final_approve)
         is_top_approver = bool(
-            staff
-            and (
-                staff.is_hod
-                or staff.is_md
-                or staff.is_executive
-                or getattr(staff, "is_mayor", False)
-            )
+            staff and (staff.is_hod or staff.is_md or staff.is_executive or getattr(staff, "is_mayor", False))
         )
         is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
         may_decide = bool(staff and movement.file and movement.file.current_location == staff)
@@ -2453,7 +2406,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                     request.POST.get("recipient_staff_id") or request.POST.get("recipient") or ""
                 ).strip()
                 if not recipient_staff_id:
-                    messages.error(request, "Select an approver to give final approval.")
+                    messages.error(request, "Select a recipient.")
                     return self._respond(request)
 
                 recipient = (
@@ -2471,9 +2424,9 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 ref_docs = []
                 if ref_ids:
                     ref_docs = list(
-                        movement.file.documents.exclude(
-                            pk=movement.document.pk if movement.document else None
-                        ).filter(pk__in=ref_ids)
+                        movement.file.documents.exclude(pk=movement.document.pk if movement.document else None).filter(
+                            pk__in=ref_ids
+                        )
                     )
                     for ref_doc in ref_docs:
                         ref_doc.shared_with.add(recipient.user)
@@ -2499,8 +2452,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 create_notification(
                     user=recipient.user,
                     message=(
-                        f"{sender_name} approved document '{doc_ref}' and sent it to you "
-                        f"for final approval{suffix}."
+                        f"{sender_name} approved document '{doc_ref}' and sent it to you for final approval{suffix}."
                     ),
                     obj=movement.file,
                     link=reverse_lazy("document_management:inbox"),
@@ -2538,9 +2490,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 messages.error(request, "Add a note explaining why you are forwarding this document.")
                 return self._respond(request)
 
-            recipient_staff_id = (
-                request.POST.get("recipient_staff_id") or request.POST.get("recipient") or ""
-            ).strip()
+            recipient_staff_id = (request.POST.get("recipient_staff_id") or request.POST.get("recipient") or "").strip()
             if not recipient_staff_id:
                 messages.error(request, "Select a supervisor or HOD to forward to.")
                 return self._respond(request)
@@ -2559,9 +2509,9 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             ref_docs = []
             if ref_ids:
                 ref_docs = list(
-                    movement.file.documents.exclude(
-                        pk=movement.document.pk if movement.document else None
-                    ).filter(pk__in=ref_ids)
+                    movement.file.documents.exclude(pk=movement.document.pk if movement.document else None).filter(
+                        pk__in=ref_ids
+                    )
                 )
                 for ref_doc in ref_docs:
                     ref_doc.shared_with.add(recipient.user)
@@ -2608,12 +2558,12 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
 
         elif action == "reject":
             if not staff or not (
-                is_final_approver
-                or staff.is_hod
-                or staff.is_effective_supervisor
-                or staff.is_unit_manager
+                is_final_approver or staff.is_hod or staff.is_effective_supervisor or staff.is_unit_manager
             ):
-                messages.error(request, "Only HODs, supervisors, unit managers, and staff with approval rights can reject documents.")
+                messages.error(
+                    request,
+                    "Only HODs, supervisors, unit managers, and staff with approval rights can reject documents.",
+                )
                 return self._respond(request)
 
             if not note:
@@ -2827,6 +2777,7 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
     View for file owner (personal files) or HOD (policy files) to approve/reject
     a newly created file with their digital signature.
     """
+
     model = File
     template_name = "document_management/file_creation_approval.html"
     context_object_name = "file"
@@ -2839,59 +2790,59 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
             staff = user.staff
         except AttributeError:
             return False
-        
+
         file_obj = self.get_object()
-        
+
         # Personal files: only the owner can approve
         if file_obj.file_type == "personal":
             return file_obj.owner == staff
-        
+
         # Policy files: only the HOD of the department can approve
         if file_obj.file_type == "policy":
             return staff.is_hod and file_obj.department == staff.department
-        
+
         return False
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         file_obj = self.get_object()
-        
+
         # Get the user's active signature
         try:
             active_signature = self.request.user.staff.get_active_signature()
             context["active_signature"] = active_signature
         except Exception:
             context["active_signature"] = None
-        
+
         return context
 
     def post(self, request, *args, **kwargs):
         file_obj = self.get_object()
         staff = getattr(request.user, "staff", None)
-        
+
         if not staff:
             messages.error(request, "Staff profile not found.")
             return redirect(file_obj.get_absolute_url())
-        
+
         # Verify permission
         if not self.test_func():
             messages.error(request, "You do not have permission to approve this file.")
             return redirect(file_obj.get_absolute_url())
-        
+
         # Check if user has active verified signature
         active_signature = staff.get_active_signature()
         if not active_signature or not active_signature.is_verified:
             messages.error(request, "You need an active digital signature to approve this file.")
             return redirect(file_obj.get_absolute_url())
-        
+
         action = request.POST.get("action")
-        
+
         if action == "approve":
             # Approve the file - files go straight to active.
             file_obj.status = "active"
             file_obj.current_location = staff
             file_obj.save(update_fields=["status", "current_location"])
-            
+
             log_action(
                 request.user,
                 "FILE_CREATION_APPROVED",
@@ -2900,14 +2851,14 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                 details={
                     "approver": staff.user.get_full_name(),
                     "signature_id": active_signature.pk,
-                }
+                },
             )
-            
+
             # Notify registry staff
             registry_staff = Staff.objects.filter(
                 Q(designation__name__icontains="registry") | Q(user__groups__name__iexact="Registry")
             ).select_related("user")
-            
+
             for reg_staff in registry_staff:
                 if reg_staff.user:
                     create_notification(
@@ -2924,7 +2875,7 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                         },
                         email_subject=f"File Creation Approved: {file_obj.file_number}",
                     )
-            
+
             # Notify the creator
             if file_obj.created_by:
                 create_notification(
@@ -2941,19 +2892,19 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                     },
                     email_subject=f"File Creation Approved: {file_obj.file_number}",
                 )
-            
+
             messages.success(request, "File creation approved successfully. File is now active.")
-            
+
         elif action == "reject":
             rejection_reason = request.POST.get("rejection_reason", "").strip()
             if not rejection_reason:
                 messages.error(request, "Rejection reason is required.")
                 return redirect(request.path)
-            
+
             # Reject the file - mark as inactive
             file_obj.status = "inactive"
             file_obj.save(update_fields=["status"])
-            
+
             log_action(
                 request.user,
                 "FILE_CREATION_REJECTED",
@@ -2962,9 +2913,9 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                 details={
                     "approver": staff.user.get_full_name(),
                     "reason": rejection_reason,
-                }
+                },
             )
-            
+
             # Notify the creator
             if file_obj.created_by:
                 create_notification(
@@ -2982,9 +2933,9 @@ class FileCreationApprovalView(LoginRequiredMixin, UserPassesTestMixin, DetailVi
                     },
                     email_subject=f"File Creation Rejected: {file_obj.file_number}",
                 )
-            
+
             messages.warning(request, "File creation rejected.")
-        
+
         return redirect(file_obj.get_absolute_url())
 
     def handle_no_permission(self):
@@ -2999,6 +2950,7 @@ class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, Deta
     View for HOD (policy files) or Owner (personal files) to approve/reject
     a dispatched document with their digital signature.
     """
+
     model = Document
     template_name = "document_management/document_dispatch_approval.html"
     context_object_name = "document"
@@ -3086,9 +3038,7 @@ class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, Deta
             file_obj.save(update_fields=["current_location", "status"])
 
             # Find and close any active movement for this document
-            active_movement = FileMovement.objects.filter(
-                file=file_obj, document=doc, status="pending"
-            ).first()
+            active_movement = FileMovement.objects.filter(file=file_obj, document=doc, status="pending").first()
             if active_movement:
                 active_movement.status = "approved"
                 active_movement.save(update_fields=["status"])
@@ -3134,9 +3084,7 @@ class DocumentDispatchApprovalView(LoginRequiredMixin, UserPassesTestMixin, Deta
             doc.save(update_fields=["status", "status_reason"])
 
             # Return file to sender
-            active_movement = FileMovement.objects.filter(
-                file=file_obj, document=doc, status="pending"
-            ).first()
+            active_movement = FileMovement.objects.filter(file=file_obj, document=doc, status="pending").first()
             if active_movement:
                 active_movement.status = "rejected"
                 active_movement.save(update_fields=["status"])
