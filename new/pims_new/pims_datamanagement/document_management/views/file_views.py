@@ -194,8 +194,14 @@ class FileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         eligible = get_dispatch_recipients(request.user, File(file_type="personal", title="TEMP"))
         if query and len(query) >= 1:
             eligible = eligible.filter(
-                Q(department__name__icontains=query) | Q(unit__name__icontains=query)
-            ).distinct()[:10]
+                            Q(user__first_name__icontains=query)
+                            | Q(user__last_name__icontains=query)
+                            | Q(designation__name__icontains=query)
+                            | Q(department__name__icontains=query)
+                            | Q(unit__name__icontains=query)
+                            | Q(section__name__icontains=query)
+                            | Q(division__name__icontains=query)
+                        ).distinct()[:10]
         else:
             eligible = eligible[:10]
         if not eligible:
