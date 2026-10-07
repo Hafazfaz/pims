@@ -199,11 +199,6 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         from document_management.permissions import can_manual_dispatch
 
-        if not can_manual_dispatch(request.user):
-            return HttpResponse(
-                '<div class="px-4 py-3 text-xs text-slate-500 italic text-center">Dispatch is restricted to Registry, HODs, supervisors, and executives.</div>'
-            )
-
         query = request.GET.get("q", "").strip()
         if not query or len(query) < 2:
             return HttpResponse("")
@@ -215,45 +210,10 @@ class InboxRecipientSearchView(LoginRequiredMixin, View):
             .select_related("user", "designation", "department", "unit")
         )
 
-        # Approver search: only holders of can_approve_document are pickable
-        # as the final approver, and they are never hidden behind the normal
-        # routing rules.
         if request.GET.get("approvers_only"):
             from document_management.permissions import get_final_approvers
 
             eligible_qs = get_final_approvers(exclude_staff=sender_staff)
-        # Same routing rules as send handler
-        elif sender_staff:
-            if sender_staff.is_md or sender_staff.is_executive:
-                eligible_qs = base_qs
-            elif sender_staff.is_hod or (sender_staff.is_head_of_unit and sender_staff.is_privileged_head):
-                # Any HOD, any head of unit, any supervisor
-                from organization.models import Department as Dept
-                from organization.models import Unit
-
-                pks = set()
-                for d in Dept.objects.filter(head__isnull=False):
-                    pks.add(d.head.pk)
-                for u in Unit.objects.filter(head__isnull=False):
-                    pks.add(u.head.pk)
-                for s in base_qs.filter(is_supervisor=True):
-                    pks.add(s.pk)
-                pks.discard(sender_staff.pk)
-                eligible_qs = base_qs.filter(pk__in=pks)
-            elif sender_staff.is_supervisor:
-                from organization.models import Department as Dept
-                from organization.models import Unit
-
-                pks = set()
-                for d in Dept.objects.filter(head__isnull=False):
-                    pks.add(d.head.pk)
-                for u in Unit.objects.filter(head__isnull=False):
-                    pks.add(u.head.pk)
-                eligible_qs = base_qs.filter(pk__in=pks)
-            else:
-                # Lower staff (and pure heads-of-unit): direct head only,
-                # walking up the hierarchy and skipping self.
-                eligible_qs = base_qs.filter(pk__in=_reporting_hierarchy_pks(sender_staff))
         else:
             eligible_qs = base_qs
 

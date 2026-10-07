@@ -305,34 +305,18 @@ def can_add_document(user, file, *, require_active=True):
 
 
 def can_manual_dispatch(user):
-    """Who may manually dispatch/forward a document at all.
-
-    Registry, supervisors, and executives (and superusers). Regular staff
-    cannot dispatch — their documents auto-route up the reporting chain.
-    """
+    """Any authenticated staff member may route a document."""
     if user.is_superuser:
         return True
-    return (
-        is_registry(user)
-        or user.has_perm("user_management.can_dispatch_document")
-        or user.has_perm("user_management.can_supervise")
-        or user.has_perm("user_management.can_executive")
-    )
+    staff = get_staff(user)
+    return staff is not None
 
 
 def can_dispatch_document(user, file):
-    """
-    Who can dispatch (send) a document from a file.
-    Registry can dispatch to anyone.
-    Other custodians follow the reporting-hierarchy rules.
-    Regular staff cannot dispatch at all.
-    File must be active.
-    """
+    """Any current custodian (or registry) can dispatch from an active file."""
     if file.status != "active":
         return False
-    if not can_manual_dispatch(user):
-        return False
-    if is_registry(user):
+    if is_registry(user) or user.is_superuser:
         return True
     staff = get_staff(user)
     return staff is not None and file.current_location == staff
@@ -523,77 +507,16 @@ def can_view_document(user, document):
 
 
 def get_dispatch_recipients(user, file):
-    """
-    Returns a Staff queryset of valid recipients for dispatching a document.
-    Registry → anyone (all non-registry staff).
-    Executives / MD → anyone.
-    Supervisors → other supervisors, heads of units/sections/divisions, other HODs.
-    Regular staff (and pure heads-of-unit) → none; they cannot dispatch.
-    """
-    from organization.models import Department as Dept
-    from organization.models import Staff, Unit
+    """Returns all non-registry staff (excluding the sender) as valid recipients."""
+    from organization.models import Staff
 
     from document_management.views.base import EXCLUDE_REGISTRY_Q
 
-    base_qs = (
+    return (
         Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
         .exclude(user=user)
         .select_related("user", "designation", "department", "unit", "section", "division")
     )
-    staff = get_staff(user)
-    if not staff:
-        return base_qs.none()
-
-    # Regular staff and pure heads-of-unit cannot dispatch at all.
-    if not can_manual_dispatch(user):
-        return base_qs.none()
-
-    if is_registry(user) or is_executive(user):
-        return base_qs
-
-    if user.has_perm("user_management.can_supervise"):
-        # Supervisors can send to other HODs, unit/section/division heads, and supervisors.
-        allowed_pks = set()
-
-        # Other HODs
-        for d in Dept.objects.filter(head__isnull=False):
-            if d.head.pk != staff.pk:
-                allowed_pks.add(d.head.pk)
-
-        # Heads of units
-        for u in Unit.objects.filter(head__isnull=False):
-            if u.head.pk != staff.pk:
-                allowed_pks.add(u.head.pk)
-
-        # Heads of sections
-        from organization.models import Section
-        for s in Section.objects.filter(head__isnull=False):
-            if s.head.pk != staff.pk:
-                allowed_pks.add(s.head.pk)
-
-        # Heads of divisions
-        from organization.models import Division
-        for d in Division.objects.filter(head__isnull=False):
-            if d.head.pk != staff.pk:
-                allowed_pks.add(d.head.pk)
-
-        # Supervisors
-        for s in base_qs.filter(is_supervisor=True):
-            if s.pk != staff.pk:
-                allowed_pks.add(s.pk)
-
-        return base_qs.filter(pk__in=allowed_pks)
-
-    # Fallback reporting-hierarchy route for anyone with dispatch permission.
-    for head in (
-        staff.unit.head if staff.unit else None,
-        staff.section.head if staff.section else None,
-        staff.division.head if staff.division else None,
-        staff.department.head if staff.department else None,
-    ):
-        if head and head.pk != staff.pk:
-            return base_qs.filter(pk=head.pk)
-    return base_qs.none()
 
 
 def revoke_custody_access(file, previous_custodian_user=None):

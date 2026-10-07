@@ -1164,11 +1164,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
             from document_management.permissions import can_manual_dispatch as _can_dispatch
 
             if not _can_dispatch(request.user):
-                messages.error(
-                    request,
-                    "Only Registry, HODs, supervisors, and executives can dispatch files. "
-                    "Your documents route automatically to your head.",
-                )
+                messages.error(request, "You do not have permission to dispatch files.")
                 return redirect(file_obj.get_absolute_url())
 
             # Block if there are pending access requests on the file
@@ -2370,14 +2366,11 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
             )
         )
         is_hou_forwarder = bool(staff and staff.is_unit_manager and not is_top_approver)
-        may_decide = bool(
-            staff
-            and (is_final_approver or is_top_approver or is_hou_forwarder or staff.is_effective_supervisor)
-        )
+        may_decide = bool(staff and file_obj.current_location == staff)
 
         if action == "approve":
             if not may_decide:
-                messages.error(request, "Only HODs, supervisors, unit managers, and staff with approval rights can act on documents.")
+                messages.error(request, "You must be the current custodian to act on this document.")
                 return self._respond(request)
 
             # Approve-and-route (HOD / HOU / supervisor) must say why they are
@@ -2538,16 +2531,8 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                 )
 
         elif action == "forward":
-            # Explicit forward for supervisors / HODs to another
-            # supervisor/HOD with optional reference docs + note.
-            # Unit managers route their approval to an approver instead.
-            if is_hou_forwarder:
-                messages.error(request, "Unit managers route approvals to an approver.")
-                return self._respond(request)
-            if not staff or not (
-                is_top_approver or staff.is_effective_supervisor
-            ):
-                messages.error(request, "Only HODs and supervisors can forward documents.")
+            if not staff:
+                messages.error(request, "Staff profile not found.")
                 return self._respond(request)
 
             # Forwarding is never silent below the final approver: whoever
