@@ -395,7 +395,7 @@
             <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">Your approval routes the document to a staff member with approval rights.</p>
             {% endif %}
             <div>
-              <label for="detail-forward-search" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Approver</label>
+              <label for="detail-forward-search" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Search</label>
               <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="{{ prefilled_recipient.pk|default:'' }}">
               <input type="text" id="detail-forward-search" placeholder="Search by department or unit..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="detail-forward-results"
                      data-search-mode="approvers"

@@ -12,10 +12,15 @@
                 </p>
             </div>
             <div class="flex items-center gap-3 shrink-0">
-                {% if file %}
-                    <a href="{{ file.get_absolute_url }}"
+                {% if from_movement %}
+                    <a href="{% url 'document_management:inbox_document_detail' pk=from_movement %}"
                        class="inline-flex items-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all uppercase tracking-widest">
-                        Back to File
+                        Back to Request
+                    </a>
+                {% elif file %}
+                    <a href="{% url 'document_management:inbox' %}"
+                       class="inline-flex items-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all uppercase tracking-widest">
+                        Back to Inbox
                     </a>
                 {% endif %}
                 <span class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-500 uppercase tracking-widest">

@@ -819,6 +819,7 @@ class AttachmentViewerView(HTMXLoginRequiredMixin, View):
                 "download_url": download_url,
                 "inline_url": f"{download_url}?inline=1",
                 "att_key": att_key,
+                "from_movement": request.GET.get("from_movement"),
             },
         )
 
