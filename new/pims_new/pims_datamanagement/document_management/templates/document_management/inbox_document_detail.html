@@ -172,7 +172,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                   </svg>
                   <span class="text-sm font-bold text-slate-700 truncate flex-1" title="{{ document.attachment_filename }}">{{ document.attachment_filename }}</span>
-                  <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key='main' %}"
+                  <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key='main' %}?from_movement={{ movement.pk }}"
                      class="text-sm font-semibold text-nigeria-green hover:underline shrink-0">
                     View in browser
                   </a>
@@ -184,7 +184,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                   </svg>
                   <span class="text-sm font-bold text-slate-700 truncate flex-1" title="{{ extra.filename }}">{{ extra.filename }}</span>
-                  <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key=extra.pk %}"
+                  <a href="{% url 'document_management:attachment_view' doc_pk=document.pk att_key=extra.pk %}?from_movement={{ movement.pk }}"
                      class="text-sm font-semibold text-nigeria-green hover:underline shrink-0">
                     View in browser
                   </a>
