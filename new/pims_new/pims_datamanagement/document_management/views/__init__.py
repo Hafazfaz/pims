@@ -53,6 +53,7 @@ from .registry_views import (  # noqa: F401
     OutgoingDispatchesView,
     RegistryDashboardView,
     RegistryFileView,
+    RunTransitAlertsView,
     StaffFolderHubView,
     StaffFolderListView,
     StaffWithoutFilesView,

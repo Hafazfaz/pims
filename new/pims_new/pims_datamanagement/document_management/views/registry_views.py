@@ -14,6 +14,15 @@ from ..models import Document, DocumentType, File, FileAccessRequest, FileMoveme
 from .base import EXCLUDE_REGISTRY_Q, RegistryRequiredMixin
 
 
+class RunTransitAlertsView(RegistryRequiredMixin, View):
+    def post(self, request):
+        from document_management.tasks import check_transit_alerts, send_file_retention_reminders
+        result1 = check_transit_alerts()
+        result2 = send_file_retention_reminders()
+        messages.success(request, f"Transit alerts: {result1}. Retention reminders: {result2}.")
+        return redirect("document_management:registry")
+
+
 class RegistryDashboardView(RegistryRequiredMixin, ListView):
     model = File
     template_name = "document_management/registry_analytics.html"
