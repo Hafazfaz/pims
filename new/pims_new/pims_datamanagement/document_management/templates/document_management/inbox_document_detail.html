@@ -358,10 +358,10 @@
                Reject still returns it to the sender. -->
           <div x-data="{ view: 'default' }">
           <div x-show="view === 'default'" class="space-y-2">
-            <div class="grid grid-cols-2 gap-2" role="group" aria-label="Approve or reject">
+            <div class="grid grid-cols-2 gap-2" role="group" aria-label="Forward or reject">
               <button type="button" @click="view = 'forward'; document.getElementById('hou-reject-form').classList.add('hidden'); resetForwardForm('hou-forward-form-wrap'); $nextTick(() => { var s = document.getElementById('detail-forward-search'); s && s.focus(); })" aria-controls="hou-forward-form-wrap" class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Approve
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                Forward
               </button>
               <button type="button" id="hou-reject-toggle" aria-expanded="false" aria-controls="hou-reject-form" onclick="var f=document.getElementById('hou-reject-form');var open=f.classList.toggle('hidden')===false;this.setAttribute('aria-expanded',open);if(open){document.getElementById('hou-reject-note').focus();}" class="action-btn decision-btn w-full py-3 bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -392,12 +392,12 @@
             {% if prefilled_recipient %}
             <p class="text-xs text-slate-600 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">Approving sends this for final approval to <span class="font-bold">{{ prefilled_recipient.user.get_full_name }}</span>{% if prefilled_recipient.role_label %} <span class="font-bold text-slate-500">— {{ prefilled_recipient.role_label }}</span>{% endif %}</p>
             {% else %}
-            <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">Your approval routes the document to a staff member with approval rights.</p>
+            <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">Select a recipient to forward this document to.</p>
             {% endif %}
             <div>
               <label for="detail-forward-search" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Search</label>
               <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="{{ prefilled_recipient.pk|default:'' }}">
-              <input type="text" id="detail-forward-search" placeholder="Search by department or unit..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="detail-forward-results"
+              <input type="text" id="detail-forward-search" placeholder="Search by name, designation, department, unit..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="detail-forward-results"
                      data-search-mode="approvers"
                      data-default-id="{{ prefilled_recipient.pk|default:'' }}"
                      data-default-name="{{ prefilled_recipient.dispatch_label|default:'' }}"
@@ -435,8 +435,8 @@
                 Cancel
               </button>
               <button type="submit" class="action-btn decision-btn w-full py-3 bg-green-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Approve
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                Forward
               </button>
             </div>
           </form>
@@ -528,7 +528,7 @@
                 <div>
                   <label for="detail-forward-search" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipient</label>
                   <input type="hidden" name="recipient_staff_id" id="detail-recipient-id" value="">
-                  <input type="text" id="detail-forward-search" placeholder="Search by department or unit..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="detail-forward-results"
+                  <input type="text" id="detail-forward-search" placeholder="Search by name, designation, department, unit..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="detail-forward-results"
                          data-default-id="" data-default-name=""
                          class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500">
                   <div id="detail-forward-results" role="listbox"></div>
