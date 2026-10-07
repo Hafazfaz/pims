@@ -330,20 +330,15 @@ class DocumentForm(forms.ModelForm):
         if not can_sign:
             self.fields.pop("include_signature", None)
 
-        # Supervisors+ and Registry see send_to; normal users get auto-routed.
-        # Registry may dispatch the new document to anyone (non-registry).
-        if not is_supervisor_plus:
-            self.fields.pop("send_to", None)
-        elif "send_to" in self.fields:
+        if "send_to" in self.fields:
             from document_management.views.base import EXCLUDE_REGISTRY_Q
 
-            if staff.is_registry:
-                self.fields["send_to"].queryset = (
-                    Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
-                    .exclude(user=self.user)
-                    .select_related("user", "designation", "department")
-                    .order_by("user__first_name", "user__last_name")
-                )
+            self.fields["send_to"].queryset = (
+                Staff.objects.exclude(EXCLUDE_REGISTRY_Q)
+                .exclude(user=self.user)
+                .select_related("user", "designation", "department")
+                .order_by("user__first_name", "user__last_name")
+            )
             self.fields["send_to"].label_from_instance = staff_rich_label
 
     def clean(self):
