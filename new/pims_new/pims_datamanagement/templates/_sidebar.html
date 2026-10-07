@@ -24,11 +24,9 @@
             <div>
                 <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Main</p>
                 <div class="space-y-0.5">
-                    {% with url_name=request.resolver_match.url_name %}
-
                     <!-- Dashboard -->
                     <a href="{% if user.is_superuser %}{% url 'user_management:admin_dashboard_health' %}{% elif user.staff.is_registry %}{% url 'document_management:registry' %}{% elif user.staff.is_md %}{% url 'document_management:executive_dashboard' %}{% elif user.staff.is_hod or user.staff.is_unit_manager %}{% url 'document_management:executive_dashboard' %}{% else %}{% url 'home' %}{% endif %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'home' or url_name == 'registry' or url_name == 'executive_dashboard' or 'admin/dashboard/health' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'dashboard' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-home w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Dashboard</span>
                     </a>
@@ -37,13 +35,13 @@
                         {% with is_reg=user.staff.is_registry %}
                         {% if not is_reg %}
                         <a href="{% url 'document_management:my_files' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'my_files' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'my_files' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-folder w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">My Files</span>
                         </a>
 
                         <a href="{% url 'document_management:inbox' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider flex-1">Inbox</span>
                             {% if unread_inbox_count > 0 %}
@@ -52,14 +50,14 @@
                         </a>
 
                         <a href="{% url 'document_management:outbox' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'outbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'sent' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-paper-plane w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Sent</span>
                         </a>
 
                         {% if perms.user_management.can_set_urgent_priority %}
                         <a href="{% url 'document_management:urgent_document_create' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-slate-400">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'new_urgent' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <svg class="w-4 h-4 text-center" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                             </svg>
@@ -73,12 +71,10 @@
                         {% endwith %}
                     {% endif %}
 
-                    {% endwith %}
-
                     <!-- Moved from Registry (restricted to registry staff only) -->
                     {% if user.staff.is_registry %}
                         <a href="{% url 'document_management:inbox' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if url_name == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'inbox' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-envelope w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider flex-1">Inbox</span>
                             {% if unread_inbox_count > 0 %}
@@ -95,17 +91,17 @@
                 <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Files</p>
                 <div class="space-y-0.5">
                         <a href="{% url 'document_management:staff_folder_list' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'staff_folder_list' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'folders' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-users w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">All Folders</span>
                         </a>
                         <a href="{% url 'document_management:file_create' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if request.resolver_match.url_name == 'file_create' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'create_file' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-folder-plus w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Create File</span>
                         </a>
                         <a href="{% url 'document_management:outgoing_dispatches' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'outgoing-dispatches' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'outgoing' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-paper-plane w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Outgoing Dispatches</span>
                         </a>
@@ -117,7 +113,7 @@
                 <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tools</p>
                 <div class="space-y-0.5">
                         <a href="{% url 'document_management:access_request_list' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'access-requests' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'access_requests' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-key w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider flex-1">Access Requests</span>
                             {% if pending_access_count > 0 %}
@@ -125,7 +121,7 @@
                             {% endif %}
                         </a>
                         <a href="{% url 'document_management:document_type_list' %}"
-                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'document-types' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                           class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'document_types' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                             <i class="fas fa-tags w-4 text-center"></i>
                             <span class="text-xs font-bold uppercase tracking-wider">Document Types</span>
                         </a>
@@ -138,13 +134,8 @@
             <div>
                 <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">MD Office</p>
                 <div class="space-y-0.5">
-                    <a href="{% url 'document_management:executive_dashboard' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'executive/dashboard' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
-                        <i class="fas fa-chart-line w-4 text-center"></i>
-                        <span class="text-xs font-bold uppercase tracking-wider">Overview</span>
-                    </a>
                     <a href="{% url 'document_management:record_explorer' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'explorer' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'explorer' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-search w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">All Files</span>
                     </a>
@@ -159,41 +150,41 @@
                 <div class="space-y-0.5">
                     {% if user.is_superuser or perms.auth.view_user %}
                     <a href="{% url 'user_management:user_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'user_management' in request.path and 'admin/dashboard' not in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'users' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-users w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Users</span>
                     </a>
                     {% endif %}
                     {% if user.is_superuser %}
                     <a href="{% url 'organization:department_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/departments/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'departments' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-sitemap w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Departments</span>
                     </a>
                     <a href="{% url 'organization:division_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/divisions/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'divisions' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-layer-group w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Divisions</span>
                     </a>
                     <a href="{% url 'organization:section_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/sections/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'sections' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-th-large w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Sections</span>
                     </a>
                     <a href="{% url 'organization:unit_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/units/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'units' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-layer-group w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Units</span>
                     </a>
                     <a href="{% url 'organization:designation_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if '/org/designations/' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'designations' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-id-badge w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Designations</span>
                     </a>
                     {% endif %}
                     {% if user.is_superuser or user.is_staff or user.staff.is_executive %}
                     <a href="{% url 'audit_log:audit_log_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'audit' in request.path and 'activity' not in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'audit_logs' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-shield-alt w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Audit Logs</span>
                     </a>
@@ -207,7 +198,7 @@
                 <p class="px-3 mb-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Activity</p>
                 <div class="space-y-0.5">
                     <a href="{% url 'notifications:notification_list' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'notification' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'notifications' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-bell w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider flex-1">Notifications</span>
                         {% if unread_notifications_count > 0 %}
@@ -215,7 +206,7 @@
                         {% endif %}
                     </a>
                     <a href="{% url 'audit_log:my_activity_report' %}"
-                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if 'my-activity' in request.path %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
+                       class="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors {% if nav_active == 'activity_report' %}bg-nigeria-green text-white{% else %}text-slate-400{% endif %}">
                         <i class="fas fa-chart-bar w-4 text-center"></i>
                         <span class="text-xs font-bold uppercase tracking-wider">Activity Report</span>
                     </a>

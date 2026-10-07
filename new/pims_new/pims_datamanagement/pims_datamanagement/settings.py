@@ -113,6 +113,7 @@ TEMPLATES = [
                 "notifications.context_processors.unread_notifications",
                 "notifications.context_processors.pending_activation_count",
                 "notifications.context_processors.unread_inbox",
+                "pims_datamanagement.context_processors.nav_active",
             ],
         },
     },
