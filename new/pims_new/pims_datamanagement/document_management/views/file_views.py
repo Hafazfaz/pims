@@ -2462,10 +2462,7 @@ class DocumentActionView(HTMXLoginRequiredMixin, View):
                     .first()
                 )
                 if recipient is None or recipient.pk == staff.pk:
-                    messages.error(request, "Select a valid approver.")
-                    return self._respond(request)
-                if not recipient.can_final_approve:
-                    messages.error(request, "Selected staff cannot give final approval.")
+                    messages.error(request, "Select a valid recipient.")
                     return self._respond(request)
 
                 # Optional reference documents from the same file to share
