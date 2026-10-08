@@ -157,7 +157,7 @@ class StaffFolderHubView(RegistryRequiredMixin, DetailView):
         can_view_docs = can_view_staff_documents(self.request.user)
         context["can_view_staff_docs"] = can_view_docs
         if personal_file and can_view_docs:
-            context["documents"] = personal_file.documents.select_related("uploaded_by").order_by("-uploaded_at")
+            context["documents"] = personal_file.documents.select_related("uploaded_by").filter(status="approved").order_by("-uploaded_at")
         else:
             context["documents"] = personal_file.documents.none() if personal_file else []
         return context

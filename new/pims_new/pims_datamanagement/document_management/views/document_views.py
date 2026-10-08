@@ -261,7 +261,7 @@ class FileDocumentsView(HTMXLoginRequiredMixin, ListView):
         except File.DoesNotExist:
             raise Http404
         self._file_obj = file_obj
-        queryset = Document.objects.filter(file_id=file_pk)
+        queryset = Document.objects.filter(file_id=file_pk, status="approved")
 
         search_query = self.request.GET.get("q")
         if search_query:

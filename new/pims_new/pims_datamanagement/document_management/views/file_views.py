@@ -462,9 +462,9 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
                 | Q(file_number__icontains=search_query)
                 | Q(documents__title__icontains=search_query)
             ).distinct()
-            doc_qs = Document.objects.filter(title__icontains=search_query)
+            doc_qs = Document.objects.filter(title__icontains=search_query, status="approved")
         else:
-            doc_qs = Document.objects.all()
+            doc_qs = Document.objects.filter(status="approved")
         # Kept for get_context_data: the personal file's documents must be
         # filtered by the same search, whether it came from this page or not.
         self._doc_qs = doc_qs
@@ -1003,7 +1003,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 "signatures__signatory__staff__designation",
                 "signatures__signature_record",
             )
-            .all()
+            .filter(status="approved")
         )
         context["documents"] = documents
         # Approved documents are locked per-document: titles/status stay
@@ -1707,7 +1707,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
             # instead of opening just because the pk was typed into the URL.
             selected_file = self.get_scoped_files().filter(pk=int(file_pk)).first()
             if selected_file is not None:
-                latest_docs = selected_file.documents.order_by("-uploaded_at")
+                latest_docs = selected_file.documents.filter(status="approved").order_by("-uploaded_at")
                 context["selected_file"] = selected_file
                 context["documents"] = latest_docs[:10]
                 context["has_more_documents"] = latest_docs.count() > 10
@@ -2038,7 +2038,7 @@ class InboxFileView(HTMXLoginRequiredMixin, View):
         file_obj = movement.file
         is_mayor = bool(staff and getattr(staff, "is_mayor", False))
         query = request.GET.get("q", "").strip()
-        all_documents = file_obj.documents.select_related("uploaded_by").order_by("-uploaded_at")
+        all_documents = file_obj.documents.select_related("uploaded_by").filter(status="approved").order_by("-uploaded_at")
         if query:
             all_documents = all_documents.filter(Q(title__icontains=query) | Q(minute_content__icontains=query))
 
