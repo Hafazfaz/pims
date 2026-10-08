@@ -444,13 +444,10 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
             raise Http404("Staff user not found or doesn't exist.")
 
         user = self.request.user
-        if user.is_superuser:
+        if user.is_superuser or staff_user.is_md or staff_user.is_executive:
             queryset = File.objects.all()
         else:
-            # Own work only: files I own, I created, or currently hold.
-            queryset = File.objects.filter(
-                Q(owner=staff_user) | Q(created_by=user) | Q(current_location=staff_user)
-            ).distinct()
+            queryset = File.objects.filter(owner=staff_user).distinct()
 
         if not staff_user.is_registry:
             queryset = queryset.exclude(status__in=["inactive", "closed"])
@@ -519,7 +516,7 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         from ..permissions import can_view_document_content, can_view_staff_documents
 
         user = self.request.user
-        if user.is_superuser:
+        if user.is_superuser or staff_user.is_md or staff_user.is_executive:
             granted_file_ids = {f.pk for f in page_folders}
         else:
             folder_pks = [f.pk for f in page_folders]
