@@ -449,7 +449,7 @@ class MyFilesView(HTMXLoginRequiredMixin, ListView):
         else:
             queryset = File.objects.filter(owner=staff_user).distinct()
 
-        if not staff_user.is_registry:
+        if not staff_user.is_registry and not (user.is_superuser or staff_user.is_md or staff_user.is_executive):
             queryset = queryset.exclude(status__in=["inactive", "closed"])
 
         search_query = self.request.GET.get("q")
@@ -1548,7 +1548,7 @@ class RecordExplorerView(HTMXLoginRequiredMixin, UserPassesTestMixin, ListView):
     def get_scoped_files(self):
         """Active files this viewer may browse, before any GET filters."""
         kind = self.get_scope_kind()
-        files = File.objects.filter(status="active")
+        files = File.objects.filter(status__in=["active", "in_transit"])
         if kind == "all":
             return files
         if kind == "none":
