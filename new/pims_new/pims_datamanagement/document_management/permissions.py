@@ -256,8 +256,11 @@ def can_add_document(user, file, *, require_active=True):
     - the file must be active (unless ``require_active=False``, used by the
       endpoint so it can show an accurate "file is not active" message);
     - personal files — the owner (only while they hold custody) and Registry only;
-    - Registry / superuser / Executives — always (other file types);
-    - non-registry staff MUST be the current custodian to write;
+    - Registry / superuser — always (other file types);
+    - all other staff (including Executives) MUST be the current custodian to
+      write; Executives can VIEW files without custody but cannot add documents
+      without first requesting and being granted access — they must hold
+      custody via an approved access request or be the dispatched recipient;
     - an approved, unexpired ``read_write`` FileAccessRequest (read_only never
       permits writing) — valid ONLY while its holder still has custody; every
       custody change expires grants (``revoke_approved_access``), so once the
@@ -277,7 +280,7 @@ def can_add_document(user, file, *, require_active=True):
             and file.owner_id == staff.pk
             and file.current_location_id == staff.pk
         )
-    if is_registry(user) or user.is_superuser or is_executive(user):
+    if is_registry(user) or user.is_superuser:
         return True
     staff = get_staff(user)
     if not staff:

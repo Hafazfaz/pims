@@ -870,30 +870,43 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
                 has_approved_access = True
                 has_rw_access = True
             else:
-                has_approved_access = (
-                    FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
-                    .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-                    .exists()
+                # An approved FileAccessRequest only counts while its holder
+                # still has custody — the same rule active_access_request()
+                # enforces in permissions.py.  A stale row (approved but the
+                # file has since moved on) must NOT re-open the banner.
+                _is_current_custodian = (
+                    staff is not None
+                    and file_obj.current_location_id is not None
+                    and file_obj.current_location_id == staff.pk
                 )
-
-                has_rw_access = (
-                    FileAccessRequest.objects.filter(
-                        file=file_obj,
-                        requested_by=user,
-                        status="approved",
-                        access_type="read_write",
+                if _is_current_custodian:
+                    has_approved_access = (
+                        FileAccessRequest.objects.filter(file=file_obj, requested_by=user, status="approved")
+                        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                        .exists()
                     )
-                    .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
-                    .exists()
-                )
+                    has_rw_access = (
+                        FileAccessRequest.objects.filter(
+                            file=file_obj,
+                            requested_by=user,
+                            status="approved",
+                            access_type="read_write",
+                        )
+                        .filter(Q(expires_at__gt=timezone.now()) | Q(expires_at__isnull=True))
+                        .exists()
+                    )
+                else:
+                    has_approved_access = False
+                    has_rw_access = False
 
         is_registry = hasattr(user, "staff") and user.staff.is_registry
         is_mayor = bool(hasattr(user, "staff") and getattr(user.staff, "is_mayor", False))
 
         # Registry staff (and superusers) have full administrative access to every
         # file, so they always carry approved read & write access.
-        # Mayor carries Read & Write on every file as well.
-        if is_registry or user.is_superuser or is_mayor:
+        # Note: Mayor/Executive role alone does NOT grant unconditional access —
+        # they must hold custody or have a formal access request like everyone else.
+        if is_registry or user.is_superuser:
             has_approved_access = True
             has_rw_access = True
 
@@ -904,7 +917,7 @@ class FileDetailView(HTMXLoginRequiredMixin, PermissionRequiredMixin, DetailView
         from document_management.permissions import can_manual_dispatch
 
         context["can_send_file"] = (
-            (is_custodian or is_registry or is_mayor) and file_obj.status == "active" and can_manual_dispatch(user)
+            (is_custodian or is_registry) and file_obj.status == "active" and can_manual_dispatch(user)
         )
         # Custody-derived gating: at rest with Registry vs in transit with third party.
         # At rest (active + holder is Registry)  -> request access FROM Registry.
