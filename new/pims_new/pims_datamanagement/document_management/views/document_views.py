@@ -979,24 +979,6 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
             uploaded_by=self.request.user,
         )
 
-        if form.cleaned_data.get("include_signature"):
-            try:
-                staff = self.request.user.staff
-                active_sig = staff.get_active_signature()
-                if active_sig:
-                    from ..models import DocumentSignature
-
-                    DocumentSignature.objects.create(
-                        document=document, signatory=self.request.user, signature_record=active_sig
-                    )
-                else:
-                    messages.warning(
-                        self.request,
-                        "You checked 'Attach Digital Signature' but have no signature uploaded in your profile.",
-                    )
-            except Exception:
-                pass
-
         # Route the file. Registry uploads stay approved but may still be
         # dispatched: an optional send_to routes with a movement +
         # notification; without it the file keeps its status and the owner

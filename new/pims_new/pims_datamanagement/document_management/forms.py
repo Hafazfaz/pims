@@ -300,35 +300,9 @@ class DocumentForm(forms.ModelForm):
             "title": "Subject",
             "minute_content": "Minute Content",
         }
-    include_signature = forms.BooleanField(
-        required=False,
-        label="Attach Digital Signature",
-        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
-    )
-
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-
-        # Only HODs, oversight heads, and supervisors can see the signature checkbox.
-        # Pure heads-of-unit are treated like regular staff.
-        can_sign = False
-        is_supervisor_plus = False
-        if self.user and hasattr(self.user, "staff"):
-            staff = self.user.staff
-            if staff.is_hod or staff.is_privileged_head or staff.is_registry:
-                can_sign = True
-            if (
-                staff.is_privileged_head
-                or staff.is_hod
-                or staff.is_md
-                or staff.is_executive
-                or staff.is_registry
-            ):
-                is_supervisor_plus = True
-
-        if not can_sign:
-            self.fields.pop("include_signature", None)
 
         if "send_to" in self.fields:
             from document_management.views.base import EXCLUDE_REGISTRY_Q
